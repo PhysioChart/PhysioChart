@@ -4,14 +4,14 @@ Clinic management SaaS — appointments, patient records, billing, staff, and an
 
 ## Tech Stack
 
-| Layer | Technology |
-|-------|-----------|
-| Framework | [Nuxt 4](https://nuxt.com) / [Vue 3](https://vuejs.org) |
-| Language | TypeScript (strict) |
-| Styling | [Tailwind CSS v4](https://tailwindcss.com) |
-| UI Components | [shadcn-vue](https://www.shadcn-vue.com) |
-| Backend | [Supabase](https://supabase.com) |
-| Icons | [Lucide](https://lucide.dev) |
+| Layer         | Technology                                              |
+| ------------- | ------------------------------------------------------- |
+| Framework     | [Nuxt 4](https://nuxt.com) / [Vue 3](https://vuejs.org) |
+| Language      | TypeScript (strict)                                     |
+| Styling       | [Tailwind CSS v4](https://tailwindcss.com)              |
+| UI Components | [shadcn-vue](https://www.shadcn-vue.com)                |
+| Backend       | [Supabase](https://supabase.com)                        |
+| Icons         | [Lucide](https://lucide.dev)                            |
 
 ## Prerequisites
 
@@ -39,13 +39,13 @@ The app will be available at [http://localhost:3000](http://localhost:3000).
 
 ## Scripts
 
-| Command | Description |
-|---------|------------|
-| `npm run dev` | Start development server |
-| `npm run build` | Build for production |
-| `npm run preview` | Preview production build |
-| `npm run generate` | Generate static site |
-| `npx nuxi typecheck` | Run TypeScript checks |
+| Command              | Description              |
+| -------------------- | ------------------------ |
+| `npm run dev`        | Start development server |
+| `npm run build`      | Build for production     |
+| `npm run preview`    | Preview production build |
+| `npm run generate`   | Generate static site     |
+| `npx nuxi typecheck` | Run TypeScript checks    |
 
 ## Adding UI Components
 

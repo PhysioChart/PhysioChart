@@ -1,6 +1,6 @@
 # MedPractice
 
-Clinic management SaaS — appointments, patient records, billing, staff, and analytics.
+Physiotherapy clinic management SaaS — appointments, patient records, billing, treatment tracking, and staff management.
 
 ## Tech Stack
 

@@ -27,5 +27,8 @@ logs
 .env.*
 !.env.example
 
+# Supabase CLI
+supabase/.temp/
+
 # Claude Code
 .claude

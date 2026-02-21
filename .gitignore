@@ -17,8 +17,15 @@ logs
 .DS_Store
 .fleet
 .idea
+.vscode
+*.swp
+*.swo
+*~
 
 # Local env files
 .env
 .env.*
 !.env.example
+
+# Claude Code
+.claude

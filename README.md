@@ -60,3 +60,7 @@ npx shadcn-vue@latest add card table dialog
 ```
 
 Browse available components at [shadcn-vue.com/docs/components](https://www.shadcn-vue.com/docs/components).
+
+## Deployment
+
+Hosted on [Vercel](https://vercel.com). Pushes to `develop` trigger preview deployments, `main` triggers production.

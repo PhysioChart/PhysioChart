@@ -1,0 +1,2 @@
+-- Seed data for MedPractice
+-- Run this after migrations to populate initial data

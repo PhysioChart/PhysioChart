@@ -1,12 +1,21 @@
+<script setup lang="ts">
+definePageMeta({ layout: false })
+
+const { isAuthenticated, loading } = useAuth()
+
+watch(
+  [isAuthenticated, loading],
+  () => {
+    if (!loading.value) {
+      navigateTo(isAuthenticated.value ? '/dashboard' : '/login', { replace: true })
+    }
+  },
+  { immediate: true },
+)
+</script>
+
 <template>
   <div class="flex min-h-screen items-center justify-center">
-    <div class="text-center">
-      <h1 class="text-4xl font-bold tracking-tight">MedPractice</h1>
-      <p class="text-muted-foreground mt-2">Clinic management, simplified.</p>
-    </div>
+    <div class="border-primary h-8 w-8 animate-spin rounded-full border-4 border-t-transparent" />
   </div>
 </template>
-
-<script setup lang="tsx">
-const _hello = 'wow'
-</script>

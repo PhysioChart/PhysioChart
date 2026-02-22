@@ -89,7 +89,7 @@
                     <div class="grid flex-1 text-left text-sm leading-tight">
                       <span class="truncate font-semibold">{{ profile?.full_name }}</span>
                       <span class="text-muted-foreground truncate text-xs">
-                        {{ profile?.role === 'admin' ? 'Administrator' : 'Staff' }}
+                        {{ profile?.role === UserRole.ADMIN ? 'Administrator' : 'Staff' }}
                       </span>
                     </div>
                   </div>
@@ -139,6 +139,7 @@ import {
   ChevronsUpDown,
   Building2,
 } from 'lucide-vue-next'
+import { UserRole } from '~/enums/user-role.enum'
 
 const { profile, clinic, signOut, isAdmin } = useAuth()
 const route = useRoute()

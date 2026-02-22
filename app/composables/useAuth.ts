@@ -1,5 +1,6 @@
 import type { User } from '@supabase/supabase-js'
 import type { Tables } from '~/types/database'
+import { UserRole } from '~/enums/user-role.enum'
 
 interface AuthState {
   user: Ref<User | null>
@@ -16,7 +17,7 @@ const authState: AuthState = {
   clinic: ref(null),
   loading: ref(true),
   isAuthenticated: computed(() => !!authState.user.value),
-  isAdmin: computed(() => authState.profile.value?.role === 'admin'),
+  isAdmin: computed(() => authState.profile.value?.role === UserRole.ADMIN),
 }
 
 let initialized = false

@@ -89,14 +89,13 @@
     <!-- Filter -->
     <div class="flex gap-2">
       <Button
-        v-for="f in ['active', 'completed', 'all'] as const"
+        v-for="f in [TreatmentStatus.ACTIVE, TreatmentStatus.COMPLETED, 'all'] as const"
         :key="f"
         :variant="filter === f ? 'default' : 'outline'"
         size="sm"
-        class="capitalize"
         @click="filter = f"
       >
-        {{ f }}
+        {{ f === 'all' ? 'All' : TREATMENT_STATUS_LABELS[f] }}
       </Button>
     </div>
 
@@ -127,8 +126,8 @@
                 >
               </CardDescription>
             </div>
-            <Badge :class="getStatusColor(plan.status)" variant="secondary" class="capitalize">
-              {{ plan.status }}
+            <Badge :class="getStatusColor(plan.status)" variant="secondary">
+              {{ TREATMENT_STATUS_LABELS[plan.status] }}
             </Badge>
           </div>
         </CardHeader>
@@ -155,8 +154,10 @@
             v-if="plan.package_price || plan.price_per_session"
             class="text-muted-foreground mt-2 text-sm"
           >
-            <span v-if="plan.package_price">Package: Rs {{ plan.package_price }}</span>
-            <span v-else-if="plan.price_per_session">Rs {{ plan.price_per_session }}/session</span>
+            <span v-if="plan.package_price">Package: {{ formatCurrency(plan.package_price) }}</span>
+            <span v-else-if="plan.price_per_session"
+              >{{ formatCurrency(plan.price_per_session) }}/session</span
+            >
           </div>
         </CardContent>
       </Card>
@@ -167,24 +168,24 @@
 <script setup lang="ts">
 import { ClipboardList, Plus } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
-import { getStatusColor, progressPercent } from '~/lib/formatters'
 import type { Tables } from '~/types/database'
+import type { ITreatmentPlanWithRelations } from '~/types/models/treatment.types'
+import { TreatmentStatus, TREATMENT_STATUS_LABELS } from '~/enums/treatment.enum'
+import { treatmentService } from '~/services/treatment.service'
+import { patientService } from '~/services/patient.service'
+import { staffService } from '~/services/staff.service'
+import { getStatusColor, progressPercent, formatCurrency } from '~/lib/formatters'
 
 const supabase = useSupabase()
 const { profile } = useAuth()
 const route = useRoute()
 
-const plans = ref<
-  (Tables<'treatment_plans'> & {
-    patient: Tables<'patients'> | null
-    therapist: Tables<'profiles'> | null
-  })[]
->([])
+const plans = ref<ITreatmentPlanWithRelations[]>([])
 const patients = ref<Tables<'patients'>[]>([])
 const therapists = ref<Tables<'profiles'>[]>([])
 const isLoading = ref(true)
 const showNewDialog = ref(route.query.action === 'new')
-const filter = ref<'active' | 'completed' | 'all'>('active')
+const filter = ref<TreatmentStatus | 'all'>(TreatmentStatus.ACTIVE)
 
 const newPlan = ref({
   patient_id: '',
@@ -206,13 +207,10 @@ async function loadPlans(): Promise<void> {
   isLoading.value = true
 
   try {
-    const { data } = await supabase
-      .from('treatment_plans')
-      .select('*, patient:patients(*), therapist:profiles(*)')
-      .eq('clinic_id', profile.value.clinic_id)
-      .order('created_at', { ascending: false })
-
-    plans.value = (data ?? []) as typeof plans.value
+    plans.value = await treatmentService(supabase).list(profile.value.clinic_id)
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Failed to load treatment plans'
+    toast.error(message)
   } finally {
     isLoading.value = false
   }
@@ -225,23 +223,13 @@ async function loadDropdowns(): Promise<void> {
   try {
     const clinicId = profile.value.clinic_id
 
-    const [patientRes, staffRes] = await Promise.all([
-      supabase
-        .from('patients')
-        .select('*')
-        .eq('clinic_id', clinicId)
-        .eq('is_archived', false)
-        .order('full_name'),
-      supabase
-        .from('profiles')
-        .select('*')
-        .eq('clinic_id', clinicId)
-        .eq('is_active', true)
-        .order('full_name'),
+    const [patientData, staffData] = await Promise.all([
+      patientService(supabase).listForDropdown(clinicId),
+      staffService(supabase).listActive(clinicId),
     ])
 
-    patients.value = patientRes.data ?? []
-    therapists.value = staffRes.data ?? []
+    patients.value = patientData
+    therapists.value = staffData
   } catch {
     dropdownsLoaded = false
   }
@@ -262,7 +250,7 @@ async function createPlan(): Promise<void> {
   isSubmitting.value = true
 
   try {
-    const { error } = await supabase.from('treatment_plans').insert({
+    await treatmentService(supabase).create({
       clinic_id: profile.value.clinic_id,
       patient_id: newPlan.value.patient_id,
       therapist_id: newPlan.value.therapist_id || null,
@@ -276,11 +264,6 @@ async function createPlan(): Promise<void> {
       package_price: newPlan.value.package_price ? parseFloat(newPlan.value.package_price) : null,
       notes: newPlan.value.notes || null,
     })
-
-    if (error) {
-      toast.error('Failed to create treatment plan')
-      return
-    }
 
     toast.success('Treatment plan created')
     await loadPlans()
@@ -296,8 +279,9 @@ async function createPlan(): Promise<void> {
       package_price: '',
       notes: '',
     }
-  } catch {
-    toast.error('Failed to create treatment plan')
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Failed to create treatment plan'
+    toast.error(message)
   } finally {
     isSubmitting.value = false
   }

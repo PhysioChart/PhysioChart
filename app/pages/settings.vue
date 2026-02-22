@@ -140,8 +140,10 @@
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="staff">Staff (Therapist/Receptionist)</SelectItem>
-                          <SelectItem value="admin">Admin (Full access)</SelectItem>
+                          <SelectItem :value="UserRole.STAFF"
+                            >Staff (Therapist/Receptionist)</SelectItem
+                          >
+                          <SelectItem :value="UserRole.ADMIN">Admin (Full access)</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
@@ -198,9 +200,9 @@
                   </p>
                   <p class="text-muted-foreground text-sm">{{ member.email }}</p>
                 </div>
-                <Badge variant="secondary" class="capitalize">
-                  <Shield v-if="member.role === 'admin'" class="mr-1 h-3 w-3" />
-                  {{ member.role }}
+                <Badge variant="secondary">
+                  <Shield v-if="member.role === UserRole.ADMIN" class="mr-1 h-3 w-3" />
+                  {{ USER_ROLE_LABELS[member.role] }}
                 </Badge>
                 <Badge v-if="!member.is_active" variant="outline" class="text-destructive">
                   Inactive
@@ -227,6 +229,9 @@
 import { Building2, Users, UserPlus, Trash2, Shield } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import type { Tables } from '~/types/database'
+import { UserRole, USER_ROLE_LABELS } from '~/enums/user-role.enum'
+import { clinicService } from '~/services/clinic.service'
+import { staffService } from '~/services/staff.service'
 
 const supabase = useSupabase()
 const { clinic, profile, isAdmin, fetchProfile } = useAuth()
@@ -249,7 +254,7 @@ const showInviteDialog = ref(false)
 const inviteForm = ref({
   email: '',
   full_name: '',
-  role: 'staff' as 'admin' | 'staff',
+  role: UserRole.STAFF as UserRole,
   password: '',
 })
 const isInviting = ref(false)
@@ -270,26 +275,19 @@ async function saveClinicProfile() {
   isSavingClinic.value = true
 
   try {
-    const { error } = await supabase
-      .from('clinics')
-      .update({
-        name: clinicForm.value.name,
-        address: clinicForm.value.address || null,
-        phone: clinicForm.value.phone || null,
-        email: clinicForm.value.email || null,
-        logo_url: clinicForm.value.logo_url || null,
-      })
-      .eq('id', clinic.value.id)
-
-    if (error) {
-      toast.error('Failed to update clinic profile')
-      return
-    }
+    await clinicService(supabase).update(clinic.value.id, {
+      name: clinicForm.value.name,
+      address: clinicForm.value.address || null,
+      phone: clinicForm.value.phone || null,
+      email: clinicForm.value.email || null,
+      logo_url: clinicForm.value.logo_url || null,
+    })
 
     toast.success('Clinic profile updated')
     await fetchProfile()
-  } catch {
-    toast.error('Failed to update clinic profile')
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Failed to update clinic profile'
+    toast.error(message)
   } finally {
     isSavingClinic.value = false
   }
@@ -300,13 +298,10 @@ async function loadStaff() {
   isLoadingStaff.value = true
 
   try {
-    const { data } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('clinic_id', profile.value.clinic_id)
-      .order('created_at')
-
-    staffMembers.value = data ?? []
+    staffMembers.value = await staffService(supabase).list(profile.value.clinic_id)
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Failed to load staff'
+    toast.error(message)
   } finally {
     isLoadingStaff.value = false
   }
@@ -323,49 +318,41 @@ async function inviteStaffMember() {
   isInviting.value = true
 
   try {
-    const { error } = await supabase.auth.signUp({
-      email: inviteForm.value.email,
-      password: inviteForm.value.password,
-      options: {
-        data: {
-          clinic_id: profile.value.clinic_id,
-          full_name: inviteForm.value.full_name,
-          role: inviteForm.value.role,
-        },
-      },
-    })
-
-    if (error) {
-      toast.error(error.message)
-      return
-    }
+    await staffService(supabase).invite(
+      profile.value.clinic_id,
+      inviteForm.value.email,
+      inviteForm.value.password,
+      inviteForm.value.full_name,
+      inviteForm.value.role,
+    )
 
     toast.success('Staff member added')
     await loadStaff()
     showInviteDialog.value = false
-    inviteForm.value = { email: '', full_name: '', role: 'staff', password: '' }
-  } catch {
-    toast.error('Failed to add staff member')
+    inviteForm.value = { email: '', full_name: '', role: UserRole.STAFF, password: '' }
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Failed to add staff member'
+    toast.error(message)
   } finally {
     isInviting.value = false
   }
 }
 
+const isDeactivating = ref(false)
+
 async function deactivateStaff(staffId: string) {
   if (!isAdmin.value || staffId === profile.value?.id) return
+  isDeactivating.value = true
 
   try {
-    const { error } = await supabase.from('profiles').update({ is_active: false }).eq('id', staffId)
-
-    if (error) {
-      toast.error('Failed to deactivate staff member')
-      return
-    }
-
+    await staffService(supabase).deactivate(staffId)
     toast.success('Staff member deactivated')
     await loadStaff()
-  } catch {
-    toast.error('Failed to deactivate staff member')
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Failed to deactivate staff member'
+    toast.error(message)
+  } finally {
+    isDeactivating.value = false
   }
 }
 

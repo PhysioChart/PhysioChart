@@ -279,8 +279,8 @@
               </p>
             </div>
             <div class="flex items-center gap-2">
-              <Badge :class="getStatusColor(appt.status)" variant="secondary" class="capitalize">
-                {{ appt.status.replace('_', ' ') }}
+              <Badge :class="getStatusColor(appt.status)" variant="secondary">
+                {{ APPOINTMENT_STATUS_LABELS[appt.status] }}
               </Badge>
               <Badge v-if="appt.series_id" variant="outline" class="text-[10px]">
                 {{ appt.series_index }}/{{ getSeriesTotal(appt.series_id) }}
@@ -301,18 +301,18 @@
                 </TooltipTrigger>
                 <TooltipContent>Send WhatsApp reminder</TooltipContent>
               </Tooltip>
-              <DropdownMenu v-if="appt.status === 'scheduled'">
+              <DropdownMenu v-if="appt.status === AppointmentStatus.SCHEDULED">
                 <DropdownMenuTrigger as-child>
                   <Button variant="ghost" size="sm">Update</Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent>
-                  <DropdownMenuItem @click="updateStatus(appt.id, 'completed')">
+                  <DropdownMenuItem @click="updateStatus(appt.id, AppointmentStatus.COMPLETED)">
                     Mark Completed
                   </DropdownMenuItem>
-                  <DropdownMenuItem @click="updateStatus(appt.id, 'cancelled')">
+                  <DropdownMenuItem @click="updateStatus(appt.id, AppointmentStatus.CANCELLED)">
                     Mark Cancelled
                   </DropdownMenuItem>
-                  <DropdownMenuItem @click="updateStatus(appt.id, 'no_show')">
+                  <DropdownMenuItem @click="updateStatus(appt.id, AppointmentStatus.NO_SHOW)">
                     Mark No-Show
                   </DropdownMenuItem>
                   <template v-if="appt.series_id">
@@ -372,7 +372,11 @@ import { watchDebounced } from '@vueuse/core'
 import { CalendarDays, CalendarPlus, MessageCircle } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import type { Tables } from '~/types/database'
-import type { CalendarAppointment } from '~/composables/useCalendar'
+import type { IAppointmentWithRelations } from '~/types/models/appointment.types'
+import { AppointmentStatus, APPOINTMENT_STATUS_LABELS } from '~/enums/appointment.enum'
+import { appointmentService } from '~/services/appointment.service'
+import { patientService } from '~/services/patient.service'
+import { staffService } from '~/services/staff.service'
 import {
   formatTime,
   formatDate,
@@ -385,7 +389,7 @@ const supabase = useSupabase()
 const { profile } = useAuth()
 const route = useRoute()
 
-const appointments = ref<CalendarAppointment[]>([])
+const appointments = ref<IAppointmentWithRelations[]>([])
 const patients = ref<Tables<'patients'>[]>([])
 const therapists = ref<Tables<'profiles'>[]>([])
 const isLoading = ref(true)
@@ -412,9 +416,9 @@ const therapistColorMap = computed(() => buildTherapistColorMap(therapists.value
 
 // Appointment detail sheet
 const showDetailSheet = ref(false)
-const selectedAppointment = ref<CalendarAppointment | null>(null)
+const selectedAppointment = ref<IAppointmentWithRelations | null>(null)
 
-function handleAppointmentClick(appt: CalendarAppointment) {
+function handleAppointmentClick(appt: IAppointmentWithRelations) {
   selectedAppointment.value = appt
   showDetailSheet.value = true
 }
@@ -495,23 +499,21 @@ watchDebounced(
     const firstDate = seriesDates.value[0]!
     const lastDate = seriesDates.value[seriesDates.value.length - 1]!
 
-    const { data } = await supabase
-      .from('appointments')
-      .select('start_time')
-      .eq('clinic_id', profile.value.clinic_id)
-      .eq('therapist_id', newAppointment.value.therapist_id)
-      .eq('status', 'scheduled')
-      .gte('start_time', `${firstDate}T00:00:00`)
-      .lte('start_time', `${lastDate}T23:59:59`)
+    const data = await appointmentService(supabase).findConflicts(
+      profile.value.clinic_id,
+      newAppointment.value.therapist_id,
+      firstDate,
+      lastDate,
+    )
 
     const existing = new Set(
-      (data ?? [])
-        .filter((a) => {
-          const d = new Date(a.start_time)
+      data
+        .filter((startTime) => {
+          const d = new Date(startTime)
           const t = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
           return t === newAppointment.value.start_time
         })
-        .map((a) => new Date(a.start_time).toLocaleDateString('en-CA')),
+        .map((startTime) => new Date(startTime).toLocaleDateString('en-CA')),
     )
 
     conflicts.value = existing
@@ -539,14 +541,14 @@ async function loadAppointments() {
   if (!profile.value) return
   isLoading.value = true
 
-  const { data } = await supabase
-    .from('appointments')
-    .select('*, patient:patients(*), therapist:profiles(*)')
-    .eq('clinic_id', profile.value.clinic_id)
-    .order('start_time', { ascending: true })
-
-  appointments.value = (data ?? []) as CalendarAppointment[]
-  isLoading.value = false
+  try {
+    appointments.value = await appointmentService(supabase).list(profile.value.clinic_id)
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Failed to load appointments'
+    toast.error(message)
+  } finally {
+    isLoading.value = false
+  }
 }
 
 // Patients + therapists loaded lazily (for booking dialog + calendar colors)
@@ -557,23 +559,17 @@ async function loadDropdowns() {
   dropdownsLoaded = true
   const clinicId = profile.value.clinic_id
 
-  const [patientRes, staffRes] = await Promise.all([
-    supabase
-      .from('patients')
-      .select('*')
-      .eq('clinic_id', clinicId)
-      .eq('is_archived', false)
-      .order('full_name'),
-    supabase
-      .from('profiles')
-      .select('*')
-      .eq('clinic_id', clinicId)
-      .eq('is_active', true)
-      .order('full_name'),
-  ])
+  try {
+    const [patientData, staffData] = await Promise.all([
+      patientService(supabase).listForDropdown(clinicId),
+      staffService(supabase).listActive(clinicId),
+    ])
 
-  patients.value = patientRes.data ?? []
-  therapists.value = staffRes.data ?? []
+    patients.value = patientData
+    therapists.value = staffData
+  } catch {
+    dropdownsLoaded = false
+  }
 }
 
 const filteredAppointments = computed(() => {
@@ -592,12 +588,14 @@ async function createAppointment() {
   isSubmitting.value = true
 
   try {
+    const service = appointmentService(supabase)
+
     if (bookingMode.value === 'single') {
       const startDateTime = `${newAppointment.value.date}T${newAppointment.value.start_time}:00`
       const endDate = new Date(startDateTime)
       endDate.setMinutes(endDate.getMinutes() + parseInt(newAppointment.value.duration))
 
-      const { error } = await supabase.from('appointments').insert({
+      await service.create({
         clinic_id: profile.value.clinic_id,
         patient_id: newAppointment.value.patient_id,
         therapist_id: newAppointment.value.therapist_id || null,
@@ -606,10 +604,6 @@ async function createAppointment() {
         notes: newAppointment.value.notes || null,
       })
 
-      if (error) {
-        toast.error('Failed to book appointment')
-        return
-      }
       toast.success('Appointment booked')
     } else {
       const seriesId = crypto.randomUUID()
@@ -632,20 +626,15 @@ async function createAppointment() {
         }
       })
 
-      const { error } = await supabase.from('appointments').insert(rows)
-
-      if (error) {
-        toast.error('Failed to book appointment series')
-        return
-      }
+      await service.createSeries(rows)
       toast.success(`${rows.length} appointments booked`)
     }
 
     await loadAppointments()
     resetForm()
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : 'Unknown error'
-    toast.error(`Booking failed: ${message}`)
+    const message = err instanceof Error ? err.message : 'Failed to book appointment'
+    toast.error(message)
   } finally {
     isSubmitting.value = false
   }
@@ -667,30 +656,39 @@ function resetForm() {
 }
 
 // Status updates
-async function updateStatus(id: string, status: 'completed' | 'cancelled' | 'no_show') {
-  const { error } = await supabase.from('appointments').update({ status }).eq('id', id)
-  if (error) {
-    toast.error('Failed to update status')
-    return
+const isUpdatingStatus = ref(false)
+
+async function updateStatus(id: string, status: AppointmentStatus) {
+  isUpdatingStatus.value = true
+
+  try {
+    await appointmentService(supabase).updateStatus(id, status)
+    toast.success(`Appointment marked as ${APPOINTMENT_STATUS_LABELS[status]}`)
+    showDetailSheet.value = false
+    await loadAppointments()
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Failed to update status'
+    toast.error(message)
+  } finally {
+    isUpdatingStatus.value = false
   }
-  toast.success(`Appointment marked as ${status.replace('_', ' ')}`)
-  showDetailSheet.value = false
-  await loadAppointments()
 }
 
-async function cancelRemainingSeries(seriesId: string) {
-  const { error } = await supabase
-    .from('appointments')
-    .update({ status: 'cancelled' as const })
-    .eq('series_id', seriesId)
-    .eq('status', 'scheduled')
+const isCancellingSeries = ref(false)
 
-  if (error) {
-    toast.error('Failed to cancel series')
-    return
+async function cancelRemainingSeries(seriesId: string) {
+  isCancellingSeries.value = true
+
+  try {
+    await appointmentService(supabase).cancelSeries(seriesId)
+    toast.success('Remaining appointments in series cancelled')
+    await loadAppointments()
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Failed to cancel series'
+    toast.error(message)
+  } finally {
+    isCancellingSeries.value = false
   }
-  toast.success('Remaining appointments in series cancelled')
-  await loadAppointments()
 }
 
 // Load dropdowns when switching to calendar views

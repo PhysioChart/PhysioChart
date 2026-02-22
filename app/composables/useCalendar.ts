@@ -1,9 +1,7 @@
 import type { Tables } from '~/types/database'
+import type { IAppointmentWithRelations } from '~/types/models/appointment.types'
 
-export type CalendarAppointment = Tables<'appointments'> & {
-  patient: Tables<'patients'> | null
-  therapist: Tables<'profiles'> | null
-}
+export type CalendarAppointment = IAppointmentWithRelations
 
 const THERAPIST_COLORS = [
   { bg: 'bg-blue-500/15', border: 'border-l-blue-500', text: 'text-blue-700' },

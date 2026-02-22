@@ -1,127 +1,3 @@
-<script setup lang="ts">
-import { Users, UserPlus, Search, Phone } from 'lucide-vue-next'
-import { toast } from 'vue-sonner'
-import type { Tables } from '~/types/database'
-
-const supabase = useSupabase()
-const { profile } = useAuth()
-const route = useRoute()
-
-const patients = ref<Tables<'patients'>[]>([])
-const searchQuery = ref('')
-const isLoading = ref(true)
-const showNewPatientDialog = ref(route.query.action === 'new')
-
-// Form state for new patient
-const newPatient = ref({
-  full_name: '',
-  phone: '',
-  email: '',
-  date_of_birth: '',
-  gender: '' as '' | 'male' | 'female' | 'other',
-  address: '',
-  emergency_contact_name: '',
-  emergency_contact_phone: '',
-  notes: '',
-  medical_history: {
-    past_surgeries: [] as string[],
-    current_medications: [] as string[],
-    allergies: [] as string[],
-    conditions: [] as string[],
-    notes: '',
-  },
-})
-
-const isSubmitting = ref(false)
-
-async function loadPatients() {
-  if (!profile.value) return
-  isLoading.value = true
-
-  const { data, error } = await supabase
-    .from('patients')
-    .select('*')
-    .eq('clinic_id', profile.value.clinic_id)
-    .eq('is_archived', false)
-    .order('created_at', { ascending: false })
-
-  if (error) {
-    toast.error('Failed to load patients')
-    return
-  }
-  patients.value = data ?? []
-  isLoading.value = false
-}
-
-const filteredPatients = computed(() => {
-  if (!searchQuery.value) return patients.value
-  const q = searchQuery.value.toLowerCase()
-  return patients.value.filter((p) => p.full_name.toLowerCase().includes(q) || p.phone.includes(q))
-})
-
-async function createPatient() {
-  if (!profile.value || !newPatient.value.full_name || !newPatient.value.phone) return
-  isSubmitting.value = true
-
-  const { error } = await supabase.from('patients').insert({
-    clinic_id: profile.value.clinic_id,
-    full_name: newPatient.value.full_name,
-    phone: newPatient.value.phone,
-    email: newPatient.value.email || null,
-    date_of_birth: newPatient.value.date_of_birth || null,
-    gender: newPatient.value.gender || null,
-    address: newPatient.value.address || null,
-    emergency_contact_name: newPatient.value.emergency_contact_name || null,
-    emergency_contact_phone: newPatient.value.emergency_contact_phone || null,
-    notes: newPatient.value.notes || null,
-    medical_history: newPatient.value.medical_history,
-  })
-
-  isSubmitting.value = false
-
-  if (error) {
-    toast.error('Failed to create patient')
-    return
-  }
-
-  toast.success('Patient registered successfully')
-  showNewPatientDialog.value = false
-  resetForm()
-  await loadPatients()
-}
-
-function resetForm() {
-  newPatient.value = {
-    full_name: '',
-    phone: '',
-    email: '',
-    date_of_birth: '',
-    gender: '',
-    address: '',
-    emergency_contact_name: '',
-    emergency_contact_phone: '',
-    notes: '',
-    medical_history: {
-      past_surgeries: [],
-      current_medications: [],
-      allergies: [],
-      conditions: [],
-      notes: '',
-    },
-  }
-}
-
-function formatDate(dateStr: string) {
-  return new Date(dateStr).toLocaleDateString('en-IN', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  })
-}
-
-onMounted(loadPatients)
-</script>
-
 <template>
   <div class="space-y-4">
     <!-- Header -->
@@ -283,7 +159,7 @@ onMounted(loadPatients)
                 {{ patient.gender ?? '—' }}
               </TableCell>
               <TableCell class="hidden md:table-cell">
-                {{ formatDate(patient.created_at) }}
+                {{ formatDateWithYear(patient.created_at) }}
               </TableCell>
               <TableCell class="text-right">
                 <Button
@@ -301,3 +177,125 @@ onMounted(loadPatients)
     </Card>
   </div>
 </template>
+
+<script setup lang="ts">
+import { Users, UserPlus, Search, Phone } from 'lucide-vue-next'
+import { toast } from 'vue-sonner'
+import type { Tables } from '~/types/database'
+import { formatDateWithYear } from '~/lib/formatters'
+
+const supabase = useSupabase()
+const { profile } = useAuth()
+const route = useRoute()
+
+const patients = ref<Tables<'patients'>[]>([])
+const searchQuery = ref('')
+const isLoading = ref(true)
+const showNewPatientDialog = ref(route.query.action === 'new')
+
+// Form state for new patient
+const newPatient = ref({
+  full_name: '',
+  phone: '',
+  email: '',
+  date_of_birth: '',
+  gender: '' as '' | 'male' | 'female' | 'other',
+  address: '',
+  emergency_contact_name: '',
+  emergency_contact_phone: '',
+  notes: '',
+  medical_history: {
+    past_surgeries: [] as string[],
+    current_medications: [] as string[],
+    allergies: [] as string[],
+    conditions: [] as string[],
+    notes: '',
+  },
+})
+
+const isSubmitting = ref(false)
+
+async function loadPatients() {
+  if (!profile.value) return
+  isLoading.value = true
+
+  const { data, error } = await supabase
+    .from('patients')
+    .select('*')
+    .eq('clinic_id', profile.value.clinic_id)
+    .eq('is_archived', false)
+    .order('created_at', { ascending: false })
+
+  if (error) {
+    toast.error('Failed to load patients')
+    return
+  }
+  patients.value = data ?? []
+  isLoading.value = false
+}
+
+const filteredPatients = computed(() => {
+  if (!searchQuery.value) return patients.value
+  const q = searchQuery.value.toLowerCase()
+  return patients.value.filter((p) => p.full_name.toLowerCase().includes(q) || p.phone.includes(q))
+})
+
+async function createPatient() {
+  if (!profile.value || !newPatient.value.full_name || !newPatient.value.phone) return
+  isSubmitting.value = true
+
+  try {
+    const { error } = await supabase.from('patients').insert({
+      clinic_id: profile.value.clinic_id,
+      full_name: newPatient.value.full_name,
+      phone: newPatient.value.phone,
+      email: newPatient.value.email || null,
+      date_of_birth: newPatient.value.date_of_birth || null,
+      gender: newPatient.value.gender || null,
+      address: newPatient.value.address || null,
+      emergency_contact_name: newPatient.value.emergency_contact_name || null,
+      emergency_contact_phone: newPatient.value.emergency_contact_phone || null,
+      notes: newPatient.value.notes || null,
+      medical_history: newPatient.value.medical_history,
+    })
+
+    if (error) {
+      toast.error(`Failed to create patient: ${error.message}`)
+      return
+    }
+
+    toast.success('Patient registered successfully')
+    await loadPatients()
+    showNewPatientDialog.value = false
+    resetForm()
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Unknown error'
+    toast.error(`Failed to create patient: ${message}`)
+  } finally {
+    isSubmitting.value = false
+  }
+}
+
+function resetForm() {
+  newPatient.value = {
+    full_name: '',
+    phone: '',
+    email: '',
+    date_of_birth: '',
+    gender: '',
+    address: '',
+    emergency_contact_name: '',
+    emergency_contact_phone: '',
+    notes: '',
+    medical_history: {
+      past_surgeries: [],
+      current_medications: [],
+      allergies: [],
+      conditions: [],
+      notes: '',
+    },
+  }
+}
+
+onMounted(loadPatients)
+</script>

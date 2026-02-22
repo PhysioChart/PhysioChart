@@ -1,42 +1,3 @@
-<script setup lang="ts">
-import {
-  LayoutDashboard,
-  Users,
-  CalendarDays,
-  ClipboardList,
-  Receipt,
-  Settings,
-  LogOut,
-  ChevronsUpDown,
-  Building2,
-} from 'lucide-vue-next'
-
-const { profile, clinic, signOut, isAdmin } = useAuth()
-const route = useRoute()
-
-const navItems = [
-  { title: 'Dashboard', icon: LayoutDashboard, to: '/dashboard' },
-  { title: 'Patients', icon: Users, to: '/patients' },
-  { title: 'Appointments', icon: CalendarDays, to: '/appointments' },
-  { title: 'Treatments', icon: ClipboardList, to: '/treatments' },
-  { title: 'Billing', icon: Receipt, to: '/billing' },
-]
-
-const initials = computed(() => {
-  const name = profile.value?.full_name ?? ''
-  return name
-    .split(' ')
-    .map((n) => n[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 2)
-})
-
-function isActive(to: string) {
-  return route.path === to || route.path.startsWith(to + '/')
-}
-</script>
-
 <template>
   <SidebarProvider>
     <Sidebar collapsible="icon">
@@ -165,3 +126,42 @@ function isActive(to: string) {
     </SidebarInset>
   </SidebarProvider>
 </template>
+
+<script setup lang="ts">
+import {
+  LayoutDashboard,
+  Users,
+  CalendarDays,
+  ClipboardList,
+  Receipt,
+  Settings,
+  LogOut,
+  ChevronsUpDown,
+  Building2,
+} from 'lucide-vue-next'
+
+const { profile, clinic, signOut, isAdmin } = useAuth()
+const route = useRoute()
+
+const navItems = [
+  { title: 'Dashboard', icon: LayoutDashboard, to: '/dashboard' },
+  { title: 'Patients', icon: Users, to: '/patients' },
+  { title: 'Appointments', icon: CalendarDays, to: '/appointments' },
+  { title: 'Treatments', icon: ClipboardList, to: '/treatments' },
+  { title: 'Billing', icon: Receipt, to: '/billing' },
+]
+
+const initials = computed(() => {
+  const name = profile.value?.full_name ?? ''
+  return name
+    .split(' ')
+    .map((n) => n[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2)
+})
+
+function isActive(to: string) {
+  return route.path === to || route.path.startsWith(to + '/')
+}
+</script>

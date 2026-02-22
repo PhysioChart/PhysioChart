@@ -1,4 +1,7 @@
 import type { Tables } from '~/types/database'
+import { AppointmentStatus } from '~/enums/appointment.enum'
+import { TreatmentStatus } from '~/enums/treatment.enum'
+import { InvoiceStatus } from '~/enums/invoice.enum'
 
 /** "2:30 pm" */
 export function formatTime(dateStr: string): string {
@@ -63,23 +66,36 @@ export function progressPercent(completed: number, total: number): number {
   return Math.round((completed / total) * 100)
 }
 
+/** Format currency in INR — "₹1,200" */
+export function formatCurrency(amount: number): string {
+  return amount.toLocaleString('en-IN', {
+    style: 'currency',
+    currency: 'INR',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  })
+}
+
 /** Tailwind classes for appointment/treatment/invoice status badges */
-export function getStatusColor(status: string): string {
+export function getStatusColor(
+  status: AppointmentStatus | TreatmentStatus | InvoiceStatus | string,
+): string {
   switch (status) {
-    case 'completed':
-    case 'paid':
+    case AppointmentStatus.COMPLETED:
+    case InvoiceStatus.PAID:
       return 'bg-green-500/10 text-green-700'
-    case 'cancelled':
+    case AppointmentStatus.CANCELLED:
+    case TreatmentStatus.CANCELLED:
+    case InvoiceStatus.CANCELLED:
+    case InvoiceStatus.OVERDUE:
       return 'bg-red-500/10 text-red-700'
-    case 'overdue':
-      return 'bg-red-500/10 text-red-700'
-    case 'no_show':
-    case 'partially_paid':
+    case AppointmentStatus.NO_SHOW:
+    case InvoiceStatus.PARTIALLY_PAID:
       return 'bg-amber-500/10 text-amber-700'
-    case 'active':
-    case 'scheduled':
-    case 'draft':
-    case 'sent':
+    case TreatmentStatus.ACTIVE:
+    case AppointmentStatus.SCHEDULED:
+    case InvoiceStatus.DRAFT:
+    case InvoiceStatus.SENT:
       return 'bg-blue-500/10 text-blue-700'
     default:
       return 'bg-zinc-500/10 text-zinc-700'

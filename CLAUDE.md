@@ -17,13 +17,20 @@ B2B SaaS for physiotherapy clinic management — appointments, patient records, 
 ```
 MedPractice/
 ├── app/
-│   ├── assets/css/main.css        # Tailwind + shadcn CSS variables
-│   ├── components/ui/             # shadcn-vue components (added via CLI)
-│   ├── composables/               # useSupabase, useAuth
-│   ├── layouts/                   # auth.vue (public), default.vue (sidebar)
-│   ├── lib/utils.ts               # cn() utility
-│   ├── middleware/auth.global.ts   # Auth guard (redirects to /login)
-│   ├── pages/                     # File-based routing
+│   ├── assets/css/main.css          # Tailwind + shadcn CSS variables
+│   ├── components/
+│   │   ├── ui/                      # shadcn-vue (CLI-managed, NEVER manually edit)
+│   │   ├── common/                  # Shared components used across 2+ features
+│   │   ├── appointments/            # Appointment domain components
+│   │   ├── patients/                # Patient domain components
+│   │   ├── billing/                 # Billing domain components
+│   │   └── treatments/              # Treatment domain components
+│   ├── composables/                 # useSupabase, useAuth, useCalendar
+│   ├── enums/                       # Domain enums (one file per domain)
+│   ├── layouts/                     # auth.vue (public), default.vue (sidebar)
+│   ├── lib/                         # Pure utility functions (formatters, cn())
+│   ├── middleware/                   # Route middleware (numbered prefix)
+│   ├── pages/                       # File-based routing
 │   │   ├── login.vue, register.vue
 │   │   ├── dashboard.vue
 │   │   ├── patients/ (index, [id])
@@ -31,10 +38,13 @@ MedPractice/
 │   │   ├── treatments.vue
 │   │   ├── billing.vue
 │   │   └── settings.vue
-│   └── types/database.ts          # Supabase DB types
-├── supabase/migrations/           # SQL schema + RLS policies
-├── server/api/                    # Nitro server routes
-├── components.json                # shadcn-vue config
+│   ├── services/                    # Supabase query wrappers (one per domain)
+│   └── types/
+│       ├── database.ts              # Supabase-generated DB types
+│       └── models/                  # Domain model interfaces (joined/computed)
+├── supabase/migrations/             # SQL schema + RLS policies
+├── server/api/                      # Nitro server routes
+├── components.json                  # shadcn-vue config
 ├── nuxt.config.ts
 └── .env.example
 ```
@@ -52,7 +62,9 @@ MedPractice/
 - **shadcn components**: added via CLI to `app/components/ui/`, never manually created
 - **Pages**: kebab-case files in `app/pages/`
 - **Composables**: `use` prefix, in `app/composables/`
-- **Types**: import `Tables`, `InsertDto`, `UpdateDto` from `~/types/database`
+- **Enums**: one file per domain in `app/enums/`, import from `~/enums/{domain}.enum`
+- **Services**: one file per domain in `app/services/`, import from `~/services/{domain}.service`
+- **Types**: import `Tables`, `InsertDto`, `UpdateDto` from `~/types/database`. Import domain models from `~/types/models/{domain}.types`
 - **Locale**: Always use `'en-IN'` for all `toLocaleDateString`, `toLocaleTimeString`, and `toLocaleString` calls. This will be swapped for i18n later, so consistent usage now makes migration easier.
 - **Vue SFC order**: `<template>` → `<script>` → `<style>` (always in this order)
 - **Utilities**: Reusable/common functions (e.g. `formatDate`, `formatCurrency`) go in `app/lib/` so they can be imported anywhere. Don't duplicate helpers inline across components.
@@ -96,3 +108,384 @@ This project uses Supabase Free plan — 500 MB DB, 1 GB storage, 10 GB egress, 
 
 - Requires Node.js >= 22 (see `.nvmrc`)
 - Use `nvm use` to switch to the correct version
+
+## Enum Conventions
+
+Enums live in `app/enums/` with one file per domain. They replace inline string unions and hardcoded status strings.
+
+### File naming
+
+`{domain}.enum.ts` — e.g., `appointment.enum.ts`, `invoice.enum.ts`, `payment.enum.ts`
+
+### Structure
+
+Use `const` objects with `as const` (not the TS `enum` keyword). Export the const object, a derived type, a labels map, and a values array.
+
+```ts
+// app/enums/appointment.enum.ts
+
+export const AppointmentStatus = {
+  SCHEDULED: 'scheduled',
+  COMPLETED: 'completed',
+  CANCELLED: 'cancelled',
+  NO_SHOW: 'no_show',
+} as const
+
+export type AppointmentStatus = (typeof AppointmentStatus)[keyof typeof AppointmentStatus]
+
+export const APPOINTMENT_STATUS_VALUES = Object.values(AppointmentStatus)
+
+export const APPOINTMENT_STATUS_LABELS: Record<AppointmentStatus, string> = {
+  [AppointmentStatus.SCHEDULED]: 'Scheduled',
+  [AppointmentStatus.COMPLETED]: 'Completed',
+  [AppointmentStatus.CANCELLED]: 'Cancelled',
+  [AppointmentStatus.NO_SHOW]: 'No Show',
+}
+```
+
+### Usage
+
+```ts
+// Good — use enum reference
+if (appointment.status === AppointmentStatus.COMPLETED) { ... }
+
+// Bad — hardcoded string
+if (appointment.status === 'completed') { ... }
+```
+
+### When to create an enum
+
+- The value set appears in 2+ files (status filters, badge colors, form selects)
+- The database column has a constrained set of values
+
+### Enums to create
+
+| File                  | Keys                                                              |
+| --------------------- | ----------------------------------------------------------------- |
+| `appointment.enum.ts` | `SCHEDULED`, `COMPLETED`, `CANCELLED`, `NO_SHOW`                  |
+| `treatment.enum.ts`   | `ACTIVE`, `COMPLETED`, `CANCELLED`                                |
+| `invoice.enum.ts`     | `DRAFT`, `SENT`, `PAID`, `PARTIALLY_PAID`, `OVERDUE`, `CANCELLED` |
+| `payment.enum.ts`     | `CASH`, `UPI`, `CARD`, `BANK_TRANSFER`, `OTHER`                   |
+| `user-role.enum.ts`   | `ADMIN`, `STAFF`                                                  |
+| `gender.enum.ts`      | `MALE`, `FEMALE`, `OTHER`                                         |
+
+## Type Conventions
+
+### File organization
+
+- `app/types/database.ts` — Supabase-generated types only. Do not add manual types here (except `Tables`, `InsertDto`, `UpdateDto` helpers).
+- `app/types/models/{domain}.types.ts` — Domain model interfaces for joined/computed types used across components.
+
+### Naming rules
+
+| Category                      | Convention                  | Example                     |
+| ----------------------------- | --------------------------- | --------------------------- |
+| Interfaces (object shapes)    | `I` prefix + PascalCase     | `IAppointmentWithRelations` |
+| Type aliases (unions, mapped) | PascalCase, no prefix       | `AppointmentStatus`         |
+| DB row types                  | Use `Tables<'table'>`       | `Tables<'patients'>`        |
+| DB insert types               | Use `InsertDto<'table'>`    | `InsertDto<'appointments'>` |
+| Props interfaces              | `I{Component}Props`         | `ICalendarDayViewProps`     |
+| Emit interfaces               | `I{Component}Emits`         | `ICalendarDayViewEmits`     |
+| Zod form schemas              | camelCase + `Schema` suffix | `appointmentFormSchema`     |
+
+### Example
+
+```ts
+// app/types/models/appointment.types.ts
+import type { Tables } from '~/types/database'
+import type { AppointmentStatus } from '~/enums/appointment.enum'
+
+export interface IAppointmentWithRelations extends Tables<'appointments'> {
+  patient: Tables<'patients'> | null
+  therapist: Tables<'profiles'> | null
+}
+
+export interface IAppointmentFilters {
+  status?: AppointmentStatus
+  therapistId?: string
+  dateFrom?: string
+  dateTo?: string
+}
+```
+
+### Rules
+
+- Never use `any`. Use `unknown` and narrow, or define a specific type.
+- Prefer `interface` for object shapes (extendable, better error messages). Use `type` for unions, intersections, and mapped types.
+- For Supabase query results with joins, define a named interface in `app/types/models/` rather than using inline `(Tables<'x'> & { rel: Tables<'y'> | null })`.
+
+## Service Layer
+
+Services encapsulate all Supabase data operations for a domain. Pages and composables call service functions instead of building Supabase queries inline.
+
+### File naming
+
+`app/services/{domain}.service.ts` — e.g., `patient.service.ts`, `appointment.service.ts`
+
+### Pattern
+
+Each service is a plain function that takes the Supabase client and returns typed methods. Services are stateless (no `ref`, no `reactive`).
+
+```ts
+// app/services/patient.service.ts
+import type { SupabaseClient } from '@supabase/supabase-js'
+import type { Database, Tables, InsertDto } from '~/types/database'
+
+export function patientService(supabase: SupabaseClient<Database>) {
+  async function list(clinicId: string): Promise<Tables<'patients'>[]> {
+    const { data, error } = await supabase
+      .from('patients')
+      .select('*')
+      .eq('clinic_id', clinicId)
+      .eq('is_archived', false)
+      .order('created_at', { ascending: false })
+
+    if (error) throw error
+    return data ?? []
+  }
+
+  async function getById(id: string): Promise<Tables<'patients'> | null> {
+    const { data, error } = await supabase.from('patients').select('*').eq('id', id).single()
+
+    if (error) throw error
+    return data
+  }
+
+  async function create(patient: InsertDto<'patients'>): Promise<Tables<'patients'>> {
+    const { data, error } = await supabase.from('patients').insert(patient).select().single()
+
+    if (error) throw error
+    return data
+  }
+
+  async function update(id: string, updates: Partial<Tables<'patients'>>): Promise<void> {
+    const { error } = await supabase.from('patients').update(updates).eq('id', id)
+
+    if (error) throw error
+  }
+
+  return { list, getById, create, update }
+}
+```
+
+### Usage in a page
+
+```ts
+const supabase = useSupabase()
+const { profile } = useAuth()
+const patients = patientService(supabase)
+
+const data = await patients.list(profile.value!.clinic_id)
+```
+
+### Rules
+
+- Services **always throw** on error. They never call `toast()` or handle UI.
+- Services receive `clinicId` as a parameter — they do **not** call `useAuth()` (services are not composables).
+- Every public method has explicit parameter types and return types.
+- Services do NOT hold state. They are pure async query wrappers.
+- Always apply `.eq('clinic_id', clinicId)` in queries for multi-tenancy defense-in-depth (even though RLS is the primary guard).
+
+### Services to create
+
+| File                     | Methods                                                    |
+| ------------------------ | ---------------------------------------------------------- |
+| `patient.service.ts`     | `list`, `getById`, `create`, `update`, `archive`, `search` |
+| `appointment.service.ts` | `list`, `listForDate`, `create`, `updateStatus`, `delete`  |
+| `treatment.service.ts`   | `list`, `getById`, `create`, `update`                      |
+| `invoice.service.ts`     | `list`, `create`, `nextInvoiceNumber`                      |
+| `payment.service.ts`     | `listForInvoice`, `create`                                 |
+| `clinic.service.ts`      | `get`, `update`                                            |
+| `staff.service.ts`       | `list`, `invite`, `deactivate`                             |
+
+## Component Organization
+
+### Directory structure
+
+```
+app/components/
+├── ui/                    # shadcn-vue primitives (CLI-managed, NEVER edit)
+├── common/                # Shared components used across 2+ features
+│   ├── EmptyState.vue
+│   ├── PageHeader.vue
+│   ├── StatusBadge.vue
+│   └── ConfirmDialog.vue
+├── appointments/          # Appointment domain
+│   ├── AppointmentDetailSheet.vue
+│   ├── AppointmentBookingDialog.vue
+│   ├── CalendarDayView.vue
+│   └── CalendarWeekView.vue
+├── patients/              # Patient domain
+│   ├── PatientCreateDialog.vue
+│   └── PatientEditForm.vue
+├── billing/               # Billing domain
+│   ├── InvoiceCreateDialog.vue
+│   └── InvoiceLineItems.vue
+└── treatments/            # Treatment domain
+    └── TreatmentCreateDialog.vue
+```
+
+### Naming
+
+- PascalCase filenames matching the component name: `AppointmentDetailSheet.vue`
+- Feature prefix for domain components: `Appointment*`, `Patient*`, `Invoice*`
+- No `The` prefix
+
+### When to extract a component
+
+1. A template section exceeds ~80 lines
+2. The same UI pattern appears in 2+ pages
+3. The component has its own logical state (props in, events out)
+
+### Sizing targets
+
+- **Pages** (`app/pages/`): orchestrate layout, call services, manage page-level state. Target <200 lines of `<script>`.
+- **Feature components** (`app/components/{feature}/`): self-contained with props/emits. Target <150 lines total.
+- **Common components** (`app/components/common/`): fully generic, zero domain knowledge.
+
+## Script Block Organization
+
+Within `<script setup lang="ts">`, follow this order. Separate each section with a blank line.
+
+```
+1.  Imports (external packages, then ~/types, ~/enums, ~/services, ~/lib)
+2.  Page meta (definePageMeta)
+3.  Props & Emits (defineProps, defineModel, defineEmits)
+4.  Composables & services (useAuth, useSupabase, patientService, etc.)
+5.  Reactive state (ref, reactive — grouped: form state, UI state, data state)
+6.  Computed properties
+7.  Data-fetching functions (loadXxx, fetchXxx)
+8.  Mutation functions (createXxx, updateXxx, deleteXxx)
+9.  UI handler functions (openDialog, resetForm, handleClick)
+10. Watchers (watch, watchEffect)
+11. Lifecycle (onMounted, onUnmounted)
+```
+
+### Import ordering within section 1
+
+1. External packages (`vue`, `@vueuse/core`, `lucide-vue-next`, `vue-sonner`, `zod`, `vee-validate`)
+2. Types (`~/types/...`)
+3. Enums (`~/enums/...`)
+4. Services (`~/services/...`)
+5. Lib/utils (`~/lib/...`)
+6. Auto-imported composables (`useAuth`, `useSupabase`) do NOT need explicit imports
+
+## Naming Conventions
+
+| Category               | Convention                              | Example                            |
+| ---------------------- | --------------------------------------- | ---------------------------------- |
+| **Components**         | PascalCase                              | `PatientCreateDialog.vue`          |
+| **Pages**              | kebab-case                              | `patients/[id].vue`                |
+| **Composables**        | camelCase + `use` prefix                | `useCalendar.ts`                   |
+| **Services**           | kebab-case + `.service.ts`              | `patient.service.ts`               |
+| **Enum files**         | kebab-case + `.enum.ts`                 | `appointment.enum.ts`              |
+| **Type files**         | kebab-case + `.types.ts`                | `appointment.types.ts`             |
+| **Utility files**      | camelCase                               | `formatters.ts`                    |
+| **Variables**          | camelCase                               | `isLoading`, `selectedDate`        |
+| **Functions**          | camelCase                               | `loadPatients`, `handleSubmit`     |
+| **Constants**          | UPPER_SNAKE_CASE                        | `SLOT_HEIGHT_PX`, `DAY_START_HOUR` |
+| **Enum keys**          | UPPER_SNAKE_CASE                        | `AppointmentStatus.NO_SHOW`        |
+| **Enum values**        | snake_case (matching DB)                | `'no_show'`, `'partially_paid'`    |
+| **Interfaces**         | `I` prefix + PascalCase                 | `IAppointmentWithRelations`        |
+| **Type aliases**       | PascalCase (no prefix)                  | `AppointmentStatus`                |
+| **Zod schemas**        | camelCase + `Schema` suffix             | `appointmentFormSchema`            |
+| **Loading refs**       | `isXxx` pattern                         | `isLoading`, `isSubmitting`        |
+| **Visibility refs**    | `showXxx` pattern                       | `showNewDialog`, `showDetailSheet` |
+| **Fetch functions**    | `loadXxx` or `fetchXxx`                 | `loadPatients()`                   |
+| **Mutation functions** | `createXxx` / `updateXxx` / `deleteXxx` | `createAppointment()`              |
+| **Event handlers**     | `handleXxx` or `onXxx`                  | `handleSlotClick()`, `onSubmit()`  |
+
+## Error Handling
+
+### Architecture: service throws → page catches → toast displays
+
+- **Services** always `throw` the Supabase error on failure. They never call `toast` or return `{ data, error }` tuples.
+- **Pages/composables** wrap service calls in `try/catch` and display errors via `toast.error()`.
+
+### Standard fetch pattern
+
+```ts
+async function loadPatients() {
+  if (!profile.value) return
+  isLoading.value = true
+
+  try {
+    patients.value = await patientService(supabase).list(profile.value.clinic_id)
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Failed to load patients'
+    toast.error(message)
+  } finally {
+    isLoading.value = false
+  }
+}
+```
+
+### Standard mutation pattern
+
+```ts
+async function createPatient() {
+  if (!profile.value) return
+  isSubmitting.value = true
+
+  try {
+    await patientService(supabase).create({ ... })
+    toast.success('Patient registered successfully')
+    await loadPatients()          // Refresh data BEFORE closing dialog
+    showNewDialog.value = false   // Close dialog AFTER data refreshed
+    resetForm()
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Failed to create patient'
+    toast.error(message)
+  } finally {
+    isSubmitting.value = false
+  }
+}
+```
+
+### Rules
+
+- Loading flags: set `true` before `try`, set `false` in `finally`.
+- Always extract error messages: `err instanceof Error ? err.message : 'Fallback'`. Never pass raw error objects to `toast.error()`.
+- No silent failures: every `catch` must either `toast.error()` or rethrow. Never use empty `catch {}`.
+- `toast.success()` for successful mutations, `toast.error()` for failures.
+
+## Data Flow Architecture
+
+### Request/response flow
+
+```
+Page (onMounted / handler)
+  → Service function (Supabase query)
+    → Supabase client SDK
+      → Supabase REST API (with RLS + clinic_id filter)
+        → PostgreSQL
+
+PostgreSQL
+  → Supabase REST API (applies RLS)
+    → Service function (throws on error, returns typed data)
+      → Page (sets ref, catches error, shows toast)
+        → Template (reads reactive refs)
+```
+
+### State management
+
+MedPractice uses **local component state** (`ref`/`reactive` in pages), not Pinia stores. Auth is the only global state (via `useAuth()` composable singleton).
+
+Introduce a Pinia store only when:
+
+- 2+ pages need to read/write the same reactive data simultaneously
+- Offline caching or optimistic updates are needed
+- Realtime subscriptions need a single shared listener
+
+### Data loading patterns
+
+1. **Primary data**: load in `onMounted`. Set `isLoading = true` before, `false` in `finally`.
+2. **Dropdown/lookup data**: lazy-load when dialog opens. Guard with a `dropdownsLoaded` flag to avoid re-fetching.
+3. **Joined data**: use Supabase select joins: `.select('*, patient:patients(*), therapist:profiles(*)')`.
+4. **Count-only**: use `{ count: 'exact', head: true }` to avoid transferring rows.
+5. **After mutations**: always re-fetch the list (`await loadXxx()`) rather than optimistically patching local arrays.
+
+### Form data flow
+
+- **Complex forms** (login, register, multi-field validation): use vee-validate + zod schema → `toTypedSchema()` → `useForm()` → `handleSubmit()`.
+- **Simple forms** (patient create, quick edit): use plain `ref({})` + `v-model` → `@submit.prevent` handler.

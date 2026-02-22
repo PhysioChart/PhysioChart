@@ -39,8 +39,12 @@
         <Card
           v-for="action in quickActions"
           :key="action.title"
+          role="button"
+          tabindex="0"
+          :aria-label="action.title"
           class="hover:bg-muted/50 cursor-pointer transition-colors"
           @click="navigateTo(action.to)"
+          @keydown.enter="navigateTo(action.to)"
         >
           <CardContent class="flex items-center gap-3 p-4">
             <div :class="[action.color, 'flex h-10 w-10 items-center justify-center rounded-lg']">

@@ -32,8 +32,8 @@
           </p>
         </div>
 
-        <Badge :class="getStatusColor(appointment.status)" variant="secondary" class="capitalize">
-          {{ appointment.status.replace('_', ' ') }}
+        <Badge :class="getStatusColor(appointment.status)" variant="secondary">
+          {{ APPOINTMENT_STATUS_LABELS[appointment.status] }}
         </Badge>
 
         <div v-if="appointment.series_id" class="text-muted-foreground text-xs">
@@ -60,25 +60,25 @@
             Send WhatsApp Reminder
           </Button>
 
-          <template v-if="appointment.status === 'scheduled'">
+          <template v-if="appointment.status === AppointmentStatus.SCHEDULED">
             <Button
               variant="outline"
               class="w-full justify-start"
-              @click="emit('updateStatus', appointment.id, 'completed')"
+              @click="emit('updateStatus', appointment.id, AppointmentStatus.COMPLETED)"
             >
               Mark Completed
             </Button>
             <Button
               variant="outline"
               class="w-full justify-start"
-              @click="emit('updateStatus', appointment.id, 'cancelled')"
+              @click="emit('updateStatus', appointment.id, AppointmentStatus.CANCELLED)"
             >
               Mark Cancelled
             </Button>
             <Button
               variant="outline"
               class="w-full justify-start"
-              @click="emit('updateStatus', appointment.id, 'no_show')"
+              @click="emit('updateStatus', appointment.id, AppointmentStatus.NO_SHOW)"
             >
               Mark No-Show
             </Button>
@@ -92,6 +92,7 @@
 <script setup lang="ts">
 import { Clock, MessageCircle, Stethoscope, User } from 'lucide-vue-next'
 import type { CalendarAppointment } from '~/composables/useCalendar'
+import { AppointmentStatus, APPOINTMENT_STATUS_LABELS } from '~/enums/appointment.enum'
 import { formatDateTime, formatTime, getStatusColor, getWhatsAppLink } from '~/lib/formatters'
 
 defineProps<{
@@ -101,6 +102,6 @@ defineProps<{
 const open = defineModel<boolean>('open', { required: true })
 
 const emit = defineEmits<{
-  updateStatus: [id: string, status: 'completed' | 'cancelled' | 'no_show']
+  updateStatus: [id: string, status: AppointmentStatus]
 }>()
 </script>

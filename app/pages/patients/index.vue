@@ -45,9 +45,11 @@
                     <SelectValue placeholder="Select" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="male">Male</SelectItem>
-                    <SelectItem value="female">Female</SelectItem>
-                    <SelectItem value="other">Other</SelectItem>
+                    <SelectItem :value="Gender.MALE">{{ GENDER_LABELS[Gender.MALE] }}</SelectItem>
+                    <SelectItem :value="Gender.FEMALE">{{
+                      GENDER_LABELS[Gender.FEMALE]
+                    }}</SelectItem>
+                    <SelectItem :value="Gender.OTHER">{{ GENDER_LABELS[Gender.OTHER] }}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -145,8 +147,11 @@
             <TableRow
               v-for="patient in filteredPatients"
               :key="patient.id"
+              role="link"
+              tabindex="0"
               class="cursor-pointer"
               @click="navigateTo(`/patients/${patient.id}`)"
+              @keydown.enter="navigateTo(`/patients/${patient.id}`)"
             >
               <TableCell class="font-medium">{{ patient.full_name }}</TableCell>
               <TableCell>
@@ -155,8 +160,8 @@
                   {{ patient.phone }}
                 </div>
               </TableCell>
-              <TableCell class="hidden capitalize md:table-cell">
-                {{ patient.gender ?? '—' }}
+              <TableCell class="hidden md:table-cell">
+                {{ patient.gender ? GENDER_LABELS[patient.gender] : '—' }}
               </TableCell>
               <TableCell class="hidden md:table-cell">
                 {{ formatDateWithYear(patient.created_at) }}
@@ -182,6 +187,8 @@
 import { Users, UserPlus, Search, Phone } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import type { Tables } from '~/types/database'
+import { Gender, GENDER_LABELS } from '~/enums/gender.enum'
+import { patientService } from '~/services/patient.service'
 import { formatDateWithYear } from '~/lib/formatters'
 
 const supabase = useSupabase()
@@ -219,19 +226,14 @@ async function loadPatients() {
   if (!profile.value) return
   isLoading.value = true
 
-  const { data, error } = await supabase
-    .from('patients')
-    .select('*')
-    .eq('clinic_id', profile.value.clinic_id)
-    .eq('is_archived', false)
-    .order('created_at', { ascending: false })
-
-  if (error) {
-    toast.error('Failed to load patients')
-    return
+  try {
+    patients.value = await patientService(supabase).list(profile.value.clinic_id)
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Failed to load patients'
+    toast.error(message)
+  } finally {
+    isLoading.value = false
   }
-  patients.value = data ?? []
-  isLoading.value = false
 }
 
 const filteredPatients = computed(() => {
@@ -245,13 +247,13 @@ async function createPatient() {
   isSubmitting.value = true
 
   try {
-    const { error } = await supabase.from('patients').insert({
+    await patientService(supabase).create({
       clinic_id: profile.value.clinic_id,
       full_name: newPatient.value.full_name,
       phone: newPatient.value.phone,
       email: newPatient.value.email || null,
       date_of_birth: newPatient.value.date_of_birth || null,
-      gender: newPatient.value.gender || null,
+      gender: (newPatient.value.gender as Gender) || null,
       address: newPatient.value.address || null,
       emergency_contact_name: newPatient.value.emergency_contact_name || null,
       emergency_contact_phone: newPatient.value.emergency_contact_phone || null,
@@ -259,18 +261,13 @@ async function createPatient() {
       medical_history: newPatient.value.medical_history,
     })
 
-    if (error) {
-      toast.error(`Failed to create patient: ${error.message}`)
-      return
-    }
-
     toast.success('Patient registered successfully')
     await loadPatients()
     showNewPatientDialog.value = false
     resetForm()
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : 'Unknown error'
-    toast.error(`Failed to create patient: ${message}`)
+    const message = err instanceof Error ? err.message : 'Failed to create patient'
+    toast.error(message)
   } finally {
     isSubmitting.value = false
   }

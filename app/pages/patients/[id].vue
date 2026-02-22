@@ -24,9 +24,14 @@
             <Pencil class="mr-2 h-4 w-4" />
             Edit
           </Button>
-          <Button variant="outline" class="text-destructive" @click="archivePatient">
+          <Button
+            variant="outline"
+            class="text-destructive"
+            :disabled="isArchiving"
+            @click="archivePatient"
+          >
             <Archive class="mr-2 h-4 w-4" />
-            Archive
+            {{ isArchiving ? 'Archiving...' : 'Archive' }}
           </Button>
         </div>
       </div>
@@ -71,9 +76,15 @@
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="male">Male</SelectItem>
-                        <SelectItem value="female">Female</SelectItem>
-                        <SelectItem value="other">Other</SelectItem>
+                        <SelectItem :value="Gender.MALE">{{
+                          GENDER_LABELS[Gender.MALE]
+                        }}</SelectItem>
+                        <SelectItem :value="Gender.FEMALE">{{
+                          GENDER_LABELS[Gender.FEMALE]
+                        }}</SelectItem>
+                        <SelectItem :value="Gender.OTHER">{{
+                          GENDER_LABELS[Gender.OTHER]
+                        }}</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -96,7 +107,9 @@
                 </div>
                 <DialogFooter>
                   <Button type="button" variant="outline" @click="isEditing = false">Cancel</Button>
-                  <Button type="submit">Save Changes</Button>
+                  <Button type="submit" :disabled="isSaving">
+                    {{ isSaving ? 'Saving...' : 'Save Changes' }}
+                  </Button>
                 </DialogFooter>
               </form>
             </DialogContent>
@@ -134,7 +147,9 @@
                   <User class="text-muted-foreground h-4 w-4" />
                   <div>
                     <dt class="text-muted-foreground text-xs">Gender</dt>
-                    <dd class="text-sm font-medium capitalize">{{ patient.gender ?? '—' }}</dd>
+                    <dd class="text-sm font-medium">
+                      {{ patient.gender ? GENDER_LABELS[patient.gender] : '—' }}
+                    </dd>
                   </div>
                 </div>
                 <div class="flex items-center gap-2 sm:col-span-2">
@@ -304,6 +319,8 @@ import {
 } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import type { Tables, MedicalHistory } from '~/types/database'
+import { Gender, GENDER_LABELS } from '~/enums/gender.enum'
+import { patientService } from '~/services/patient.service'
 import { formatDateLong } from '~/lib/formatters'
 
 const route = useRoute()
@@ -329,18 +346,17 @@ async function loadPatient() {
   isLoading.value = true
 
   try {
-    const { data, error } = await supabase
-      .from('patients')
-      .select('*')
-      .eq('id', route.params.id as string)
-      .single()
-
-    if (error || !data) {
+    const data = await patientService(supabase).getById(route.params.id as string)
+    if (!data) {
       toast.error('Patient not found')
       navigateTo('/patients')
       return
     }
     patient.value = data
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Failed to load patient'
+    toast.error(message)
+    navigateTo('/patients')
   } finally {
     isLoading.value = false
   }
@@ -362,56 +378,51 @@ function startEdit() {
   isEditing.value = true
 }
 
+const isSaving = ref(false)
+
 async function saveEdit() {
   if (!patient.value || !editForm.value.full_name) return
+  isSaving.value = true
 
   try {
-    const { error } = await supabase
-      .from('patients')
-      .update({
-        full_name: editForm.value.full_name,
-        phone: editForm.value.phone,
-        email: editForm.value.email || null,
-        date_of_birth: editForm.value.date_of_birth || null,
-        gender: (editForm.value.gender as 'male' | 'female' | 'other') || null,
-        address: editForm.value.address || null,
-        emergency_contact_name: editForm.value.emergency_contact_name || null,
-        emergency_contact_phone: editForm.value.emergency_contact_phone || null,
-        notes: editForm.value.notes || null,
-      })
-      .eq('id', patient.value.id)
-
-    if (error) {
-      toast.error('Failed to update patient')
-      return
-    }
+    await patientService(supabase).update(patient.value.id, {
+      full_name: editForm.value.full_name,
+      phone: editForm.value.phone,
+      email: editForm.value.email || null,
+      date_of_birth: editForm.value.date_of_birth || null,
+      gender: (editForm.value.gender as Gender) || null,
+      address: editForm.value.address || null,
+      emergency_contact_name: editForm.value.emergency_contact_name || null,
+      emergency_contact_phone: editForm.value.emergency_contact_phone || null,
+      notes: editForm.value.notes || null,
+    })
 
     toast.success('Patient updated')
     await loadPatient()
     isEditing.value = false
-  } catch {
-    toast.error('Failed to update patient')
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Failed to update patient'
+    toast.error(message)
+  } finally {
+    isSaving.value = false
   }
 }
 
+const isArchiving = ref(false)
+
 async function archivePatient() {
   if (!patient.value) return
+  isArchiving.value = true
 
   try {
-    const { error } = await supabase
-      .from('patients')
-      .update({ is_archived: true })
-      .eq('id', patient.value.id)
-
-    if (error) {
-      toast.error('Failed to archive patient')
-      return
-    }
-
+    await patientService(supabase).archive(patient.value.id)
     toast.success('Patient archived')
     navigateTo('/patients')
-  } catch {
-    toast.error('Failed to archive patient')
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Failed to archive patient'
+    toast.error(message)
+  } finally {
+    isArchiving.value = false
   }
 }
 

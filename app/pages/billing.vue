@@ -52,7 +52,7 @@
                   @input="updateLineItem(i)"
                 />
                 <div class="col-span-2 flex items-center justify-between">
-                  <span class="text-sm">Rs {{ item.total }}</span>
+                  <span class="text-sm">{{ formatCurrency(item.total) }}</span>
                   <Button
                     v-if="newInvoice.items.length > 1"
                     type="button"
@@ -73,7 +73,7 @@
 
           <div class="flex justify-between border-t pt-2 text-sm font-medium">
             <span>Total</span>
-            <span>Rs {{ invoiceTotal }}</span>
+            <span>{{ formatCurrency(invoiceTotal) }}</span>
           </div>
 
           <div>
@@ -102,7 +102,7 @@
         <div>
           <p class="text-sm font-medium text-amber-900">Outstanding Payments</p>
           <p class="text-2xl font-bold text-amber-900">
-            Rs {{ totalOutstanding.toLocaleString('en-IN') }}
+            {{ formatCurrency(totalOutstanding) }}
           </p>
         </div>
       </CardContent>
@@ -156,11 +156,11 @@
               <TableCell class="hidden md:table-cell">{{
                 formatDateWithYear(inv.created_at)
               }}</TableCell>
-              <TableCell>Rs {{ inv.total }}</TableCell>
-              <TableCell>Rs {{ inv.amount_paid }}</TableCell>
+              <TableCell>{{ formatCurrency(inv.total) }}</TableCell>
+              <TableCell>{{ formatCurrency(inv.amount_paid) }}</TableCell>
               <TableCell>
-                <Badge :class="getStatusColor(inv.status)" variant="secondary" class="capitalize">
-                  {{ inv.status.replace('_', ' ') }}
+                <Badge :class="getStatusColor(inv.status)" variant="secondary">
+                  {{ INVOICE_STATUS_LABELS[inv.status] }}
                 </Badge>
               </TableCell>
             </TableRow>
@@ -175,13 +175,17 @@
 import { Receipt, Plus, AlertCircle } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import type { Tables } from '~/types/database'
-import { formatDateWithYear, getStatusColor } from '~/lib/formatters'
+import type { IInvoiceWithRelations } from '~/types/models/invoice.types'
+import { InvoiceStatus, INVOICE_STATUS_LABELS } from '~/enums/invoice.enum'
+import { invoiceService } from '~/services/invoice.service'
+import { patientService } from '~/services/patient.service'
+import { formatDateWithYear, formatCurrency, getStatusColor } from '~/lib/formatters'
 
 const supabase = useSupabase()
 const { profile } = useAuth()
 const route = useRoute()
 
-const invoices = ref<(Tables<'invoices'> & { patient: Tables<'patients'> | null })[]>([])
+const invoices = ref<IInvoiceWithRelations[]>([])
 const patients = ref<Tables<'patients'>[]>([])
 const isLoading = ref(true)
 const showNewDialog = ref(route.query.action === 'new')
@@ -202,13 +206,10 @@ async function loadInvoices() {
   isLoading.value = true
 
   try {
-    const { data } = await supabase
-      .from('invoices')
-      .select('*, patient:patients(*)')
-      .eq('clinic_id', profile.value.clinic_id)
-      .order('created_at', { ascending: false })
-
-    invoices.value = (data ?? []) as typeof invoices.value
+    invoices.value = await invoiceService(supabase).list(profile.value.clinic_id)
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Failed to load invoices'
+    toast.error(message)
   } finally {
     isLoading.value = false
   }
@@ -218,14 +219,7 @@ async function loadPatients() {
   if (!profile.value || dropdownsLoaded) return
 
   try {
-    const { data } = await supabase
-      .from('patients')
-      .select('*')
-      .eq('clinic_id', profile.value.clinic_id)
-      .eq('is_archived', false)
-      .order('full_name')
-
-    patients.value = data ?? []
+    patients.value = await patientService(supabase).listForDropdown(profile.value.clinic_id)
     dropdownsLoaded = true
   } catch {
     // Allow retry on next dialog open
@@ -237,18 +231,32 @@ function openDialog() {
   showNewDialog.value = true
 }
 
+const PENDING_STATUSES: InvoiceStatus[] = [
+  InvoiceStatus.DRAFT,
+  InvoiceStatus.SENT,
+  InvoiceStatus.PARTIALLY_PAID,
+]
+
+const OUTSTANDING_STATUSES: InvoiceStatus[] = [
+  InvoiceStatus.DRAFT,
+  InvoiceStatus.SENT,
+  InvoiceStatus.PARTIALLY_PAID,
+  InvoiceStatus.OVERDUE,
+]
+
 const filteredInvoices = computed(() => {
   if (filter.value === 'all') return invoices.value
   if (filter.value === 'pending')
-    return invoices.value.filter((i) => ['draft', 'sent', 'partially_paid'].includes(i.status))
-  if (filter.value === 'paid') return invoices.value.filter((i) => i.status === 'paid')
-  if (filter.value === 'overdue') return invoices.value.filter((i) => i.status === 'overdue')
+    return invoices.value.filter((i) => PENDING_STATUSES.includes(i.status))
+  if (filter.value === 'paid') return invoices.value.filter((i) => i.status === InvoiceStatus.PAID)
+  if (filter.value === 'overdue')
+    return invoices.value.filter((i) => i.status === InvoiceStatus.OVERDUE)
   return invoices.value
 })
 
 const totalOutstanding = computed(() => {
   return invoices.value
-    .filter((i) => ['draft', 'sent', 'partially_paid', 'overdue'].includes(i.status))
+    .filter((i) => OUTSTANDING_STATUSES.includes(i.status))
     .reduce((sum, i) => sum + (i.total - i.amount_paid), 0)
 })
 
@@ -277,15 +285,10 @@ async function createInvoice() {
   isSubmitting.value = true
 
   try {
-    const dateStr = (new Date().toISOString().split('T')[0] ?? '').replace(/-/g, '')
-    const { count } = await supabase
-      .from('invoices')
-      .select('id', { count: 'exact', head: true })
-      .eq('clinic_id', profile.value.clinic_id)
+    const service = invoiceService(supabase)
+    const invoiceNumber = await service.nextInvoiceNumber(profile.value.clinic_id)
 
-    const invoiceNumber = `INV-${dateStr}-${String((count ?? 0) + 1).padStart(3, '0')}`
-
-    const { error } = await supabase.from('invoices').insert({
+    await service.create({
       clinic_id: profile.value.clinic_id,
       patient_id: newInvoice.value.patient_id,
       invoice_number: invoiceNumber,
@@ -296,11 +299,6 @@ async function createInvoice() {
       notes: newInvoice.value.notes || null,
     })
 
-    if (error) {
-      toast.error('Failed to create invoice')
-      return
-    }
-
     toast.success('Invoice created')
     await loadInvoices()
     showNewDialog.value = false
@@ -310,8 +308,9 @@ async function createInvoice() {
       notes: '',
       due_date: '',
     }
-  } catch {
-    toast.error('Failed to create invoice')
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Failed to create invoice'
+    toast.error(message)
   } finally {
     isSubmitting.value = false
   }

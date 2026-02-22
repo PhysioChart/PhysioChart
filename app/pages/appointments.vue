@@ -1,186 +1,45 @@
-<script setup lang="ts">
-import { CalendarDays, CalendarPlus, MessageCircle } from 'lucide-vue-next'
-import { toast } from 'vue-sonner'
-import type { Tables } from '~/types/database'
-
-const supabase = useSupabase()
-const { profile } = useAuth()
-const route = useRoute()
-
-const appointments = ref<
-  (Tables<'appointments'> & {
-    patient: Tables<'patients'> | null
-    therapist: Tables<'profiles'> | null
-  })[]
->([])
-const patients = ref<Tables<'patients'>[]>([])
-const therapists = ref<Tables<'profiles'>[]>([])
-const isLoading = ref(true)
-const showNewDialog = ref(route.query.action === 'new')
-const viewMode = ref<'today' | 'all'>('today')
-
-const newAppointment = ref({
-  patient_id: '',
-  therapist_id: '',
-  date: new Date().toISOString().split('T')[0],
-  start_time: '09:00',
-  duration: '30',
-  notes: '',
-})
-const isSubmitting = ref(false)
-
-async function loadData() {
-  if (!profile.value) return
-  isLoading.value = true
-  const clinicId = profile.value.clinic_id
-
-  const [apptRes, patientRes, staffRes] = await Promise.all([
-    supabase
-      .from('appointments')
-      .select('*, patient:patients(*), therapist:profiles(*)')
-      .eq('clinic_id', clinicId)
-      .order('start_time', { ascending: true }),
-    supabase
-      .from('patients')
-      .select('*')
-      .eq('clinic_id', clinicId)
-      .eq('is_archived', false)
-      .order('full_name'),
-    supabase
-      .from('profiles')
-      .select('*')
-      .eq('clinic_id', clinicId)
-      .eq('is_active', true)
-      .order('full_name'),
-  ])
-
-  appointments.value = (apptRes.data ?? []) as typeof appointments.value
-  patients.value = patientRes.data ?? []
-  therapists.value = staffRes.data ?? []
-  isLoading.value = false
-}
-
-const filteredAppointments = computed(() => {
-  if (viewMode.value === 'today') {
-    const today = new Date().toISOString().split('T')[0] ?? ''
-    return appointments.value.filter((a) => a.start_time.startsWith(today))
-  }
-  return appointments.value
-})
-
-async function createAppointment() {
-  if (!profile.value || !newAppointment.value.patient_id) return
-  isSubmitting.value = true
-
-  const startDateTime = `${newAppointment.value.date}T${newAppointment.value.start_time}:00`
-  const endDate = new Date(startDateTime)
-  endDate.setMinutes(endDate.getMinutes() + parseInt(newAppointment.value.duration))
-
-  const { error } = await supabase.from('appointments').insert({
-    clinic_id: profile.value.clinic_id,
-    patient_id: newAppointment.value.patient_id,
-    therapist_id: newAppointment.value.therapist_id || null,
-    start_time: new Date(startDateTime).toISOString(),
-    end_time: endDate.toISOString(),
-    notes: newAppointment.value.notes || null,
-  })
-
-  isSubmitting.value = false
-  if (error) {
-    toast.error('Failed to book appointment')
-    return
-  }
-
-  toast.success('Appointment booked')
-  showNewDialog.value = false
-  newAppointment.value = {
-    patient_id: '',
-    therapist_id: '',
-    date: new Date().toISOString().split('T')[0],
-    start_time: '09:00',
-    duration: '30',
-    notes: '',
-  }
-  await loadData()
-}
-
-function formatTime(dateStr: string) {
-  return new Date(dateStr).toLocaleTimeString('en-IN', {
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: true,
-  })
-}
-
-function formatDate(dateStr: string) {
-  return new Date(dateStr).toLocaleDateString('en-IN', {
-    day: 'numeric',
-    month: 'short',
-  })
-}
-
-function getStatusColor(status: string) {
-  switch (status) {
-    case 'completed':
-      return 'bg-green-500/10 text-green-700'
-    case 'cancelled':
-      return 'bg-red-500/10 text-red-700'
-    case 'no_show':
-      return 'bg-amber-500/10 text-amber-700'
-    default:
-      return 'bg-blue-500/10 text-blue-700'
-  }
-}
-
-async function updateStatus(id: string, status: 'completed' | 'cancelled' | 'no_show') {
-  const { error } = await supabase.from('appointments').update({ status }).eq('id', id)
-  if (error) {
-    toast.error('Failed to update status')
-    return
-  }
-  toast.success(`Appointment marked as ${status.replace('_', ' ')}`)
-  await loadData()
-}
-
-function getWhatsAppLink(patient: Tables<'patients'> | null, startTime: string) {
-  if (!patient) return ''
-  const phone = patient.phone.replace(/\D/g, '')
-  const date = new Date(startTime)
-  const dateStr = date.toLocaleDateString('en-IN', { day: 'numeric', month: 'long' })
-  const timeStr = date.toLocaleTimeString('en-IN', {
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: true,
-  })
-  const msg = encodeURIComponent(
-    `Hi ${patient.full_name}, this is a reminder for your appointment on ${dateStr} at ${timeStr}. Please arrive 10 minutes early. Thank you!`,
-  )
-  return `https://wa.me/${phone}?text=${msg}`
-}
-
-onMounted(loadData)
-</script>
-
 <template>
   <div class="space-y-4">
+    <!-- Header -->
     <div class="flex items-center justify-between">
       <div>
         <h1 class="text-2xl font-bold tracking-tight">Appointments</h1>
         <p class="text-muted-foreground text-sm">Manage your clinic's schedule</p>
       </div>
+      <Button @click="openBookingDialog()">
+        <CalendarPlus class="mr-2 h-4 w-4" />
+        Book Appointment
+      </Button>
       <Dialog v-model:open="showNewDialog">
-        <DialogTrigger as-child>
-          <Button>
-            <CalendarPlus class="mr-2 h-4 w-4" />
-            Book Appointment
-          </Button>
-        </DialogTrigger>
-        <DialogContent class="sm:max-w-md">
+        <DialogContent :class="bookingMode === 'series' ? 'sm:max-w-lg' : 'sm:max-w-md'">
           <DialogHeader>
             <DialogTitle>Book Appointment</DialogTitle>
             <DialogDescription>Schedule a new appointment for a patient.</DialogDescription>
           </DialogHeader>
           <form class="space-y-4" @submit.prevent="createAppointment">
+            <!-- Booking Type Toggle -->
+            <div>
+              <Label>Booking Type</Label>
+              <div class="mt-1 flex gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  :variant="bookingMode === 'single' ? 'default' : 'outline'"
+                  @click="bookingMode = 'single'"
+                >
+                  Single
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  :variant="bookingMode === 'series' ? 'default' : 'outline'"
+                  @click="bookingMode = 'series'"
+                >
+                  Series
+                </Button>
+              </div>
+            </div>
+
             <div>
               <Label>Patient *</Label>
               <Select v-model="newAppointment.patient_id">
@@ -209,7 +68,7 @@ onMounted(loadData)
             </div>
             <div class="grid grid-cols-3 gap-3">
               <div>
-                <Label>Date *</Label>
+                <Label>{{ bookingMode === 'series' ? 'Start Date *' : 'Date *' }}</Label>
                 <Input v-model="newAppointment.date" type="date" />
               </div>
               <div>
@@ -232,14 +91,86 @@ onMounted(loadData)
                 </Select>
               </div>
             </div>
+
+            <!-- Series Options -->
+            <template v-if="bookingMode === 'series'">
+              <div>
+                <Label>Days of Week *</Label>
+                <div class="mt-1 flex flex-wrap gap-1.5">
+                  <Button
+                    v-for="(dayName, dayIndex) in DAY_NAMES"
+                    :key="dayIndex"
+                    type="button"
+                    size="sm"
+                    :variant="seriesConfig.days.includes(dayIndex) ? 'default' : 'outline'"
+                    class="h-8 w-11 text-xs"
+                    @click="toggleDay(dayIndex)"
+                  >
+                    {{ dayName }}
+                  </Button>
+                </div>
+              </div>
+              <div>
+                <Label>Total Sessions *</Label>
+                <Input
+                  v-model.number="seriesConfig.totalSessions"
+                  type="number"
+                  min="2"
+                  max="60"
+                  class="w-24"
+                />
+              </div>
+
+              <!-- Preview -->
+              <div
+                v-if="seriesDates.length > 0"
+                class="max-h-40 overflow-y-auto rounded-md border p-3"
+              >
+                <p class="text-muted-foreground mb-2 text-xs">
+                  {{ seriesDates.length }} sessions will be created:
+                </p>
+                <div class="space-y-1">
+                  <div
+                    v-for="(date, i) in seriesDates"
+                    :key="date"
+                    class="flex items-center justify-between text-xs"
+                  >
+                    <span>
+                      {{ i + 1 }}. {{ formatSeriesDate(date) }} at
+                      {{ newAppointment.start_time }}
+                    </span>
+                    <Badge v-if="conflicts.has(date)" variant="destructive" class="h-4 text-[10px]">
+                      Conflict
+                    </Badge>
+                  </div>
+                </div>
+                <p v-if="conflicts.size > 0" class="mt-2 text-xs text-amber-600">
+                  {{ conflicts.size }} slot(s) have conflicts. You can still proceed.
+                </p>
+              </div>
+            </template>
+
             <div>
               <Label>Notes</Label>
               <Textarea v-model="newAppointment.notes" placeholder="Optional notes" rows="2" />
             </div>
             <DialogFooter>
-              <Button type="button" variant="outline" @click="showNewDialog = false">Cancel</Button>
-              <Button type="submit" :disabled="isSubmitting || !newAppointment.patient_id">
-                {{ isSubmitting ? 'Booking...' : 'Book Appointment' }}
+              <Button type="button" variant="outline" @click="resetForm()">Cancel</Button>
+              <Button
+                type="submit"
+                :disabled="
+                  isSubmitting ||
+                  !newAppointment.patient_id ||
+                  (bookingMode === 'series' && seriesConfig.days.length === 0)
+                "
+              >
+                {{
+                  isSubmitting
+                    ? 'Booking...'
+                    : bookingMode === 'series'
+                      ? `Book ${seriesDates.length} Appointments`
+                      : 'Book Appointment'
+                }}
               </Button>
             </DialogFooter>
           </form>
@@ -247,39 +178,84 @@ onMounted(loadData)
       </Dialog>
     </div>
 
-    <!-- View Toggle -->
-    <div class="flex gap-2">
-      <Button
-        :variant="viewMode === 'today' ? 'default' : 'outline'"
-        size="sm"
-        @click="viewMode = 'today'"
-      >
-        Today
-      </Button>
-      <Button
-        :variant="viewMode === 'all' ? 'default' : 'outline'"
-        size="sm"
-        @click="viewMode = 'all'"
-      >
-        All
-      </Button>
+    <!-- View Controls -->
+    <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <Tabs v-model="viewMode" class="w-auto">
+        <TabsList>
+          <TabsTrigger value="list">List</TabsTrigger>
+          <TabsTrigger value="day">Day</TabsTrigger>
+          <TabsTrigger value="week" class="hidden md:inline-flex">Week</TabsTrigger>
+        </TabsList>
+      </Tabs>
+
+      <!-- List sub-filter -->
+      <div v-if="viewMode === 'list'" class="flex gap-2">
+        <Button
+          :variant="listFilter === 'today' ? 'default' : 'outline'"
+          size="sm"
+          @click="listFilter = 'today'"
+        >
+          Today
+        </Button>
+        <Button
+          :variant="listFilter === 'all' ? 'default' : 'outline'"
+          size="sm"
+          @click="listFilter = 'all'"
+        >
+          All
+        </Button>
+      </div>
+
+      <!-- Calendar navigation -->
+      <CalendarNavigation
+        v-if="viewMode === 'day'"
+        :label="dayViewLabel"
+        @prev="goToPrevDay"
+        @next="goToNextDay"
+        @today="goToToday"
+      />
+      <CalendarNavigation
+        v-if="viewMode === 'week'"
+        :label="weekViewLabel"
+        @prev="goToPrevWeek"
+        @next="goToNextWeek"
+        @today="goToToday"
+      />
     </div>
 
-    <!-- Appointments List -->
-    <Card>
+    <!-- Therapist color legend -->
+    <div v-if="viewMode !== 'list' && therapists.length > 0" class="flex flex-wrap gap-3">
+      <div v-for="t in therapists" :key="t.id" class="flex items-center gap-1.5 text-xs">
+        <span
+          :class="[
+            getTherapistColor(t.id, therapistColorMap).bg,
+            getTherapistColor(t.id, therapistColorMap).border,
+            'h-3 w-3 rounded-sm border-l-2',
+          ]"
+        />
+        <span class="text-muted-foreground">{{ t.full_name }}</span>
+      </div>
+    </div>
+
+    <!-- Loading -->
+    <Card v-if="isLoading">
+      <CardContent class="space-y-3 p-6">
+        <Skeleton v-for="i in 5" :key="i" class="h-16 w-full" />
+      </CardContent>
+    </Card>
+
+    <!-- List View -->
+    <Card v-else-if="viewMode === 'list'">
       <CardContent class="p-0">
-        <div v-if="isLoading" class="space-y-3 p-6">
-          <Skeleton v-for="i in 5" :key="i" class="h-16 w-full" />
-        </div>
         <div
-          v-else-if="filteredAppointments.length === 0"
+          v-if="filteredAppointments.length === 0"
           class="flex flex-col items-center justify-center py-12 text-center"
         >
           <CalendarDays class="text-muted-foreground/50 mb-3 h-10 w-10" />
           <p class="text-muted-foreground text-sm">
-            {{ viewMode === 'today' ? 'No appointments today' : 'No appointments yet' }}
+            {{ listFilter === 'today' ? 'No appointments today' : 'No appointments yet' }}
           </p>
-          <Button variant="outline" class="mt-3" @click="showNewDialog = true">
+          <Button variant="outline" class="mt-3" @click="openBookingDialog()">
             Book an appointment
           </Button>
         </div>
@@ -302,9 +278,14 @@ onMounted(loadData)
                 <span v-if="appt.notes"> &middot; {{ appt.notes }}</span>
               </p>
             </div>
-            <Badge :class="getStatusColor(appt.status)" variant="secondary" class="capitalize">
-              {{ appt.status.replace('_', ' ') }}
-            </Badge>
+            <div class="flex items-center gap-2">
+              <Badge :class="getStatusColor(appt.status)" variant="secondary" class="capitalize">
+                {{ appt.status.replace('_', ' ') }}
+              </Badge>
+              <Badge v-if="appt.series_id" variant="outline" class="text-[10px]">
+                {{ appt.series_index }}/{{ getSeriesTotal(appt.series_id) }}
+              </Badge>
+            </div>
             <div class="flex gap-1">
               <Tooltip v-if="appt.patient">
                 <TooltipTrigger as-child>
@@ -334,6 +315,15 @@ onMounted(loadData)
                   <DropdownMenuItem @click="updateStatus(appt.id, 'no_show')">
                     Mark No-Show
                   </DropdownMenuItem>
+                  <template v-if="appt.series_id">
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      class="text-destructive"
+                      @click="cancelRemainingSeries(appt.series_id!)"
+                    >
+                      Cancel Remaining in Series
+                    </DropdownMenuItem>
+                  </template>
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
@@ -341,5 +331,375 @@ onMounted(loadData)
         </div>
       </CardContent>
     </Card>
+
+    <!-- Day View -->
+    <Card v-else-if="viewMode === 'day'">
+      <CardContent class="p-0">
+        <CalendarDayView
+          :appointments="appointments"
+          :date-str="currentDay.dateStr"
+          :color-map="therapistColorMap"
+          @click-slot="handleSlotClick"
+          @click-appointment="handleAppointmentClick"
+        />
+      </CardContent>
+    </Card>
+
+    <!-- Week View -->
+    <Card v-else-if="viewMode === 'week'">
+      <CardContent class="p-0">
+        <CalendarWeekView
+          :appointments="appointments"
+          :week-days="weekDays"
+          :color-map="therapistColorMap"
+          @click-slot="handleSlotClick"
+          @click-appointment="handleAppointmentClick"
+        />
+      </CardContent>
+    </Card>
+
+    <!-- Appointment Detail Sheet -->
+    <AppointmentDetailSheet
+      v-model:open="showDetailSheet"
+      :appointment="selectedAppointment"
+      @update-status="updateStatus"
+    />
   </div>
 </template>
+
+<script setup lang="ts">
+import { watchDebounced } from '@vueuse/core'
+import { CalendarDays, CalendarPlus, MessageCircle } from 'lucide-vue-next'
+import { toast } from 'vue-sonner'
+import type { Tables } from '~/types/database'
+import type { CalendarAppointment } from '~/composables/useCalendar'
+import {
+  formatTime,
+  formatDate,
+  formatSeriesDate,
+  getStatusColor,
+  getWhatsAppLink,
+} from '~/lib/formatters'
+
+const supabase = useSupabase()
+const { profile } = useAuth()
+const route = useRoute()
+
+const appointments = ref<CalendarAppointment[]>([])
+const patients = ref<Tables<'patients'>[]>([])
+const therapists = ref<Tables<'profiles'>[]>([])
+const isLoading = ref(true)
+const showNewDialog = ref(false)
+const viewMode = ref<'list' | 'day' | 'week'>('list')
+const listFilter = ref<'today' | 'all'>('today')
+
+// Calendar composable
+const {
+  weekDays,
+  currentDay,
+  dayViewLabel,
+  weekViewLabel,
+  goToToday,
+  goToPrevDay,
+  goToNextDay,
+  goToPrevWeek,
+  goToNextWeek,
+  buildTherapistColorMap,
+  getTherapistColor,
+} = useCalendar()
+
+const therapistColorMap = computed(() => buildTherapistColorMap(therapists.value))
+
+// Appointment detail sheet
+const showDetailSheet = ref(false)
+const selectedAppointment = ref<CalendarAppointment | null>(null)
+
+function handleAppointmentClick(appt: CalendarAppointment) {
+  selectedAppointment.value = appt
+  showDetailSheet.value = true
+}
+
+function handleSlotClick(date: string, time: string) {
+  newAppointment.value.date = date
+  newAppointment.value.start_time = time
+  bookingMode.value = 'single'
+  openBookingDialog()
+}
+
+function openBookingDialog() {
+  loadDropdowns()
+  showNewDialog.value = true
+}
+
+// Booking form
+const newAppointment = ref({
+  patient_id: '',
+  therapist_id: '',
+  date: new Date().toISOString().split('T')[0],
+  start_time: '09:00',
+  duration: '30',
+  notes: '',
+})
+const isSubmitting = ref(false)
+
+// Recurring appointments
+const bookingMode = ref<'single' | 'series'>('single')
+const seriesConfig = ref({
+  days: [] as number[],
+  totalSessions: 10,
+})
+
+const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+
+function toggleDay(day: number) {
+  const idx = seriesConfig.value.days.indexOf(day)
+  if (idx === -1) {
+    seriesConfig.value.days.push(day)
+    seriesConfig.value.days.sort()
+  } else {
+    seriesConfig.value.days.splice(idx, 1)
+  }
+}
+
+const seriesDates = computed(() => {
+  if (bookingMode.value !== 'series') return []
+  if (seriesConfig.value.days.length === 0) return []
+  if (!newAppointment.value.date) return []
+
+  const dates: string[] = []
+  const current = new Date(newAppointment.value.date + 'T00:00:00')
+  const total = seriesConfig.value.totalSessions
+  let safety = 0
+
+  while (dates.length < total && safety < 365) {
+    if (seriesConfig.value.days.includes(current.getDay())) {
+      dates.push(current.toLocaleDateString('en-CA'))
+    }
+    current.setDate(current.getDate() + 1)
+    safety++
+  }
+  return dates
+})
+
+// Conflict detection
+const conflicts = ref<Set<string>>(new Set())
+
+watchDebounced(
+  [seriesDates, () => newAppointment.value.therapist_id],
+  async () => {
+    if (seriesDates.value.length === 0 || !newAppointment.value.therapist_id || !profile.value) {
+      conflicts.value = new Set()
+      return
+    }
+
+    const firstDate = seriesDates.value[0]!
+    const lastDate = seriesDates.value[seriesDates.value.length - 1]!
+
+    const { data } = await supabase
+      .from('appointments')
+      .select('start_time')
+      .eq('clinic_id', profile.value.clinic_id)
+      .eq('therapist_id', newAppointment.value.therapist_id)
+      .eq('status', 'scheduled')
+      .gte('start_time', `${firstDate}T00:00:00`)
+      .lte('start_time', `${lastDate}T23:59:59`)
+
+    const existing = new Set(
+      (data ?? [])
+        .filter((a) => {
+          const d = new Date(a.start_time)
+          const t = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+          return t === newAppointment.value.start_time
+        })
+        .map((a) => new Date(a.start_time).toLocaleDateString('en-CA')),
+    )
+
+    conflicts.value = existing
+  },
+  { debounce: 300 },
+)
+
+// Series totals for badge display
+const seriesTotals = computed(() => {
+  const map = new Map<string, number>()
+  for (const a of appointments.value) {
+    if (a.series_id) {
+      map.set(a.series_id, (map.get(a.series_id) ?? 0) + 1)
+    }
+  }
+  return map
+})
+
+function getSeriesTotal(seriesId: string): number {
+  return seriesTotals.value.get(seriesId) ?? 0
+}
+
+// Data loading — only appointments on page load
+async function loadAppointments() {
+  if (!profile.value) return
+  isLoading.value = true
+
+  const { data } = await supabase
+    .from('appointments')
+    .select('*, patient:patients(*), therapist:profiles(*)')
+    .eq('clinic_id', profile.value.clinic_id)
+    .order('start_time', { ascending: true })
+
+  appointments.value = (data ?? []) as CalendarAppointment[]
+  isLoading.value = false
+}
+
+// Patients + therapists loaded lazily (for booking dialog + calendar colors)
+let dropdownsLoaded = false
+
+async function loadDropdowns() {
+  if (dropdownsLoaded || !profile.value) return
+  dropdownsLoaded = true
+  const clinicId = profile.value.clinic_id
+
+  const [patientRes, staffRes] = await Promise.all([
+    supabase
+      .from('patients')
+      .select('*')
+      .eq('clinic_id', clinicId)
+      .eq('is_archived', false)
+      .order('full_name'),
+    supabase
+      .from('profiles')
+      .select('*')
+      .eq('clinic_id', clinicId)
+      .eq('is_active', true)
+      .order('full_name'),
+  ])
+
+  patients.value = patientRes.data ?? []
+  therapists.value = staffRes.data ?? []
+}
+
+const filteredAppointments = computed(() => {
+  if (listFilter.value === 'today') {
+    const today = new Date().toLocaleDateString('en-CA')
+    return appointments.value.filter(
+      (a) => new Date(a.start_time).toLocaleDateString('en-CA') === today,
+    )
+  }
+  return appointments.value
+})
+
+// Create appointment (single or series)
+async function createAppointment() {
+  if (!profile.value || !newAppointment.value.patient_id) return
+  isSubmitting.value = true
+
+  try {
+    if (bookingMode.value === 'single') {
+      const startDateTime = `${newAppointment.value.date}T${newAppointment.value.start_time}:00`
+      const endDate = new Date(startDateTime)
+      endDate.setMinutes(endDate.getMinutes() + parseInt(newAppointment.value.duration))
+
+      const { error } = await supabase.from('appointments').insert({
+        clinic_id: profile.value.clinic_id,
+        patient_id: newAppointment.value.patient_id,
+        therapist_id: newAppointment.value.therapist_id || null,
+        start_time: new Date(startDateTime).toISOString(),
+        end_time: endDate.toISOString(),
+        notes: newAppointment.value.notes || null,
+      })
+
+      if (error) {
+        toast.error('Failed to book appointment')
+        return
+      }
+      toast.success('Appointment booked')
+    } else {
+      const seriesId = crypto.randomUUID()
+      const durationMin = parseInt(newAppointment.value.duration)
+
+      const rows = seriesDates.value.map((dateStr, index) => {
+        const startDateTime = `${dateStr}T${newAppointment.value.start_time}:00`
+        const endDate = new Date(startDateTime)
+        endDate.setMinutes(endDate.getMinutes() + durationMin)
+
+        return {
+          clinic_id: profile.value!.clinic_id,
+          patient_id: newAppointment.value.patient_id,
+          therapist_id: newAppointment.value.therapist_id || null,
+          start_time: new Date(startDateTime).toISOString(),
+          end_time: endDate.toISOString(),
+          notes: newAppointment.value.notes || null,
+          series_id: seriesId,
+          series_index: index + 1,
+        }
+      })
+
+      const { error } = await supabase.from('appointments').insert(rows)
+
+      if (error) {
+        toast.error('Failed to book appointment series')
+        return
+      }
+      toast.success(`${rows.length} appointments booked`)
+    }
+
+    await loadAppointments()
+    resetForm()
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Unknown error'
+    toast.error(`Booking failed: ${message}`)
+  } finally {
+    isSubmitting.value = false
+  }
+}
+
+function resetForm() {
+  showNewDialog.value = false
+  bookingMode.value = 'single'
+  seriesConfig.value = { days: [], totalSessions: 10 }
+  conflicts.value = new Set()
+  newAppointment.value = {
+    patient_id: '',
+    therapist_id: '',
+    date: new Date().toISOString().split('T')[0],
+    start_time: '09:00',
+    duration: '30',
+    notes: '',
+  }
+}
+
+// Status updates
+async function updateStatus(id: string, status: 'completed' | 'cancelled' | 'no_show') {
+  const { error } = await supabase.from('appointments').update({ status }).eq('id', id)
+  if (error) {
+    toast.error('Failed to update status')
+    return
+  }
+  toast.success(`Appointment marked as ${status.replace('_', ' ')}`)
+  showDetailSheet.value = false
+  await loadAppointments()
+}
+
+async function cancelRemainingSeries(seriesId: string) {
+  const { error } = await supabase
+    .from('appointments')
+    .update({ status: 'cancelled' as const })
+    .eq('series_id', seriesId)
+    .eq('status', 'scheduled')
+
+  if (error) {
+    toast.error('Failed to cancel series')
+    return
+  }
+  toast.success('Remaining appointments in series cancelled')
+  await loadAppointments()
+}
+
+// Load dropdowns when switching to calendar views
+watch(viewMode, (mode) => {
+  if (mode !== 'list') loadDropdowns()
+})
+
+onMounted(async () => {
+  await loadAppointments()
+  if (route.query.action === 'new') openBookingDialog()
+})
+</script>

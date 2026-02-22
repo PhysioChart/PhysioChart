@@ -1,142 +1,3 @@
-<script setup lang="ts">
-import { Building2, Users, UserPlus, Trash2, Shield } from 'lucide-vue-next'
-import { toast } from 'vue-sonner'
-import type { Tables } from '~/types/database'
-
-const supabase = useSupabase()
-const { clinic, profile, isAdmin, fetchProfile } = useAuth()
-
-// Clinic form
-const clinicForm = ref({
-  name: '',
-  address: '',
-  phone: '',
-  email: '',
-  logo_url: '',
-})
-
-const isSavingClinic = ref(false)
-
-// Staff management
-const staffMembers = ref<Tables<'profiles'>[]>([])
-const isLoadingStaff = ref(true)
-const showInviteDialog = ref(false)
-const inviteForm = ref({
-  email: '',
-  full_name: '',
-  role: 'staff' as 'admin' | 'staff',
-  password: '',
-})
-const isInviting = ref(false)
-
-function loadClinicForm() {
-  if (!clinic.value) return
-  clinicForm.value = {
-    name: clinic.value.name,
-    address: clinic.value.address ?? '',
-    phone: clinic.value.phone ?? '',
-    email: clinic.value.email ?? '',
-    logo_url: clinic.value.logo_url ?? '',
-  }
-}
-
-async function saveClinicProfile() {
-  if (!clinic.value || !isAdmin.value) return
-  isSavingClinic.value = true
-
-  const { error } = await supabase
-    .from('clinics')
-    .update({
-      name: clinicForm.value.name,
-      address: clinicForm.value.address || null,
-      phone: clinicForm.value.phone || null,
-      email: clinicForm.value.email || null,
-      logo_url: clinicForm.value.logo_url || null,
-    })
-    .eq('id', clinic.value.id)
-
-  isSavingClinic.value = false
-  if (error) {
-    toast.error('Failed to update clinic profile')
-    return
-  }
-
-  toast.success('Clinic profile updated')
-  await fetchProfile()
-}
-
-async function loadStaff() {
-  if (!profile.value) return
-  isLoadingStaff.value = true
-
-  const { data } = await supabase
-    .from('profiles')
-    .select('*')
-    .eq('clinic_id', profile.value.clinic_id)
-    .order('created_at')
-
-  staffMembers.value = data ?? []
-  isLoadingStaff.value = false
-}
-
-async function inviteStaffMember() {
-  if (
-    !profile.value ||
-    !inviteForm.value.email ||
-    !inviteForm.value.full_name ||
-    !inviteForm.value.password
-  )
-    return
-  isInviting.value = true
-
-  // Sign up the staff member via Supabase Auth
-  // The trigger will auto-create their profile
-  const { error } = await supabase.auth.signUp({
-    email: inviteForm.value.email,
-    password: inviteForm.value.password,
-    options: {
-      data: {
-        clinic_id: profile.value.clinic_id,
-        full_name: inviteForm.value.full_name,
-        role: inviteForm.value.role,
-      },
-    },
-  })
-
-  isInviting.value = false
-  if (error) {
-    toast.error(error.message)
-    return
-  }
-
-  toast.success('Staff member added')
-  showInviteDialog.value = false
-  inviteForm.value = { email: '', full_name: '', role: 'staff', password: '' }
-  await loadStaff()
-}
-
-async function deactivateStaff(staffId: string) {
-  if (!isAdmin.value || staffId === profile.value?.id) return
-
-  const { error } = await supabase.from('profiles').update({ is_active: false }).eq('id', staffId)
-
-  if (error) {
-    toast.error('Failed to deactivate staff member')
-    return
-  }
-
-  toast.success('Staff member deactivated')
-  await loadStaff()
-}
-
-onMounted(() => {
-  loadClinicForm()
-  loadStaff()
-})
-
-watch(clinic, loadClinicForm)
-</script>
-
 <template>
   <div class="space-y-6">
     <div>
@@ -361,3 +222,157 @@ watch(clinic, loadClinicForm)
     </Tabs>
   </div>
 </template>
+
+<script setup lang="ts">
+import { Building2, Users, UserPlus, Trash2, Shield } from 'lucide-vue-next'
+import { toast } from 'vue-sonner'
+import type { Tables } from '~/types/database'
+
+const supabase = useSupabase()
+const { clinic, profile, isAdmin, fetchProfile } = useAuth()
+
+// Clinic form
+const clinicForm = ref({
+  name: '',
+  address: '',
+  phone: '',
+  email: '',
+  logo_url: '',
+})
+
+const isSavingClinic = ref(false)
+
+// Staff management
+const staffMembers = ref<Tables<'profiles'>[]>([])
+const isLoadingStaff = ref(true)
+const showInviteDialog = ref(false)
+const inviteForm = ref({
+  email: '',
+  full_name: '',
+  role: 'staff' as 'admin' | 'staff',
+  password: '',
+})
+const isInviting = ref(false)
+
+function loadClinicForm() {
+  if (!clinic.value) return
+  clinicForm.value = {
+    name: clinic.value.name,
+    address: clinic.value.address ?? '',
+    phone: clinic.value.phone ?? '',
+    email: clinic.value.email ?? '',
+    logo_url: clinic.value.logo_url ?? '',
+  }
+}
+
+async function saveClinicProfile() {
+  if (!clinic.value || !isAdmin.value) return
+  isSavingClinic.value = true
+
+  try {
+    const { error } = await supabase
+      .from('clinics')
+      .update({
+        name: clinicForm.value.name,
+        address: clinicForm.value.address || null,
+        phone: clinicForm.value.phone || null,
+        email: clinicForm.value.email || null,
+        logo_url: clinicForm.value.logo_url || null,
+      })
+      .eq('id', clinic.value.id)
+
+    if (error) {
+      toast.error('Failed to update clinic profile')
+      return
+    }
+
+    toast.success('Clinic profile updated')
+    await fetchProfile()
+  } catch {
+    toast.error('Failed to update clinic profile')
+  } finally {
+    isSavingClinic.value = false
+  }
+}
+
+async function loadStaff() {
+  if (!profile.value) return
+  isLoadingStaff.value = true
+
+  try {
+    const { data } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('clinic_id', profile.value.clinic_id)
+      .order('created_at')
+
+    staffMembers.value = data ?? []
+  } finally {
+    isLoadingStaff.value = false
+  }
+}
+
+async function inviteStaffMember() {
+  if (
+    !profile.value ||
+    !inviteForm.value.email ||
+    !inviteForm.value.full_name ||
+    !inviteForm.value.password
+  )
+    return
+  isInviting.value = true
+
+  try {
+    const { error } = await supabase.auth.signUp({
+      email: inviteForm.value.email,
+      password: inviteForm.value.password,
+      options: {
+        data: {
+          clinic_id: profile.value.clinic_id,
+          full_name: inviteForm.value.full_name,
+          role: inviteForm.value.role,
+        },
+      },
+    })
+
+    if (error) {
+      toast.error(error.message)
+      return
+    }
+
+    toast.success('Staff member added')
+    await loadStaff()
+    showInviteDialog.value = false
+    inviteForm.value = { email: '', full_name: '', role: 'staff', password: '' }
+  } catch {
+    toast.error('Failed to add staff member')
+  } finally {
+    isInviting.value = false
+  }
+}
+
+async function deactivateStaff(staffId: string) {
+  if (!isAdmin.value || staffId === profile.value?.id) return
+
+  try {
+    const { error } = await supabase.from('profiles').update({ is_active: false }).eq('id', staffId)
+
+    if (error) {
+      toast.error('Failed to deactivate staff member')
+      return
+    }
+
+    toast.success('Staff member deactivated')
+    await loadStaff()
+  } catch {
+    toast.error('Failed to deactivate staff member')
+  }
+}
+
+onMounted(() => {
+  loadClinicForm()
+  loadStaff()
+})
+
+watch(clinic, loadClinicForm)
+</script>

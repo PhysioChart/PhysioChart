@@ -1,3 +1,79 @@
+<template>
+  <div class="space-y-6">
+    <!-- Header -->
+    <div>
+      <h1 class="text-2xl font-bold tracking-tight">
+        Good
+        {{
+          new Date().getHours() < 12
+            ? 'morning'
+            : new Date().getHours() < 17
+              ? 'afternoon'
+              : 'evening'
+        }},
+        {{ profile?.full_name?.split(' ')[0] ?? 'Doctor' }}
+      </h1>
+      <p class="text-muted-foreground">
+        Here's what's happening at {{ clinic?.name ?? 'your clinic' }} today.
+      </p>
+    </div>
+
+    <!-- Stats -->
+    <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <Card v-for="stat in stats" :key="stat.title">
+        <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle class="text-sm font-medium">{{ stat.title }}</CardTitle>
+          <component :is="stat.icon" class="text-muted-foreground h-4 w-4" />
+        </CardHeader>
+        <CardContent>
+          <div class="text-2xl font-bold">{{ stat.value }}</div>
+          <p class="text-muted-foreground text-xs">{{ stat.description }}</p>
+        </CardContent>
+      </Card>
+    </div>
+
+    <!-- Quick Actions -->
+    <div>
+      <h2 class="mb-3 text-lg font-semibold">Quick Actions</h2>
+      <div class="grid gap-3 sm:grid-cols-3">
+        <Card
+          v-for="action in quickActions"
+          :key="action.title"
+          class="hover:bg-muted/50 cursor-pointer transition-colors"
+          @click="navigateTo(action.to)"
+        >
+          <CardContent class="flex items-center gap-3 p-4">
+            <div :class="[action.color, 'flex h-10 w-10 items-center justify-center rounded-lg']">
+              <component :is="action.icon" class="h-5 w-5 text-white" />
+            </div>
+            <span class="font-medium">{{ action.title }}</span>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+
+    <!-- Recent Activity Placeholder -->
+    <Card>
+      <CardHeader>
+        <CardTitle class="flex items-center gap-2">
+          <Clock class="h-5 w-5" />
+          Today's Agenda
+        </CardTitle>
+        <CardDescription>Your upcoming appointments for today</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div class="flex flex-col items-center justify-center py-8 text-center">
+          <CalendarDays class="text-muted-foreground/50 mb-3 h-10 w-10" />
+          <p class="text-muted-foreground text-sm">No appointments scheduled for today</p>
+          <Button variant="outline" class="mt-3" @click="navigateTo('/appointments?action=new')">
+            Book an appointment
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  </div>
+</template>
+
 <script setup lang="ts">
 import {
   Users,
@@ -89,79 +165,3 @@ onMounted(async () => {
   }
 })
 </script>
-
-<template>
-  <div class="space-y-6">
-    <!-- Header -->
-    <div>
-      <h1 class="text-2xl font-bold tracking-tight">
-        Good
-        {{
-          new Date().getHours() < 12
-            ? 'morning'
-            : new Date().getHours() < 17
-              ? 'afternoon'
-              : 'evening'
-        }},
-        {{ profile?.full_name?.split(' ')[0] ?? 'Doctor' }}
-      </h1>
-      <p class="text-muted-foreground">
-        Here's what's happening at {{ clinic?.name ?? 'your clinic' }} today.
-      </p>
-    </div>
-
-    <!-- Stats -->
-    <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-      <Card v-for="stat in stats" :key="stat.title">
-        <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle class="text-sm font-medium">{{ stat.title }}</CardTitle>
-          <component :is="stat.icon" class="text-muted-foreground h-4 w-4" />
-        </CardHeader>
-        <CardContent>
-          <div class="text-2xl font-bold">{{ stat.value }}</div>
-          <p class="text-muted-foreground text-xs">{{ stat.description }}</p>
-        </CardContent>
-      </Card>
-    </div>
-
-    <!-- Quick Actions -->
-    <div>
-      <h2 class="mb-3 text-lg font-semibold">Quick Actions</h2>
-      <div class="grid gap-3 sm:grid-cols-3">
-        <Card
-          v-for="action in quickActions"
-          :key="action.title"
-          class="hover:bg-muted/50 cursor-pointer transition-colors"
-          @click="navigateTo(action.to)"
-        >
-          <CardContent class="flex items-center gap-3 p-4">
-            <div :class="[action.color, 'flex h-10 w-10 items-center justify-center rounded-lg']">
-              <component :is="action.icon" class="h-5 w-5 text-white" />
-            </div>
-            <span class="font-medium">{{ action.title }}</span>
-          </CardContent>
-        </Card>
-      </div>
-    </div>
-
-    <!-- Recent Activity Placeholder -->
-    <Card>
-      <CardHeader>
-        <CardTitle class="flex items-center gap-2">
-          <Clock class="h-5 w-5" />
-          Today's Agenda
-        </CardTitle>
-        <CardDescription>Your upcoming appointments for today</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <div class="flex flex-col items-center justify-center py-8 text-center">
-          <CalendarDays class="text-muted-foreground/50 mb-3 h-10 w-10" />
-          <p class="text-muted-foreground text-sm">No appointments scheduled for today</p>
-          <Button variant="outline" class="mt-3" @click="navigateTo('/appointments?action=new')">
-            Book an appointment
-          </Button>
-        </div>
-      </CardContent>
-    </Card>
-  </div>
-</template>

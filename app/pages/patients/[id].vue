@@ -1,132 +1,3 @@
-<script setup lang="ts">
-import {
-  ArrowLeft,
-  Phone,
-  Mail,
-  MapPin,
-  Calendar,
-  AlertCircle,
-  User,
-  Pencil,
-  Archive,
-  ClipboardList,
-  Receipt,
-} from 'lucide-vue-next'
-import { toast } from 'vue-sonner'
-import type { Tables, MedicalHistory } from '~/types/database'
-
-const route = useRoute()
-const supabase = useSupabase()
-const { profile: _profile } = useAuth()
-
-const patient = ref<Tables<'patients'> | null>(null)
-const isLoading = ref(true)
-const isEditing = ref(false)
-const editForm = ref({
-  full_name: '',
-  phone: '',
-  email: '',
-  date_of_birth: '',
-  gender: '' as string,
-  address: '',
-  emergency_contact_name: '',
-  emergency_contact_phone: '',
-  notes: '',
-})
-
-async function loadPatient() {
-  const { data, error } = await supabase
-    .from('patients')
-    .select('*')
-    .eq('id', route.params.id as string)
-    .single()
-
-  if (error || !data) {
-    toast.error('Patient not found')
-    navigateTo('/patients')
-    return
-  }
-  patient.value = data
-  isLoading.value = false
-}
-
-function startEdit() {
-  if (!patient.value) return
-  editForm.value = {
-    full_name: patient.value.full_name,
-    phone: patient.value.phone,
-    email: patient.value.email ?? '',
-    date_of_birth: patient.value.date_of_birth ?? '',
-    gender: patient.value.gender ?? '',
-    address: patient.value.address ?? '',
-    emergency_contact_name: patient.value.emergency_contact_name ?? '',
-    emergency_contact_phone: patient.value.emergency_contact_phone ?? '',
-    notes: patient.value.notes ?? '',
-  }
-  isEditing.value = true
-}
-
-async function saveEdit() {
-  if (!patient.value || !editForm.value.full_name) return
-
-  const { error } = await supabase
-    .from('patients')
-    .update({
-      full_name: editForm.value.full_name,
-      phone: editForm.value.phone,
-      email: editForm.value.email || null,
-      date_of_birth: editForm.value.date_of_birth || null,
-      gender: (editForm.value.gender as 'male' | 'female' | 'other') || null,
-      address: editForm.value.address || null,
-      emergency_contact_name: editForm.value.emergency_contact_name || null,
-      emergency_contact_phone: editForm.value.emergency_contact_phone || null,
-      notes: editForm.value.notes || null,
-    })
-    .eq('id', patient.value.id)
-
-  if (error) {
-    toast.error('Failed to update patient')
-    return
-  }
-
-  toast.success('Patient updated')
-  isEditing.value = false
-  await loadPatient()
-}
-
-async function archivePatient() {
-  if (!patient.value) return
-
-  const { error } = await supabase
-    .from('patients')
-    .update({ is_archived: true })
-    .eq('id', patient.value.id)
-
-  if (error) {
-    toast.error('Failed to archive patient')
-    return
-  }
-
-  toast.success('Patient archived')
-  navigateTo('/patients')
-}
-
-function formatDate(dateStr: string | null) {
-  if (!dateStr) return '—'
-  return new Date(dateStr).toLocaleDateString('en-IN', {
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-  })
-}
-
-const medicalHistory = computed(() => {
-  return (patient.value?.medical_history as MedicalHistory) ?? {}
-})
-
-onMounted(loadPatient)
-</script>
-
 <template>
   <div class="space-y-6">
     <div v-if="isLoading" class="space-y-4">
@@ -144,7 +15,7 @@ onMounted(loadPatient)
           <div>
             <h1 class="text-2xl font-bold tracking-tight">{{ patient.full_name }}</h1>
             <p class="text-muted-foreground text-sm">
-              Patient since {{ formatDate(patient.created_at) }}
+              Patient since {{ formatDateLong(patient.created_at) }}
             </p>
           </div>
         </div>
@@ -256,7 +127,7 @@ onMounted(loadPatient)
                   <Calendar class="text-muted-foreground h-4 w-4" />
                   <div>
                     <dt class="text-muted-foreground text-xs">Date of Birth</dt>
-                    <dd class="text-sm font-medium">{{ formatDate(patient.date_of_birth) }}</dd>
+                    <dd class="text-sm font-medium">{{ formatDateLong(patient.date_of_birth) }}</dd>
                   </div>
                 </div>
                 <div class="flex items-center gap-2">
@@ -416,3 +287,137 @@ onMounted(loadPatient)
     </template>
   </div>
 </template>
+
+<script setup lang="ts">
+import {
+  ArrowLeft,
+  Phone,
+  Mail,
+  MapPin,
+  Calendar,
+  AlertCircle,
+  User,
+  Pencil,
+  Archive,
+  ClipboardList,
+  Receipt,
+} from 'lucide-vue-next'
+import { toast } from 'vue-sonner'
+import type { Tables, MedicalHistory } from '~/types/database'
+import { formatDateLong } from '~/lib/formatters'
+
+const route = useRoute()
+const supabase = useSupabase()
+const { profile: _profile } = useAuth()
+
+const patient = ref<Tables<'patients'> | null>(null)
+const isLoading = ref(true)
+const isEditing = ref(false)
+const editForm = ref({
+  full_name: '',
+  phone: '',
+  email: '',
+  date_of_birth: '',
+  gender: '' as string,
+  address: '',
+  emergency_contact_name: '',
+  emergency_contact_phone: '',
+  notes: '',
+})
+
+async function loadPatient() {
+  isLoading.value = true
+
+  try {
+    const { data, error } = await supabase
+      .from('patients')
+      .select('*')
+      .eq('id', route.params.id as string)
+      .single()
+
+    if (error || !data) {
+      toast.error('Patient not found')
+      navigateTo('/patients')
+      return
+    }
+    patient.value = data
+  } finally {
+    isLoading.value = false
+  }
+}
+
+function startEdit() {
+  if (!patient.value) return
+  editForm.value = {
+    full_name: patient.value.full_name,
+    phone: patient.value.phone,
+    email: patient.value.email ?? '',
+    date_of_birth: patient.value.date_of_birth ?? '',
+    gender: patient.value.gender ?? '',
+    address: patient.value.address ?? '',
+    emergency_contact_name: patient.value.emergency_contact_name ?? '',
+    emergency_contact_phone: patient.value.emergency_contact_phone ?? '',
+    notes: patient.value.notes ?? '',
+  }
+  isEditing.value = true
+}
+
+async function saveEdit() {
+  if (!patient.value || !editForm.value.full_name) return
+
+  try {
+    const { error } = await supabase
+      .from('patients')
+      .update({
+        full_name: editForm.value.full_name,
+        phone: editForm.value.phone,
+        email: editForm.value.email || null,
+        date_of_birth: editForm.value.date_of_birth || null,
+        gender: (editForm.value.gender as 'male' | 'female' | 'other') || null,
+        address: editForm.value.address || null,
+        emergency_contact_name: editForm.value.emergency_contact_name || null,
+        emergency_contact_phone: editForm.value.emergency_contact_phone || null,
+        notes: editForm.value.notes || null,
+      })
+      .eq('id', patient.value.id)
+
+    if (error) {
+      toast.error('Failed to update patient')
+      return
+    }
+
+    toast.success('Patient updated')
+    await loadPatient()
+    isEditing.value = false
+  } catch {
+    toast.error('Failed to update patient')
+  }
+}
+
+async function archivePatient() {
+  if (!patient.value) return
+
+  try {
+    const { error } = await supabase
+      .from('patients')
+      .update({ is_archived: true })
+      .eq('id', patient.value.id)
+
+    if (error) {
+      toast.error('Failed to archive patient')
+      return
+    }
+
+    toast.success('Patient archived')
+    navigateTo('/patients')
+  } catch {
+    toast.error('Failed to archive patient')
+  }
+}
+
+const medicalHistory = computed(() => {
+  return (patient.value?.medical_history as MedicalHistory) ?? {}
+})
+
+onMounted(loadPatient)
+</script>

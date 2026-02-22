@@ -222,6 +222,8 @@ export type Database = {
           end_time: string
           status: 'scheduled' | 'completed' | 'cancelled' | 'no_show'
           notes: string | null
+          series_id: string | null
+          series_index: number | null
           created_at: string
           updated_at: string
         }
@@ -235,6 +237,8 @@ export type Database = {
           end_time: string
           status?: 'scheduled' | 'completed' | 'cancelled' | 'no_show'
           notes?: string | null
+          series_id?: string | null
+          series_index?: number | null
           created_at?: string
           updated_at?: string
         }
@@ -246,6 +250,8 @@ export type Database = {
           end_time?: string
           status?: 'scheduled' | 'completed' | 'cancelled' | 'no_show'
           notes?: string | null
+          series_id?: string | null
+          series_index?: number | null
           updated_at?: string
         }
         Relationships: [

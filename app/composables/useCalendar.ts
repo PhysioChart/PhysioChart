@@ -4,20 +4,36 @@ import type { IAppointmentWithRelations } from '~/types/models/appointment.types
 export type CalendarAppointment = IAppointmentWithRelations
 
 const THERAPIST_COLORS = [
-  { bg: 'bg-blue-500/15', border: 'border-l-blue-500', text: 'text-blue-700' },
-  { bg: 'bg-emerald-500/15', border: 'border-l-emerald-500', text: 'text-emerald-700' },
-  { bg: 'bg-violet-500/15', border: 'border-l-violet-500', text: 'text-violet-700' },
-  { bg: 'bg-amber-500/15', border: 'border-l-amber-500', text: 'text-amber-700' },
-  { bg: 'bg-rose-500/15', border: 'border-l-rose-500', text: 'text-rose-700' },
-  { bg: 'bg-cyan-500/15', border: 'border-l-cyan-500', text: 'text-cyan-700' },
-  { bg: 'bg-orange-500/15', border: 'border-l-orange-500', text: 'text-orange-700' },
-  { bg: 'bg-pink-500/15', border: 'border-l-pink-500', text: 'text-pink-700' },
+  { bg: 'bg-blue-500/15', border: 'border-l-blue-500', text: 'text-blue-700 dark:text-blue-300' },
+  {
+    bg: 'bg-emerald-500/15',
+    border: 'border-l-emerald-500',
+    text: 'text-emerald-700 dark:text-emerald-300',
+  },
+  {
+    bg: 'bg-violet-500/15',
+    border: 'border-l-violet-500',
+    text: 'text-violet-700 dark:text-violet-300',
+  },
+  {
+    bg: 'bg-amber-500/15',
+    border: 'border-l-amber-500',
+    text: 'text-amber-700 dark:text-amber-300',
+  },
+  { bg: 'bg-rose-500/15', border: 'border-l-rose-500', text: 'text-rose-700 dark:text-rose-300' },
+  { bg: 'bg-cyan-500/15', border: 'border-l-cyan-500', text: 'text-cyan-700 dark:text-cyan-300' },
+  {
+    bg: 'bg-orange-500/15',
+    border: 'border-l-orange-500',
+    text: 'text-orange-700 dark:text-orange-300',
+  },
+  { bg: 'bg-pink-500/15', border: 'border-l-pink-500', text: 'text-pink-700 dark:text-pink-300' },
 ] as const
 
 const UNASSIGNED_COLOR = {
   bg: 'bg-zinc-500/15',
   border: 'border-l-zinc-400',
-  text: 'text-zinc-700',
+  text: 'text-muted-foreground',
 }
 
 export type TherapistColor = (typeof THERAPIST_COLORS)[number] | typeof UNASSIGNED_COLOR

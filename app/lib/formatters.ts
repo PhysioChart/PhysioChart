@@ -83,22 +83,22 @@ export function getStatusColor(
   switch (status) {
     case AppointmentStatus.COMPLETED:
     case InvoiceStatus.PAID:
-      return 'bg-green-500/10 text-green-700'
+      return 'bg-green-500/10 text-green-700 dark:text-green-300'
     case AppointmentStatus.CANCELLED:
     case TreatmentStatus.CANCELLED:
     case InvoiceStatus.CANCELLED:
     case InvoiceStatus.OVERDUE:
-      return 'bg-red-500/10 text-red-700'
+      return 'bg-red-500/10 text-red-700 dark:text-red-300'
     case AppointmentStatus.NO_SHOW:
     case InvoiceStatus.PARTIALLY_PAID:
-      return 'bg-amber-500/10 text-amber-700'
+      return 'bg-amber-500/10 text-amber-700 dark:text-amber-300'
     case TreatmentStatus.ACTIVE:
     case AppointmentStatus.SCHEDULED:
     case InvoiceStatus.DRAFT:
     case InvoiceStatus.SENT:
-      return 'bg-blue-500/10 text-blue-700'
+      return 'bg-blue-500/10 text-blue-700 dark:text-blue-300'
     default:
-      return 'bg-zinc-500/10 text-zinc-700'
+      return 'bg-zinc-500/10 text-muted-foreground'
   }
 }
 

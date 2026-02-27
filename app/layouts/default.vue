@@ -119,6 +119,7 @@
         <SidebarTrigger class="-ml-1" />
         <Separator orientation="vertical" class="mr-2 h-4" />
         <div class="flex-1" />
+        <ThemeToggle />
       </header>
       <main class="flex-1 p-4 md:p-6">
         <slot />

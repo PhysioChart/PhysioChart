@@ -15,6 +15,20 @@ export function appointmentService(supabase: SupabaseClient<Database>) {
     return (data ?? []) as IAppointmentWithRelations[]
   }
 
+  async function getByPatientId(patientId: string): Promise<IAppointmentWithRelations[]> {
+    const { data, error } = await supabase
+      .from('appointments')
+      .select(
+        '*, patient:patients(*), therapist:profiles(*), treatment_plan:treatment_plans(name, completed_sessions, total_sessions)',
+      )
+      .eq('patient_id', patientId)
+      // TODO: Add .order('appointment_date', { ascending: false }) once appointments.appointment_date exists.
+      .order('start_time', { ascending: false })
+
+    if (error) throw error
+    return (data ?? []) as IAppointmentWithRelations[]
+  }
+
   async function listForDate(
     clinicId: string,
     dateStr: string,
@@ -79,5 +93,14 @@ export function appointmentService(supabase: SupabaseClient<Database>) {
     return (data ?? []).map((a) => a.start_time)
   }
 
-  return { list, listForDate, create, createSeries, updateStatus, cancelSeries, findConflicts }
+  return {
+    list,
+    getByPatientId,
+    listForDate,
+    create,
+    createSeries,
+    updateStatus,
+    cancelSeries,
+    findConflicts,
+  }
 }

@@ -11,49 +11,72 @@ interface AuthState {
   isAdmin: Ref<boolean>
 }
 
-const authState: AuthState = {
-  user: ref(null),
-  profile: ref(null),
-  clinic: ref(null),
-  loading: ref(true),
-  isAuthenticated: computed(() => !!authState.user.value),
-  isAdmin: computed(() => authState.profile.value?.role === UserRole.ADMIN),
-}
-
-let initialized = false
-
 export function useAuth() {
   const supabase = useSupabase()
+  const user = useState<User | null>('auth:user', () => null)
+  const profile = useState<Tables<'profiles'> | null>('auth:profile', () => null)
+  const clinic = useState<Tables<'clinics'> | null>('auth:clinic', () => null)
+  const loading = useState<boolean>('auth:loading', () => true)
+  const initStatus = useState<'idle' | 'initializing' | 'done'>('auth:initStatus', () => 'idle')
+  const listenerAttached = useState<boolean>('auth:listenerAttached', () => false)
+
+  const authState: AuthState = {
+    user,
+    profile,
+    clinic,
+    loading,
+    isAuthenticated: computed(() => !!user.value),
+    isAdmin: computed(() => profile.value?.role === UserRole.ADMIN),
+  }
 
   async function fetchProfile() {
-    if (!authState.user.value) {
-      authState.profile.value = null
-      authState.clinic.value = null
+    if (!user.value) {
+      profile.value = null
+      clinic.value = null
       return
     }
 
-    const { data: profile } = await supabase
+    const { data: profileData } = await supabase
       .from('profiles')
       .select('*')
-      .eq('id', authState.user.value.id)
+      .eq('id', user.value.id)
       .single()
 
-    authState.profile.value = profile
+    authState.profile.value = profileData ?? null
 
-    if (profile?.clinic_id) {
-      const { data: clinic } = await supabase
+    if (profileData?.clinic_id) {
+      const { data: clinicData } = await supabase
         .from('clinics')
         .select('*')
-        .eq('id', profile.clinic_id)
+        .eq('id', profileData.clinic_id)
         .single()
 
-      authState.clinic.value = clinic
+      authState.clinic.value = clinicData ?? null
+    } else {
+      authState.clinic.value = null
     }
   }
 
   async function initialize() {
-    if (initialized) return
-    initialized = true
+    if (initStatus.value === 'done') return
+    if (initStatus.value === 'initializing') {
+      await new Promise<void>((resolve) => {
+        const stop = watch(
+          initStatus,
+          (status) => {
+            if (status !== 'initializing') {
+              stop()
+              resolve()
+            }
+          },
+          { immediate: true },
+        )
+      })
+      return
+    }
+
+    initStatus.value = 'initializing'
+    authState.loading.value = true
 
     try {
       const {
@@ -63,12 +86,19 @@ export function useAuth() {
       await fetchProfile()
     } finally {
       authState.loading.value = false
+      initStatus.value = 'done'
     }
 
-    supabase.auth.onAuthStateChange(async (_event, session) => {
-      authState.user.value = session?.user ?? null
-      await fetchProfile()
-    })
+    if (!listenerAttached.value) {
+      listenerAttached.value = true
+      supabase.auth.onAuthStateChange(async (event, session) => {
+        // initialize() already resolves the startup session + profile/clinic.
+        // Skip this event to avoid duplicate profile/clinic requests on page refresh.
+        if (event === 'INITIAL_SESSION') return
+        authState.user.value = session?.user ?? null
+        await fetchProfile()
+      })
+    }
   }
 
   async function signUp(clinicName: string, fullName: string, email: string, password: string) {

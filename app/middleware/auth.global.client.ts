@@ -14,6 +14,6 @@ export default defineNuxtRouteMiddleware(async (to) => {
   }
 
   if (isAuthenticated.value && isPublicPage) {
-    return navigateTo('/dashboard')
+    return navigateTo('/home')
   }
 })

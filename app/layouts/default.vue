@@ -5,7 +5,7 @@
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" as-child>
-              <NuxtLink to="/dashboard">
+              <NuxtLink to="/home">
                 <div
                   class="bg-primary text-primary-foreground flex aspect-square size-8 items-center justify-center rounded-lg"
                 >
@@ -146,7 +146,7 @@ const { profile, clinic, signOut, isAdmin } = useAuth()
 const route = useRoute()
 
 const navItems = [
-  { title: 'Dashboard', icon: LayoutDashboard, to: '/dashboard' },
+  { title: 'Home', icon: LayoutDashboard, to: '/home' },
   { title: 'Patients', icon: Users, to: '/patients' },
   { title: 'Appointments', icon: CalendarDays, to: '/appointments' },
   { title: 'Treatments', icon: ClipboardList, to: '/treatments' },

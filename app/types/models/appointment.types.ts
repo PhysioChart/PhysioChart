@@ -4,6 +4,10 @@ import type { AppointmentStatus } from '~/enums/appointment.enum'
 export interface IAppointmentWithRelations extends Tables<'appointments'> {
   patient: Tables<'patients'> | null
   therapist: Tables<'profiles'> | null
+  treatment_plan?: Pick<
+    Tables<'treatment_plans'>,
+    'name' | 'completed_sessions' | 'total_sessions'
+  > | null
 }
 
 export interface IAppointmentFilters {

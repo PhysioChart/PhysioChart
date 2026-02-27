@@ -260,7 +260,13 @@
         </TabsContent>
 
         <TabsContent value="appointments">
-          <Card>
+          <Card v-if="isLoadingAppointments">
+            <CardContent class="space-y-3 p-6">
+              <Skeleton v-for="i in 3" :key="i" class="h-24 w-full" />
+            </CardContent>
+          </Card>
+
+          <Card v-else-if="appointments.length === 0">
             <CardContent class="flex flex-col items-center justify-center py-12 text-center">
               <Calendar class="text-muted-foreground/50 mb-3 h-10 w-10" />
               <p class="text-muted-foreground text-sm">No appointments for this patient yet</p>
@@ -273,6 +279,94 @@
               </Button>
             </CardContent>
           </Card>
+
+          <div v-else class="space-y-6">
+            <div class="space-y-3">
+              <div class="flex items-center justify-between">
+                <p class="text-muted-foreground text-sm font-medium">Upcoming</p>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  @click="navigateTo('/appointments?action=new&patientId=' + patient?.id)"
+                >
+                  + Book
+                </Button>
+              </div>
+
+              <p v-if="upcomingAppointments.length === 0" class="text-muted-foreground text-sm">
+                No upcoming appointments
+              </p>
+
+              <Card v-for="appt in upcomingAppointments" v-else :key="appt.id">
+                <CardContent class="space-y-2 p-4">
+                  <div class="flex items-start justify-between gap-3">
+                    <div>
+                      <p class="font-medium">{{ formatDateLong(appt.start_time) }}</p>
+                      <p class="text-muted-foreground text-sm">
+                        {{ formatTime(appt.start_time) }} - {{ formatTime(appt.end_time) }}
+                      </p>
+                    </div>
+                    <Badge :class="getAppointmentStatusBadgeClass(appt.status)" variant="secondary">
+                      {{ APPOINTMENT_STATUS_LABELS[appt.status] }}
+                    </Badge>
+                  </div>
+
+                  <p class="text-muted-foreground text-sm">
+                    Therapist: {{ appt.therapist?.full_name ?? 'Unassigned' }}
+                  </p>
+
+                  <p v-if="appt.treatment_plan" class="text-muted-foreground text-sm">
+                    Plan: {{ appt.treatment_plan.name }} ({{
+                      appt.treatment_plan.completed_sessions
+                    }}/{{ appt.treatment_plan.total_sessions }} sessions)
+                  </p>
+
+                  <p v-if="appt.notes" class="text-sm">{{ appt.notes }}</p>
+                </CardContent>
+              </Card>
+            </div>
+
+            <div v-if="pastAppointments.length > 0" class="space-y-3">
+              <p class="text-muted-foreground text-sm font-medium">Past</p>
+
+              <Card v-for="appt in visiblePastAppointments" :key="appt.id">
+                <CardContent class="space-y-2 p-4">
+                  <div class="flex items-start justify-between gap-3">
+                    <div>
+                      <p class="font-medium">{{ formatDateLong(appt.start_time) }}</p>
+                      <p class="text-muted-foreground text-sm">
+                        {{ formatTime(appt.start_time) }} - {{ formatTime(appt.end_time) }}
+                      </p>
+                    </div>
+                    <Badge :class="getAppointmentStatusBadgeClass(appt.status)" variant="secondary">
+                      {{ APPOINTMENT_STATUS_LABELS[appt.status] }}
+                    </Badge>
+                  </div>
+
+                  <p class="text-muted-foreground text-sm">
+                    Therapist: {{ appt.therapist?.full_name ?? 'Unassigned' }}
+                  </p>
+
+                  <p v-if="appt.treatment_plan" class="text-muted-foreground text-sm">
+                    Plan: {{ appt.treatment_plan.name }} ({{
+                      appt.treatment_plan.completed_sessions
+                    }}/{{ appt.treatment_plan.total_sessions }} sessions)
+                  </p>
+
+                  <p v-if="appt.notes" class="text-sm">{{ appt.notes }}</p>
+                </CardContent>
+              </Card>
+
+              <Button
+                v-if="pastAppointments.length > 10 && !showAllPast"
+                variant="ghost"
+                class="text-muted-foreground h-auto px-0 py-1 text-sm"
+                @click="showAllPast = true"
+              >
+                Show {{ remainingPastCount }} more
+              </Button>
+            </div>
+          </div>
         </TabsContent>
 
         <TabsContent value="treatments">
@@ -319,16 +413,22 @@ import {
 } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import type { Tables, MedicalHistory } from '~/types/database'
+import type { IAppointmentWithRelations } from '~/types/models/appointment.types'
+import { APPOINTMENT_STATUS_LABELS } from '~/enums/appointment.enum'
 import { Gender, GENDER_LABELS } from '~/enums/gender.enum'
+import { appointmentService } from '~/services/appointment.service'
 import { patientService } from '~/services/patient.service'
-import { formatDateLong } from '~/lib/formatters'
+import { formatDateLong, formatTime } from '~/lib/formatters'
 
 const route = useRoute()
 const supabase = useSupabase()
 const { profile: _profile } = useAuth()
 
 const patient = ref<Tables<'patients'> | null>(null)
+const appointments = ref<IAppointmentWithRelations[]>([])
 const isLoading = ref(true)
+const isLoadingAppointments = ref(false)
+const showAllPast = ref(false)
 const isEditing = ref(false)
 const editForm = ref({
   full_name: '',
@@ -359,6 +459,67 @@ async function loadPatient() {
     navigateTo('/patients')
   } finally {
     isLoading.value = false
+  }
+}
+
+async function loadAppointments() {
+  isLoadingAppointments.value = true
+  showAllPast.value = false
+
+  try {
+    appointments.value = await appointmentService(supabase).getByPatientId(
+      route.params.id as string,
+    )
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Failed to load appointments'
+    toast.error(message)
+  } finally {
+    isLoadingAppointments.value = false
+  }
+}
+
+const todayDateKey = computed(() => new Date().toLocaleDateString('en-CA'))
+
+const upcomingAppointments = computed(() => {
+  return appointments.value
+    .filter((appt) => {
+      const apptDateKey = new Date(appt.start_time).toLocaleDateString('en-CA')
+      return appt.status === 'scheduled' && apptDateKey >= todayDateKey.value
+    })
+    .slice()
+    .sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime())
+})
+
+const pastAppointments = computed(() => {
+  return appointments.value
+    .filter((appt) => {
+      const apptDateKey = new Date(appt.start_time).toLocaleDateString('en-CA')
+      return appt.status !== 'scheduled' || apptDateKey < todayDateKey.value
+    })
+    .slice()
+    .sort((a, b) => new Date(b.start_time).getTime() - new Date(a.start_time).getTime())
+})
+
+const visiblePastAppointments = computed(() => {
+  return showAllPast.value ? pastAppointments.value : pastAppointments.value.slice(0, 10)
+})
+
+const remainingPastCount = computed(() => Math.max(0, pastAppointments.value.length - 10))
+
+function getAppointmentStatusBadgeClass(status: string): string {
+  const base = 'rounded-full px-2.5 py-0.5 text-xs font-medium'
+
+  switch (status) {
+    case 'scheduled':
+      return `${base} bg-yellow-100 text-yellow-800`
+    case 'completed':
+      return `${base} bg-green-100 text-green-800`
+    case 'cancelled':
+      return `${base} bg-gray-100 text-gray-800`
+    case 'no_show':
+      return `${base} bg-red-100 text-red-800`
+    default:
+      return `${base} bg-gray-100 text-gray-800`
   }
 }
 
@@ -430,5 +591,8 @@ const medicalHistory = computed(() => {
   return (patient.value?.medical_history as MedicalHistory) ?? {}
 })
 
-onMounted(loadPatient)
+onMounted(() => {
+  void loadPatient()
+  void loadAppointments()
+})
 </script>

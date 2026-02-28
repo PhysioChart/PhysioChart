@@ -2,10 +2,14 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database, Tables, InsertDto } from '~/types/database'
 
 export function paymentService(supabase: SupabaseClient<Database>) {
-  async function listForInvoice(invoiceId: string): Promise<Tables<'payments'>[]> {
+  async function listForInvoice(
+    clinicId: string,
+    invoiceId: string,
+  ): Promise<Tables<'payments'>[]> {
     const { data, error } = await supabase
       .from('payments')
       .select('*')
+      .eq('clinic_id', clinicId)
       .eq('invoice_id', invoiceId)
       .order('paid_at', { ascending: false })
 

@@ -15,12 +15,16 @@ export function appointmentService(supabase: SupabaseClient<Database>) {
     return (data ?? []) as IAppointmentWithRelations[]
   }
 
-  async function getByPatientId(patientId: string): Promise<IAppointmentWithRelations[]> {
+  async function getByPatientId(
+    clinicId: string,
+    patientId: string,
+  ): Promise<IAppointmentWithRelations[]> {
     const { data, error } = await supabase
       .from('appointments')
       .select(
         '*, patient:patients(*), therapist:profiles(*), treatment_plan:treatment_plans(name, completed_sessions, total_sessions)',
       )
+      .eq('clinic_id', clinicId)
       .eq('patient_id', patientId)
       // TODO: Add .order('appointment_date', { ascending: false }) once appointments.appointment_date exists.
       .order('start_time', { ascending: false })
@@ -57,16 +61,25 @@ export function appointmentService(supabase: SupabaseClient<Database>) {
     if (error) throw error
   }
 
-  async function updateStatus(id: string, status: AppointmentStatus): Promise<void> {
-    const { error } = await supabase.from('appointments').update({ status }).eq('id', id)
+  async function updateStatus(
+    clinicId: string,
+    id: string,
+    status: AppointmentStatus,
+  ): Promise<void> {
+    const { error } = await supabase
+      .from('appointments')
+      .update({ status })
+      .eq('clinic_id', clinicId)
+      .eq('id', id)
 
     if (error) throw error
   }
 
-  async function cancelSeries(seriesId: string): Promise<void> {
+  async function cancelSeries(clinicId: string, seriesId: string): Promise<void> {
     const { error } = await supabase
       .from('appointments')
       .update({ status: AppointmentStatus.CANCELLED })
+      .eq('clinic_id', clinicId)
       .eq('series_id', seriesId)
       .eq('status', AppointmentStatus.SCHEDULED)
 

@@ -174,6 +174,7 @@ import { TreatmentStatus, TREATMENT_STATUS_LABELS } from '~/enums/treatment.enum
 import { treatmentService } from '~/services/treatment.service'
 import { usePatientsStore } from '~/stores/patients.store'
 import { useStaffStore } from '~/stores/staff.store'
+import { useTreatmentsStore } from '~/stores/treatments.store'
 import { getStatusColor, progressPercent, formatCurrency } from '~/lib/formatters'
 
 const supabase = useSupabase()
@@ -181,10 +182,11 @@ const { profile } = useAuth()
 const route = useRoute()
 const patientsStore = usePatientsStore()
 const staffStore = useStaffStore()
+const treatmentsStore = useTreatmentsStore()
 const { dropdownByClinic } = storeToRefs(patientsStore)
 const { activeByClinic } = storeToRefs(staffStore)
+const { byClinic } = storeToRefs(treatmentsStore)
 
-const plans = ref<ITreatmentPlanWithRelations[]>([])
 const isLoading = ref(true)
 const showNewDialog = ref(route.query.action === 'new')
 const filter = ref<TreatmentStatus | 'all'>(TreatmentStatus.ACTIVE)
@@ -195,6 +197,10 @@ const patients = computed(() => {
 const therapists = computed(() => {
   if (!profile.value) return []
   return activeByClinic.value[profile.value.clinic_id] ?? []
+})
+const plans = computed<ITreatmentPlanWithRelations[]>(() => {
+  if (!profile.value) return []
+  return byClinic.value[profile.value.clinic_id] ?? []
 })
 
 const newPlan = ref({
@@ -217,7 +223,7 @@ async function loadPlans(): Promise<void> {
   isLoading.value = true
 
   try {
-    plans.value = await treatmentService(supabase).list(profile.value.clinic_id)
+    await treatmentsStore.fetchList(profile.value.clinic_id)
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Failed to load treatment plans'
     toast.error(message)
@@ -270,6 +276,7 @@ async function createPlan(): Promise<void> {
     })
 
     toast.success('Treatment plan created')
+    treatmentsStore.invalidate(profile.value.clinic_id)
     await loadPlans()
     showNewDialog.value = false
     newPlan.value = {

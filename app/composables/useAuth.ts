@@ -3,6 +3,9 @@ import type { Tables } from '~/types/database'
 import { UserRole } from '~/enums/user-role.enum'
 import { usePatientsStore } from '~/stores/patients.store'
 import { useStaffStore } from '~/stores/staff.store'
+import { useAppointmentsStore } from '~/stores/appointments.store'
+import { useTreatmentsStore } from '~/stores/treatments.store'
+import { useInvoicesStore } from '~/stores/invoices.store'
 
 interface AuthState {
   user: Ref<User | null>
@@ -17,6 +20,9 @@ export function useAuth() {
   const supabase = useSupabase()
   const patientsStore = usePatientsStore()
   const staffStore = useStaffStore()
+  const appointmentsStore = useAppointmentsStore()
+  const treatmentsStore = useTreatmentsStore()
+  const invoicesStore = useInvoicesStore()
   const user = useState<User | null>('auth:user', () => null)
   const profile = useState<Tables<'profiles'> | null>('auth:profile', () => null)
   const clinic = useState<Tables<'clinics'> | null>('auth:clinic', () => null)
@@ -42,6 +48,9 @@ export function useAuth() {
       clinic.value = null
       patientsStore.invalidate()
       staffStore.invalidate()
+      appointmentsStore.invalidate()
+      treatmentsStore.invalidate()
+      invoicesStore.invalidate()
       return
     }
 
@@ -51,6 +60,9 @@ export function useAuth() {
     if (previousClinicId && previousClinicId !== profileData?.clinic_id) {
       patientsStore.invalidate()
       staffStore.invalidate()
+      appointmentsStore.invalidate()
+      treatmentsStore.invalidate()
+      invoicesStore.invalidate()
     }
 
     if (profileData?.clinic_id) {
@@ -172,6 +184,9 @@ export function useAuth() {
     if (error) throw error
     patientsStore.invalidate()
     staffStore.invalidate()
+    appointmentsStore.invalidate()
+    treatmentsStore.invalidate()
+    invoicesStore.invalidate()
     authState.user.value = null
     authState.profile.value = null
     authState.clinic.value = null

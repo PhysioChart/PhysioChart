@@ -107,6 +107,33 @@ This project uses Supabase Free plan — 500 MB DB, 1 GB storage, 10 GB egress, 
 - **Clamp computed positions**: Any pixel math derived from data (e.g. calendar grids) must clamp values to valid bounds. Never assume data falls within the visible range.
 - **Accessibility on interactive elements**: Any clickable `<div>` or non-semantic element must have `role="button"`, `tabindex="0"`, `aria-label`, and a `@keydown.enter` handler.
 
+### Page/Composable Data Flow
+
+- Pages and composables should orchestrate state and UI only.
+- Data queries must go through services/stores, not inline Supabase queries in pages.
+- Prefer this flow: `page/composable -> store/service -> supabase`.
+
+### Async Flag Pattern
+
+- Any async function using `isLoading` / `isSubmitting` must follow:
+  1. Set flag `true` before `try`
+  2. Handle error in `catch`
+  3. Set flag `false` in `finally`
+- Never set loading flags back to `false` inline right after an `await`.
+
+### Mutation Refresh Order
+
+- After create/update/delete/archive/deactivate:
+  1. `await` data refresh first
+  2. Then close dialog / reset form / navigate
+- Do not reset UI before fresh data is loaded.
+
+### Date Key Standard
+
+- For date-only comparison keys (e.g., `YYYY-MM-DD`), use the shared helper in `app/lib/date.ts` (e.g., `toLocalDateKey`).
+- Do not use locale hacks like `toLocaleDateString('en-CA')` for key generation.
+- Keep user-facing formatting on `'en-IN'` for `toLocaleDateString`, `toLocaleTimeString`, and `toLocaleString`.
+
 ## Node.js
 
 - Requires Node.js >= 22 (see `.nvmrc`)

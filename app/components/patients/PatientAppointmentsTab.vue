@@ -111,6 +111,7 @@
 <script setup lang="ts">
 import { Calendar } from 'lucide-vue-next'
 import type { IAppointmentWithRelations } from '~/types/models/appointment.types'
+import type { AppointmentStatus } from '~/enums/appointment.enum'
 import { APPOINTMENT_STATUS_LABELS } from '~/enums/appointment.enum'
 import { formatDateLong, formatTime } from '~/lib/formatters'
 
@@ -123,7 +124,7 @@ defineProps<{
   remainingPastCount: number
   showAllPast: boolean
   isLoadingAppointments: boolean
-  getAppointmentStatusBadgeClass: (status: string) => string
+  getAppointmentStatusBadgeClass: (status: AppointmentStatus) => string
 }>()
 
 const emit = defineEmits<{

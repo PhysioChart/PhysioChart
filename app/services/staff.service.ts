@@ -49,8 +49,12 @@ export function staffService(supabase: SupabaseClient<Database>) {
     if (error) throw error
   }
 
-  async function deactivate(staffId: string): Promise<void> {
-    const { error } = await supabase.from('profiles').update({ is_active: false }).eq('id', staffId)
+  async function deactivate(clinicId: string, staffId: string): Promise<void> {
+    const { error } = await supabase
+      .from('profiles')
+      .update({ is_active: false })
+      .eq('clinic_id', clinicId)
+      .eq('id', staffId)
 
     if (error) throw error
   }

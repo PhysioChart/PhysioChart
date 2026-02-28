@@ -149,6 +149,7 @@
               :key="patient.id"
               role="link"
               tabindex="0"
+              :aria-label="`Open patient ${patient.full_name}`"
               class="cursor-pointer"
               @click="navigateTo(`/patients/${patient.id}`)"
               @keydown.enter="navigateTo(`/patients/${patient.id}`)"
@@ -233,7 +234,7 @@ async function loadPatients() {
   isLoading.value = true
 
   try {
-    await patientsStore.fetchList(profile.value.clinic_id, { force: true })
+    await patientsStore.fetchList(profile.value.clinic_id)
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Failed to load patients'
     toast.error(message)

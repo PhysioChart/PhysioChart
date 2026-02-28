@@ -76,6 +76,9 @@ import {
   Clock,
   IndianRupee,
 } from 'lucide-vue-next'
+import { toast } from 'vue-sonner'
+import { dashboardService } from '~/services/dashboard.service'
+import { toLocalDateKey } from '~/lib/date'
 
 const { clinic, profile } = useAuth()
 
@@ -106,37 +109,27 @@ const supabase = useSupabase()
 
 onMounted(async () => {
   if (!profile.value) return
-  const clinicId = profile.value.clinic_id
+  try {
+    const counts = await dashboardService(supabase).getCounts(
+      profile.value.clinic_id,
+      toLocalDateKey(new Date()),
+    )
 
-  const [patientsRes, appointmentsRes, treatmentsRes] = await Promise.all([
-    supabase
-      .from('patients')
-      .select('id', { count: 'exact', head: true })
-      .eq('clinic_id', clinicId),
-    supabase
-      .from('appointments')
-      .select('id', { count: 'exact', head: true })
-      .eq('clinic_id', clinicId)
-      .gte('start_time', new Date().toISOString().split('T')[0])
-      .lt('start_time', new Date(Date.now() + 86400000).toISOString().split('T')[0]),
-    supabase
-      .from('treatment_plans')
-      .select('id', { count: 'exact', head: true })
-      .eq('clinic_id', clinicId)
-      .eq('status', 'active'),
-  ])
-
-  if (stats.value[0]) {
-    stats.value[0].value = String(appointmentsRes.count ?? 0)
-    stats.value[0].description = 'appointments scheduled today'
-  }
-  if (stats.value[1]) {
-    stats.value[1].value = String(patientsRes.count ?? 0)
-    stats.value[1].description = 'total registered patients'
-  }
-  if (stats.value[2]) {
-    stats.value[2].value = String(treatmentsRes.count ?? 0)
-    stats.value[2].description = 'active treatment plans'
+    if (stats.value[0]) {
+      stats.value[0].value = String(counts.todayAppointments)
+      stats.value[0].description = 'appointments scheduled today'
+    }
+    if (stats.value[1]) {
+      stats.value[1].value = String(counts.totalPatients)
+      stats.value[1].description = 'total registered patients'
+    }
+    if (stats.value[2]) {
+      stats.value[2].value = String(counts.activeTreatments)
+      stats.value[2].description = 'active treatment plans'
+    }
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Failed to load dashboard stats'
+    toast.error(message)
   }
 })
 </script>

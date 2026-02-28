@@ -304,7 +304,7 @@ async function loadStaff() {
   isLoadingStaff.value = true
 
   try {
-    await staffStore.fetchList(profile.value.clinic_id, { force: true })
+    await staffStore.fetchList(profile.value.clinic_id)
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Failed to load staff'
     toast.error(message)
@@ -352,7 +352,8 @@ async function deactivateStaff(staffId: string) {
   isDeactivating.value = true
 
   try {
-    await staffService(supabase).deactivate(staffId)
+    if (!profile.value) return
+    await staffService(supabase).deactivate(profile.value.clinic_id, staffId)
     if (profile.value) {
       staffStore.invalidate(profile.value.clinic_id)
     }

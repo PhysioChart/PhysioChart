@@ -55,6 +55,7 @@
 
 <script setup lang="ts">
 import type { CalendarAppointment, TherapistColor } from '~/composables/useCalendar'
+import { toLocalDateKey } from '~/lib/date'
 
 const props = defineProps<{
   appointments: CalendarAppointment[]
@@ -87,7 +88,7 @@ const positionedAppointments = computed(() =>
   })),
 )
 
-const todayStr = new Date().toLocaleDateString('en-CA')
+const todayStr = toLocalDateKey(new Date())
 
 function handleSlotClick(hour: number, minute: number) {
   emit('clickSlot', props.dateStr, timeFromSlot(hour, minute))

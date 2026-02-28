@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import type { Database, Tables, InsertDto } from '~/types/database'
+import type { Database, Tables, InsertDto, UpdateDto } from '~/types/database'
 
 export function patientService(supabase: SupabaseClient<Database>) {
   async function list(clinicId: string): Promise<Tables<'patients'>[]> {
@@ -14,8 +14,13 @@ export function patientService(supabase: SupabaseClient<Database>) {
     return data ?? []
   }
 
-  async function getById(id: string): Promise<Tables<'patients'> | null> {
-    const { data, error } = await supabase.from('patients').select('*').eq('id', id).single()
+  async function getById(clinicId: string, id: string): Promise<Tables<'patients'> | null> {
+    const { data, error } = await supabase
+      .from('patients')
+      .select('*')
+      .eq('clinic_id', clinicId)
+      .eq('id', id)
+      .single()
 
     if (error) throw error
     return data
@@ -28,14 +33,26 @@ export function patientService(supabase: SupabaseClient<Database>) {
     return data
   }
 
-  async function update(id: string, updates: Partial<Tables<'patients'>>): Promise<void> {
-    const { error } = await supabase.from('patients').update(updates).eq('id', id)
+  async function update(
+    clinicId: string,
+    id: string,
+    updates: UpdateDto<'patients'>,
+  ): Promise<void> {
+    const { error } = await supabase
+      .from('patients')
+      .update(updates)
+      .eq('clinic_id', clinicId)
+      .eq('id', id)
 
     if (error) throw error
   }
 
-  async function archive(id: string): Promise<void> {
-    const { error } = await supabase.from('patients').update({ is_archived: true }).eq('id', id)
+  async function archive(clinicId: string, id: string): Promise<void> {
+    const { error } = await supabase
+      .from('patients')
+      .update({ is_archived: true })
+      .eq('clinic_id', clinicId)
+      .eq('id', id)
 
     if (error) throw error
   }

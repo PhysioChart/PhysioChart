@@ -81,7 +81,7 @@
                   />
                 </div>
               </div>
-              <Button v-if="isAdmin" type="submit" :disabled="isSavingClinic">
+              <Button v-if="isAdmin" type="submit" size="lg" :disabled="isSavingClinic">
                 {{ isSavingClinic ? 'Saving...' : 'Save Changes' }}
               </Button>
             </form>
@@ -100,7 +100,7 @@
               </div>
               <Dialog v-if="isAdmin" v-model:open="showInviteDialog">
                 <DialogTrigger as-child>
-                  <Button>
+                  <Button size="lg">
                     <UserPlus class="mr-2 h-4 w-4" />
                     Add Staff
                   </Button>

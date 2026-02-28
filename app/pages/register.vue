@@ -68,7 +68,7 @@
             </FormItem>
           </FormField>
 
-          <Button type="submit" class="w-full" :disabled="isLoading">
+          <Button type="submit" size="lg" class="w-full" :disabled="isLoading">
             <template v-if="isLoading">Creating account...</template>
             <template v-else>Create account</template>
           </Button>

@@ -185,20 +185,26 @@
 
 <script setup lang="ts">
 import { Users, UserPlus, Search, Phone } from 'lucide-vue-next'
+import { storeToRefs } from 'pinia'
 import { toast } from 'vue-sonner'
-import type { Tables } from '~/types/database'
 import { Gender, GENDER_LABELS } from '~/enums/gender.enum'
 import { patientService } from '~/services/patient.service'
+import { usePatientsStore } from '~/stores/patients.store'
 import { formatDateWithYear } from '~/lib/formatters'
 
 const supabase = useSupabase()
 const { profile } = useAuth()
 const route = useRoute()
+const patientsStore = usePatientsStore()
+const { byClinic } = storeToRefs(patientsStore)
 
-const patients = ref<Tables<'patients'>[]>([])
 const searchQuery = ref('')
 const isLoading = ref(true)
 const showNewPatientDialog = ref(route.query.action === 'new')
+const patients = computed(() => {
+  if (!profile.value) return []
+  return byClinic.value[profile.value.clinic_id] ?? []
+})
 
 // Form state for new patient
 const newPatient = ref({
@@ -227,7 +233,7 @@ async function loadPatients() {
   isLoading.value = true
 
   try {
-    patients.value = await patientService(supabase).list(profile.value.clinic_id)
+    await patientsStore.fetchList(profile.value.clinic_id, { force: true })
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Failed to load patients'
     toast.error(message)
@@ -247,7 +253,7 @@ async function createPatient() {
   isSubmitting.value = true
 
   try {
-    await patientService(supabase).create({
+    const created = await patientService(supabase).create({
       clinic_id: profile.value.clinic_id,
       full_name: newPatient.value.full_name,
       phone: newPatient.value.phone,
@@ -261,6 +267,8 @@ async function createPatient() {
       medical_history: newPatient.value.medical_history,
     })
 
+    patientsStore.upsertPatient(profile.value.clinic_id, created)
+    patientsStore.invalidate(profile.value.clinic_id)
     toast.success('Patient registered successfully')
     await loadPatients()
     showNewPatientDialog.value = false

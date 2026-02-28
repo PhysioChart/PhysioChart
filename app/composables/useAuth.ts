@@ -1,6 +1,8 @@
 import type { User } from '@supabase/supabase-js'
 import type { Tables } from '~/types/database'
 import { UserRole } from '~/enums/user-role.enum'
+import { usePatientsStore } from '~/stores/patients.store'
+import { useStaffStore } from '~/stores/staff.store'
 
 interface AuthState {
   user: Ref<User | null>
@@ -13,6 +15,8 @@ interface AuthState {
 
 export function useAuth() {
   const supabase = useSupabase()
+  const patientsStore = usePatientsStore()
+  const staffStore = useStaffStore()
   const user = useState<User | null>('auth:user', () => null)
   const profile = useState<Tables<'profiles'> | null>('auth:profile', () => null)
   const clinic = useState<Tables<'clinics'> | null>('auth:clinic', () => null)
@@ -31,16 +35,23 @@ export function useAuth() {
   }
 
   async function fetchProfile(userId?: string) {
+    const previousClinicId = authState.profile.value?.clinic_id ?? null
     const id = userId ?? user.value?.id
     if (!id) {
       profile.value = null
       clinic.value = null
+      patientsStore.invalidate()
+      staffStore.invalidate()
       return
     }
 
     const { data: profileData } = await supabase.from('profiles').select('*').eq('id', id).single()
 
     authState.profile.value = profileData ?? null
+    if (previousClinicId && previousClinicId !== profileData?.clinic_id) {
+      patientsStore.invalidate()
+      staffStore.invalidate()
+    }
 
     if (profileData?.clinic_id) {
       const { data: clinicData } = await supabase
@@ -159,6 +170,8 @@ export function useAuth() {
   async function signOut() {
     const { error } = await supabase.auth.signOut()
     if (error) throw error
+    patientsStore.invalidate()
+    staffStore.invalidate()
     authState.user.value = null
     authState.profile.value = null
     authState.clinic.value = null

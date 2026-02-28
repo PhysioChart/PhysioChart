@@ -10,11 +10,13 @@ import { appointmentService } from '~/services/appointment.service'
 import { invoiceService } from '~/services/invoice.service'
 import { patientService } from '~/services/patient.service'
 import { treatmentService } from '~/services/treatment.service'
+import { usePatientsStore } from '~/stores/patients.store'
 
 export function usePatientDetailPage() {
   const route = useRoute()
   const supabase = useSupabase()
   const { profile } = useAuth()
+  const patientsStore = usePatientsStore()
 
   const patient = ref<Tables<'patients'> | null>(null)
   const appointments = ref<IAppointmentWithRelations[]>([])
@@ -237,6 +239,22 @@ export function usePatientDetailPage() {
         notes: form.notes || null,
       })
 
+      if (profile.value && patient.value) {
+        patientsStore.upsertPatient(profile.value.clinic_id, {
+          ...patient.value,
+          full_name: form.full_name,
+          phone: form.phone,
+          email: form.email || null,
+          date_of_birth: form.date_of_birth || null,
+          gender: (form.gender || null) as Tables<'patients'>['gender'],
+          address: form.address || null,
+          emergency_contact_name: form.emergency_contact_name || null,
+          emergency_contact_phone: form.emergency_contact_phone || null,
+          notes: form.notes || null,
+        })
+        patientsStore.invalidate(profile.value.clinic_id)
+      }
+
       toast.success('Patient updated')
       await loadPatient()
       isEditing.value = false
@@ -254,6 +272,10 @@ export function usePatientDetailPage() {
 
     try {
       await patientService(supabase).archive(patient.value.id)
+      if (profile.value) {
+        patientsStore.archivePatient(profile.value.clinic_id, patient.value.id)
+        patientsStore.invalidate(profile.value.clinic_id)
+      }
       toast.success('Patient archived')
       navigateTo('/patients')
     } catch (err: unknown) {

@@ -370,13 +370,13 @@
 <script setup lang="ts">
 import { watchDebounced } from '@vueuse/core'
 import { CalendarDays, CalendarPlus, MessageCircle } from 'lucide-vue-next'
+import { storeToRefs } from 'pinia'
 import { toast } from 'vue-sonner'
-import type { Tables } from '~/types/database'
 import type { IAppointmentWithRelations } from '~/types/models/appointment.types'
 import { AppointmentStatus, APPOINTMENT_STATUS_LABELS } from '~/enums/appointment.enum'
 import { appointmentService } from '~/services/appointment.service'
-import { patientService } from '~/services/patient.service'
-import { staffService } from '~/services/staff.service'
+import { usePatientsStore } from '~/stores/patients.store'
+import { useStaffStore } from '~/stores/staff.store'
 import {
   formatTime,
   formatDate,
@@ -388,14 +388,24 @@ import {
 const supabase = useSupabase()
 const { profile } = useAuth()
 const route = useRoute()
+const patientsStore = usePatientsStore()
+const staffStore = useStaffStore()
+const { dropdownByClinic } = storeToRefs(patientsStore)
+const { activeByClinic } = storeToRefs(staffStore)
 
 const appointments = ref<IAppointmentWithRelations[]>([])
-const patients = ref<Tables<'patients'>[]>([])
-const therapists = ref<Tables<'profiles'>[]>([])
 const isLoading = ref(true)
 const showNewDialog = ref(false)
 const viewMode = ref<'list' | 'day' | 'week'>('list')
 const listFilter = ref<'today' | 'all'>('today')
+const patients = computed(() => {
+  if (!profile.value) return []
+  return dropdownByClinic.value[profile.value.clinic_id] ?? []
+})
+const therapists = computed(() => {
+  if (!profile.value) return []
+  return activeByClinic.value[profile.value.clinic_id] ?? []
+})
 
 // Calendar composable
 const {
@@ -560,13 +570,7 @@ async function loadDropdowns() {
   const clinicId = profile.value.clinic_id
 
   try {
-    const [patientData, staffData] = await Promise.all([
-      patientService(supabase).listForDropdown(clinicId),
-      staffService(supabase).listActive(clinicId),
-    ])
-
-    patients.value = patientData
-    therapists.value = staffData
+    await Promise.all([patientsStore.fetchDropdown(clinicId), staffStore.fetchActiveList(clinicId)])
   } catch {
     dropdownsLoaded = false
   }

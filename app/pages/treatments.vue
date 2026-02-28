@@ -167,25 +167,35 @@
 
 <script setup lang="ts">
 import { ClipboardList, Plus } from 'lucide-vue-next'
+import { storeToRefs } from 'pinia'
 import { toast } from 'vue-sonner'
-import type { Tables } from '~/types/database'
 import type { ITreatmentPlanWithRelations } from '~/types/models/treatment.types'
 import { TreatmentStatus, TREATMENT_STATUS_LABELS } from '~/enums/treatment.enum'
 import { treatmentService } from '~/services/treatment.service'
-import { patientService } from '~/services/patient.service'
-import { staffService } from '~/services/staff.service'
+import { usePatientsStore } from '~/stores/patients.store'
+import { useStaffStore } from '~/stores/staff.store'
 import { getStatusColor, progressPercent, formatCurrency } from '~/lib/formatters'
 
 const supabase = useSupabase()
 const { profile } = useAuth()
 const route = useRoute()
+const patientsStore = usePatientsStore()
+const staffStore = useStaffStore()
+const { dropdownByClinic } = storeToRefs(patientsStore)
+const { activeByClinic } = storeToRefs(staffStore)
 
 const plans = ref<ITreatmentPlanWithRelations[]>([])
-const patients = ref<Tables<'patients'>[]>([])
-const therapists = ref<Tables<'profiles'>[]>([])
 const isLoading = ref(true)
 const showNewDialog = ref(route.query.action === 'new')
 const filter = ref<TreatmentStatus | 'all'>(TreatmentStatus.ACTIVE)
+const patients = computed(() => {
+  if (!profile.value) return []
+  return dropdownByClinic.value[profile.value.clinic_id] ?? []
+})
+const therapists = computed(() => {
+  if (!profile.value) return []
+  return activeByClinic.value[profile.value.clinic_id] ?? []
+})
 
 const newPlan = ref({
   patient_id: '',
@@ -223,13 +233,7 @@ async function loadDropdowns(): Promise<void> {
   try {
     const clinicId = profile.value.clinic_id
 
-    const [patientData, staffData] = await Promise.all([
-      patientService(supabase).listForDropdown(clinicId),
-      staffService(supabase).listActive(clinicId),
-    ])
-
-    patients.value = patientData
-    therapists.value = staffData
+    await Promise.all([patientsStore.fetchDropdown(clinicId), staffStore.fetchActiveList(clinicId)])
   } catch {
     dropdownsLoaded = false
   }

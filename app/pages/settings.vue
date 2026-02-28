@@ -227,14 +227,17 @@
 
 <script setup lang="ts">
 import { Building2, Users, UserPlus, Trash2, Shield } from 'lucide-vue-next'
+import { storeToRefs } from 'pinia'
 import { toast } from 'vue-sonner'
-import type { Tables } from '~/types/database'
 import { UserRole, USER_ROLE_LABELS } from '~/enums/user-role.enum'
 import { clinicService } from '~/services/clinic.service'
 import { staffService } from '~/services/staff.service'
+import { useStaffStore } from '~/stores/staff.store'
 
 const supabase = useSupabase()
 const { clinic, profile, isAdmin, fetchProfile } = useAuth()
+const staffStore = useStaffStore()
+const { byClinic } = storeToRefs(staffStore)
 
 // Clinic form
 const clinicForm = ref({
@@ -248,7 +251,6 @@ const clinicForm = ref({
 const isSavingClinic = ref(false)
 
 // Staff management
-const staffMembers = ref<Tables<'profiles'>[]>([])
 const isLoadingStaff = ref(true)
 const showInviteDialog = ref(false)
 const inviteForm = ref({
@@ -258,6 +260,10 @@ const inviteForm = ref({
   password: '',
 })
 const isInviting = ref(false)
+const staffMembers = computed(() => {
+  if (!profile.value) return []
+  return byClinic.value[profile.value.clinic_id] ?? []
+})
 
 function loadClinicForm() {
   if (!clinic.value) return
@@ -298,7 +304,7 @@ async function loadStaff() {
   isLoadingStaff.value = true
 
   try {
-    staffMembers.value = await staffService(supabase).list(profile.value.clinic_id)
+    await staffStore.fetchList(profile.value.clinic_id, { force: true })
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Failed to load staff'
     toast.error(message)
@@ -326,6 +332,7 @@ async function inviteStaffMember() {
       inviteForm.value.role,
     )
 
+    staffStore.invalidate(profile.value.clinic_id)
     toast.success('Staff member added')
     await loadStaff()
     showInviteDialog.value = false
@@ -346,6 +353,9 @@ async function deactivateStaff(staffId: string) {
 
   try {
     await staffService(supabase).deactivate(staffId)
+    if (profile.value) {
+      staffStore.invalidate(profile.value.clinic_id)
+    }
     toast.success('Staff member deactivated')
     await loadStaff()
   } catch (err: unknown) {

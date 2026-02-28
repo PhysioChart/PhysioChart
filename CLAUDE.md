@@ -301,6 +301,21 @@ const data = await patients.list(profile.value!.clinic_id)
 | `clinic.service.ts`      | `get`, `update`                                            |
 | `staff.service.ts`       | `list`, `invite`, `deactivate`                             |
 
+## Store Conventions
+
+Use Pinia stores for cross-page shared state. Keep route-local UI state in pages/composables.
+
+- **Syntax**: Stores must use Pinia setup syntax only: `defineStore('name', () => {})`.
+- **Scope**: Put shared clinic lists and reused domain data in stores; keep page-only state (`activeTab`, dialog open flags, local form drafts) local.
+- **Data boundary**: Stores call service functions in `app/services/`; no raw Supabase queries in stores/pages.
+- **Tenant safety**: Store actions for tenant-owned data must require `clinicId` and pass it through to service methods.
+- **Caching policy**: Use TTL + SWR by default (serve cache, background refresh when stale). Expose `fetch*`, `refresh*`, and `invalidate` actions.
+- **Mutation coherence**: After create/update/archive/deactivate, upsert or invalidate the relevant store cache.
+- **Auth transitions**: Clear clinic-scoped caches on sign-out and clinic switch.
+- **Meta shape**: Standardize per-clinic cache meta as `loadedAt`, `isLoading`, `error`.
+- **Naming**: `app/stores/{domain}.store.ts`, accessor `use{Domain}Store`, and use `storeToRefs` in components/pages.
+- **Persistence**: Do not enable localStorage/session persistence by default unless explicitly required and documented.
+
 ## Component Organization
 
 ### Directory structure

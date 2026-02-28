@@ -173,23 +173,28 @@
 
 <script setup lang="ts">
 import { Receipt, Plus, AlertCircle } from 'lucide-vue-next'
+import { storeToRefs } from 'pinia'
 import { toast } from 'vue-sonner'
-import type { Tables } from '~/types/database'
 import type { IInvoiceWithRelations } from '~/types/models/invoice.types'
 import { InvoiceStatus, INVOICE_STATUS_LABELS } from '~/enums/invoice.enum'
 import { invoiceService } from '~/services/invoice.service'
-import { patientService } from '~/services/patient.service'
+import { usePatientsStore } from '~/stores/patients.store'
 import { formatDateWithYear, formatCurrency, getStatusColor } from '~/lib/formatters'
 
 const supabase = useSupabase()
 const { profile } = useAuth()
 const route = useRoute()
+const patientsStore = usePatientsStore()
+const { dropdownByClinic } = storeToRefs(patientsStore)
 
 const invoices = ref<IInvoiceWithRelations[]>([])
-const patients = ref<Tables<'patients'>[]>([])
 const isLoading = ref(true)
 const showNewDialog = ref(route.query.action === 'new')
 const filter = ref<'all' | 'pending' | 'paid' | 'overdue'>('all')
+const patients = computed(() => {
+  if (!profile.value) return []
+  return dropdownByClinic.value[profile.value.clinic_id] ?? []
+})
 
 const newInvoice = ref({
   patient_id: '',
@@ -219,7 +224,7 @@ async function loadPatients() {
   if (!profile.value || dropdownsLoaded) return
 
   try {
-    patients.value = await patientService(supabase).listForDropdown(profile.value.clinic_id)
+    await patientsStore.fetchDropdown(profile.value.clinic_id)
     dropdownsLoaded = true
   } catch {
     // Allow retry on next dialog open

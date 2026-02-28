@@ -5,7 +5,7 @@ export default defineNuxtConfig({
   compatibilityDate: '2025-07-15',
   devtools: { enabled: true },
 
-  modules: ['shadcn-nuxt', '@nuxt/eslint'],
+  modules: ['@pinia/nuxt', 'shadcn-nuxt', '@nuxt/eslint'],
 
   shadcn: {
     prefix: '',

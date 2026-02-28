@@ -11,8 +11,3 @@ export function createClinicCacheMeta(): IClinicCacheMeta {
     error: null,
   }
 }
-
-export function isExpired(loadedAt: number | null, ttlMs: number): boolean {
-  if (!loadedAt) return true
-  return Date.now() - loadedAt > ttlMs
-}

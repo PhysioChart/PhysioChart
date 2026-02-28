@@ -1,12 +1,6 @@
 import type { Tables } from '~/types/database'
 import { patientService } from '~/services/patient.service'
-import {
-  createClinicCacheMeta,
-  isExpired,
-  type IClinicCacheMeta,
-} from '~/stores/_shared/clinic-cache'
-
-const TTL_MS = 60_000
+import { createClinicCacheMeta, type IClinicCacheMeta } from '~/stores/_shared/clinic-cache'
 
 export const usePatientsStore = defineStore('patients', () => {
   const byClinic = ref<Record<string, Tables<'patients'>[]>>({})
@@ -66,40 +60,12 @@ export const usePatientsStore = defineStore('patients', () => {
     }
   }
 
-  async function fetchList(
-    clinicId: string,
-    options?: { force?: boolean },
-  ): Promise<Tables<'patients'>[]> {
-    const current = byClinic.value[clinicId] ?? []
-    const meta = getListMeta(clinicId)
-    const stale = isExpired(meta.loadedAt, TTL_MS)
-
-    if (options?.force) return refreshList(clinicId)
-    if (current.length === 0) return refreshList(clinicId)
-
-    if (stale && !meta.isLoading) {
-      void refreshList(clinicId)
-    }
-
-    return current
+  async function fetchList(clinicId: string): Promise<Tables<'patients'>[]> {
+    return refreshList(clinicId)
   }
 
-  async function fetchDropdown(
-    clinicId: string,
-    options?: { force?: boolean },
-  ): Promise<Tables<'patients'>[]> {
-    const current = dropdownByClinic.value[clinicId] ?? []
-    const meta = getDropdownMeta(clinicId)
-    const stale = isExpired(meta.loadedAt, TTL_MS)
-
-    if (options?.force) return refreshDropdown(clinicId)
-    if (current.length === 0) return refreshDropdown(clinicId)
-
-    if (stale && !meta.isLoading) {
-      void refreshDropdown(clinicId)
-    }
-
-    return current
+  async function fetchDropdown(clinicId: string): Promise<Tables<'patients'>[]> {
+    return refreshDropdown(clinicId)
   }
 
   function upsertPatient(clinicId: string, patient: Tables<'patients'>) {
@@ -150,8 +116,6 @@ export const usePatientsStore = defineStore('patients', () => {
   return {
     byClinic,
     dropdownByClinic,
-    listMetaByClinic,
-    dropdownMetaByClinic,
     fetchList,
     fetchDropdown,
     refreshList,

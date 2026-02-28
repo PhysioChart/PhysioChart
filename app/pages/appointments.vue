@@ -224,16 +224,10 @@
     </div>
 
     <!-- Therapist color legend -->
-    <div v-if="viewMode !== 'list' && therapists.length > 0" class="flex flex-wrap gap-3">
-      <div v-for="t in therapists" :key="t.id" class="flex items-center gap-1.5 text-xs">
-        <span
-          :class="[
-            getTherapistColor(t.id, therapistColorMap).bg,
-            getTherapistColor(t.id, therapistColorMap).border,
-            'h-3 w-3 rounded-sm border-l-2',
-          ]"
-        />
-        <span class="text-muted-foreground">{{ t.full_name }}</span>
+    <div v-if="viewMode !== 'list' && therapistLegend.length > 0" class="flex flex-wrap gap-3">
+      <div v-for="item in therapistLegend" :key="item.id" class="flex items-center gap-1.5 text-xs">
+        <span :class="[item.color.bg, item.color.border, 'h-3 w-3 rounded-sm border-l-2']" />
+        <span class="text-muted-foreground">{{ item.name }}</span>
       </div>
     </div>
 
@@ -377,6 +371,8 @@ import { AppointmentStatus, APPOINTMENT_STATUS_LABELS } from '~/enums/appointmen
 import { appointmentService } from '~/services/appointment.service'
 import { usePatientsStore } from '~/stores/patients.store'
 import { useStaffStore } from '~/stores/staff.store'
+import { useAppointmentsStore } from '~/stores/appointments.store'
+import { toLocalDateKey } from '~/lib/date'
 import {
   formatTime,
   formatDate,
@@ -390,10 +386,11 @@ const { profile } = useAuth()
 const route = useRoute()
 const patientsStore = usePatientsStore()
 const staffStore = useStaffStore()
+const appointmentsStore = useAppointmentsStore()
 const { dropdownByClinic } = storeToRefs(patientsStore)
 const { activeByClinic } = storeToRefs(staffStore)
+const { byClinic } = storeToRefs(appointmentsStore)
 
-const appointments = ref<IAppointmentWithRelations[]>([])
 const isLoading = ref(true)
 const showNewDialog = ref(false)
 const viewMode = ref<'list' | 'day' | 'week'>('list')
@@ -405,6 +402,10 @@ const patients = computed(() => {
 const therapists = computed(() => {
   if (!profile.value) return []
   return activeByClinic.value[profile.value.clinic_id] ?? []
+})
+const appointments = computed<IAppointmentWithRelations[]>(() => {
+  if (!profile.value) return []
+  return byClinic.value[profile.value.clinic_id] ?? []
 })
 
 // Calendar composable
@@ -423,6 +424,13 @@ const {
 } = useCalendar()
 
 const therapistColorMap = computed(() => buildTherapistColorMap(therapists.value))
+const therapistLegend = computed(() =>
+  therapists.value.map((therapist) => ({
+    id: therapist.id,
+    name: therapist.full_name,
+    color: getTherapistColor(therapist.id, therapistColorMap.value),
+  })),
+)
 
 // Appointment detail sheet
 const showDetailSheet = ref(false)
@@ -487,7 +495,7 @@ const seriesDates = computed(() => {
 
   while (dates.length < total && safety < 365) {
     if (seriesConfig.value.days.includes(current.getDay())) {
-      dates.push(current.toLocaleDateString('en-CA'))
+      dates.push(toLocalDateKey(current))
     }
     current.setDate(current.getDate() + 1)
     safety++
@@ -523,7 +531,7 @@ watchDebounced(
           const t = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
           return t === newAppointment.value.start_time
         })
-        .map((startTime) => new Date(startTime).toLocaleDateString('en-CA')),
+        .map((startTime) => toLocalDateKey(startTime)),
     )
 
     conflicts.value = existing
@@ -552,7 +560,7 @@ async function loadAppointments() {
   isLoading.value = true
 
   try {
-    appointments.value = await appointmentService(supabase).list(profile.value.clinic_id)
+    await appointmentsStore.fetchList(profile.value.clinic_id)
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Failed to load appointments'
     toast.error(message)
@@ -578,10 +586,8 @@ async function loadDropdowns() {
 
 const filteredAppointments = computed(() => {
   if (listFilter.value === 'today') {
-    const today = new Date().toLocaleDateString('en-CA')
-    return appointments.value.filter(
-      (a) => new Date(a.start_time).toLocaleDateString('en-CA') === today,
-    )
+    const today = toLocalDateKey(new Date())
+    return appointments.value.filter((a) => toLocalDateKey(a.start_time) === today)
   }
   return appointments.value
 })
@@ -666,7 +672,8 @@ async function updateStatus(id: string, status: AppointmentStatus) {
   isUpdatingStatus.value = true
 
   try {
-    await appointmentService(supabase).updateStatus(id, status)
+    if (!profile.value) return
+    await appointmentService(supabase).updateStatus(profile.value.clinic_id, id, status)
     toast.success(`Appointment marked as ${APPOINTMENT_STATUS_LABELS[status]}`)
     showDetailSheet.value = false
     await loadAppointments()
@@ -684,7 +691,8 @@ async function cancelRemainingSeries(seriesId: string) {
   isCancellingSeries.value = true
 
   try {
-    await appointmentService(supabase).cancelSeries(seriesId)
+    if (!profile.value) return
+    await appointmentService(supabase).cancelSeries(profile.value.clinic_id, seriesId)
     toast.success('Remaining appointments in series cancelled')
     await loadAppointments()
   } catch (err: unknown) {

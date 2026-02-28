@@ -1,12 +1,6 @@
 import type { Tables } from '~/types/database'
 import { staffService } from '~/services/staff.service'
-import {
-  createClinicCacheMeta,
-  isExpired,
-  type IClinicCacheMeta,
-} from '~/stores/_shared/clinic-cache'
-
-const TTL_MS = 60_000
+import { createClinicCacheMeta, type IClinicCacheMeta } from '~/stores/_shared/clinic-cache'
 
 export const useStaffStore = defineStore('staff', () => {
   const byClinic = ref<Record<string, Tables<'profiles'>[]>>({})
@@ -66,40 +60,12 @@ export const useStaffStore = defineStore('staff', () => {
     }
   }
 
-  async function fetchList(
-    clinicId: string,
-    options?: { force?: boolean },
-  ): Promise<Tables<'profiles'>[]> {
-    const current = byClinic.value[clinicId] ?? []
-    const meta = getListMeta(clinicId)
-    const stale = isExpired(meta.loadedAt, TTL_MS)
-
-    if (options?.force) return refreshList(clinicId)
-    if (current.length === 0) return refreshList(clinicId)
-
-    if (stale && !meta.isLoading) {
-      void refreshList(clinicId)
-    }
-
-    return current
+  async function fetchList(clinicId: string): Promise<Tables<'profiles'>[]> {
+    return refreshList(clinicId)
   }
 
-  async function fetchActiveList(
-    clinicId: string,
-    options?: { force?: boolean },
-  ): Promise<Tables<'profiles'>[]> {
-    const current = activeByClinic.value[clinicId] ?? []
-    const meta = getActiveMeta(clinicId)
-    const stale = isExpired(meta.loadedAt, TTL_MS)
-
-    if (options?.force) return refreshActive(clinicId)
-    if (current.length === 0) return refreshActive(clinicId)
-
-    if (stale && !meta.isLoading) {
-      void refreshActive(clinicId)
-    }
-
-    return current
+  async function fetchActiveList(clinicId: string): Promise<Tables<'profiles'>[]> {
+    return refreshActive(clinicId)
   }
 
   function invalidate(clinicId?: string) {
@@ -118,8 +84,6 @@ export const useStaffStore = defineStore('staff', () => {
   return {
     byClinic,
     activeByClinic,
-    listMetaByClinic,
-    activeMetaByClinic,
     fetchList,
     fetchActiveList,
     refreshList,

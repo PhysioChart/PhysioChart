@@ -130,6 +130,7 @@
 <script setup lang="ts">
 import { ClipboardList } from 'lucide-vue-next'
 import type { ITreatmentPlanWithRelations } from '~/types/models/treatment.types'
+import type { TreatmentStatus } from '~/enums/treatment.enum'
 import { TREATMENT_STATUS_LABELS } from '~/enums/treatment.enum'
 import { formatCurrency } from '~/lib/formatters'
 
@@ -139,7 +140,7 @@ defineProps<{
   treatments: ITreatmentPlanWithRelations[]
   activeTreatments: ITreatmentPlanWithRelations[]
   completedTreatments: ITreatmentPlanWithRelations[]
-  getTreatmentStatusBadgeClass: (status: string) => string
+  getTreatmentStatusBadgeClass: (status: TreatmentStatus) => string
   treatmentProgress: (plan: ITreatmentPlanWithRelations) => number
 }>()
 </script>

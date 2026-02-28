@@ -1,4 +1,5 @@
 import { toast } from 'vue-sonner'
+import { storeToRefs } from 'pinia'
 import type { Tables, MedicalHistory } from '~/types/database'
 import type { IAppointmentWithRelations } from '~/types/models/appointment.types'
 import type { IInvoiceWithRelations } from '~/types/models/invoice.types'
@@ -6,17 +7,25 @@ import type { IPatientEditForm } from '~/types/models/patient.types'
 import type { ITreatmentPlanWithRelations } from '~/types/models/treatment.types'
 import { InvoiceStatus } from '~/enums/invoice.enum'
 import { TreatmentStatus } from '~/enums/treatment.enum'
-import { appointmentService } from '~/services/appointment.service'
-import { invoiceService } from '~/services/invoice.service'
+import { AppointmentStatus } from '~/enums/appointment.enum'
 import { patientService } from '~/services/patient.service'
-import { treatmentService } from '~/services/treatment.service'
 import { usePatientsStore } from '~/stores/patients.store'
+import { useAppointmentsStore } from '~/stores/appointments.store'
+import { useTreatmentsStore } from '~/stores/treatments.store'
+import { useInvoicesStore } from '~/stores/invoices.store'
+import { toLocalDateKey } from '~/lib/date'
 
 export function usePatientDetailPage() {
   const route = useRoute()
   const supabase = useSupabase()
   const { profile } = useAuth()
   const patientsStore = usePatientsStore()
+  const appointmentsStore = useAppointmentsStore()
+  const treatmentsStore = useTreatmentsStore()
+  const invoicesStore = useInvoicesStore()
+  const { byPatientByClinic: appointmentsByPatientByClinic } = storeToRefs(appointmentsStore)
+  const { byPatientByClinic: treatmentsByPatientByClinic } = storeToRefs(treatmentsStore)
+  const { byPatientByClinic: invoicesByPatientByClinic } = storeToRefs(invoicesStore)
 
   const patient = ref<Tables<'patients'> | null>(null)
   const appointments = ref<IAppointmentWithRelations[]>([])
@@ -39,7 +48,11 @@ export function usePatientDetailPage() {
     isLoading.value = true
 
     try {
-      const data = await patientService(supabase).getById(route.params.id as string)
+      if (!profile.value) return
+      const data = await patientService(supabase).getById(
+        profile.value.clinic_id,
+        route.params.id as string,
+      )
       if (!data) {
         toast.error('Patient not found')
         navigateTo('/patients')
@@ -60,9 +73,11 @@ export function usePatientDetailPage() {
     showAllPast.value = false
 
     try {
-      appointments.value = await appointmentService(supabase).getByPatientId(
-        route.params.id as string,
-      )
+      if (!profile.value) return
+      await appointmentsStore.fetchByPatient(profile.value.clinic_id, route.params.id as string)
+      appointments.value =
+        appointmentsByPatientByClinic.value[profile.value.clinic_id]?.[route.params.id as string] ??
+        []
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to load appointments'
       toast.error(message)
@@ -75,7 +90,11 @@ export function usePatientDetailPage() {
     isLoadingTreatments.value = true
 
     try {
-      treatments.value = await treatmentService(supabase).getByPatientId(route.params.id as string)
+      if (!profile.value) return
+      await treatmentsStore.fetchByPatient(profile.value.clinic_id, route.params.id as string)
+      treatments.value =
+        treatmentsByPatientByClinic.value[profile.value.clinic_id]?.[route.params.id as string] ??
+        []
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to load treatment plans'
       toast.error(message)
@@ -90,10 +109,9 @@ export function usePatientDetailPage() {
     isLoadingInvoices.value = true
 
     try {
-      invoices.value = await invoiceService(supabase).getByPatientId(
-        profile.value.clinic_id,
-        route.params.id as string,
-      )
+      await invoicesStore.fetchByPatient(profile.value.clinic_id, route.params.id as string)
+      invoices.value =
+        invoicesByPatientByClinic.value[profile.value.clinic_id]?.[route.params.id as string] ?? []
       hasLoadedInvoices.value = true
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to load invoices'
@@ -103,13 +121,13 @@ export function usePatientDetailPage() {
     }
   }
 
-  const todayDateKey = computed(() => new Date().toLocaleDateString('en-CA'))
+  const todayDateKey = computed(() => toLocalDateKey(new Date()))
 
   const upcomingAppointments = computed(() => {
     return appointments.value
       .filter((appt) => {
-        const apptDateKey = new Date(appt.start_time).toLocaleDateString('en-CA')
-        return appt.status === 'scheduled' && apptDateKey >= todayDateKey.value
+        const apptDateKey = toLocalDateKey(appt.start_time)
+        return appt.status === AppointmentStatus.SCHEDULED && apptDateKey >= todayDateKey.value
       })
       .slice()
       .sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime())
@@ -118,8 +136,8 @@ export function usePatientDetailPage() {
   const pastAppointments = computed(() => {
     return appointments.value
       .filter((appt) => {
-        const apptDateKey = new Date(appt.start_time).toLocaleDateString('en-CA')
-        return appt.status !== 'scheduled' || apptDateKey < todayDateKey.value
+        const apptDateKey = toLocalDateKey(appt.start_time)
+        return appt.status !== AppointmentStatus.SCHEDULED || apptDateKey < todayDateKey.value
       })
       .slice()
       .sort((a, b) => new Date(b.start_time).getTime() - new Date(a.start_time).getTime())
@@ -149,24 +167,24 @@ export function usePatientDetailPage() {
     return invoices.value.filter((inv) => inv.status === InvoiceStatus.PAID)
   })
 
-  function getAppointmentStatusBadgeClass(status: string): string {
+  function getAppointmentStatusBadgeClass(status: AppointmentStatus): string {
     const base = 'rounded-full px-2.5 py-0.5 text-xs font-medium'
 
     switch (status) {
-      case 'scheduled':
+      case AppointmentStatus.SCHEDULED:
         return `${base} bg-yellow-100 text-yellow-800`
-      case 'completed':
+      case AppointmentStatus.COMPLETED:
         return `${base} bg-green-100 text-green-800`
-      case 'cancelled':
+      case AppointmentStatus.CANCELLED:
         return `${base} bg-gray-100 text-gray-800`
-      case 'no_show':
+      case AppointmentStatus.NO_SHOW:
         return `${base} bg-red-100 text-red-800`
       default:
         return `${base} bg-gray-100 text-gray-800`
     }
   }
 
-  function getTreatmentStatusBadgeClass(status: string): string {
+  function getTreatmentStatusBadgeClass(status: TreatmentStatus): string {
     const base = 'rounded-full px-2.5 py-0.5 text-xs font-medium'
 
     switch (status) {
@@ -227,7 +245,8 @@ export function usePatientDetailPage() {
     isSaving.value = true
 
     try {
-      await patientService(supabase).update(patient.value.id, {
+      if (!profile.value) return
+      await patientService(supabase).update(profile.value.clinic_id, patient.value.id, {
         full_name: form.full_name,
         phone: form.phone,
         email: form.email || null,
@@ -239,7 +258,7 @@ export function usePatientDetailPage() {
         notes: form.notes || null,
       })
 
-      if (profile.value && patient.value) {
+      if (patient.value) {
         patientsStore.upsertPatient(profile.value.clinic_id, {
           ...patient.value,
           full_name: form.full_name,
@@ -253,6 +272,9 @@ export function usePatientDetailPage() {
           notes: form.notes || null,
         })
         patientsStore.invalidate(profile.value.clinic_id)
+        appointmentsStore.invalidatePatient(profile.value.clinic_id, patient.value.id)
+        treatmentsStore.invalidatePatient(profile.value.clinic_id, patient.value.id)
+        invoicesStore.invalidatePatient(profile.value.clinic_id, patient.value.id)
       }
 
       toast.success('Patient updated')
@@ -271,10 +293,14 @@ export function usePatientDetailPage() {
     isArchiving.value = true
 
     try {
-      await patientService(supabase).archive(patient.value.id)
+      if (!profile.value) return
+      await patientService(supabase).archive(profile.value.clinic_id, patient.value.id)
       if (profile.value) {
         patientsStore.archivePatient(profile.value.clinic_id, patient.value.id)
         patientsStore.invalidate(profile.value.clinic_id)
+        appointmentsStore.invalidatePatient(profile.value.clinic_id, patient.value.id)
+        treatmentsStore.invalidatePatient(profile.value.clinic_id, patient.value.id)
+        invoicesStore.invalidatePatient(profile.value.clinic_id, patient.value.id)
       }
       toast.success('Patient archived')
       navigateTo('/patients')
@@ -300,11 +326,16 @@ export function usePatientDetailPage() {
     { immediate: true },
   )
 
-  onMounted(() => {
-    void loadPatient()
-    void loadAppointments()
-    void loadTreatments()
-  })
+  watch(
+    () => profile.value?.clinic_id,
+    (clinicId) => {
+      if (!clinicId) return
+      void loadPatient()
+      void loadAppointments()
+      void loadTreatments()
+    },
+    { immediate: true },
+  )
 
   return {
     patient,

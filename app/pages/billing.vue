@@ -179,21 +179,27 @@ import type { IInvoiceWithRelations } from '~/types/models/invoice.types'
 import { InvoiceStatus, INVOICE_STATUS_LABELS } from '~/enums/invoice.enum'
 import { invoiceService } from '~/services/invoice.service'
 import { usePatientsStore } from '~/stores/patients.store'
+import { useInvoicesStore } from '~/stores/invoices.store'
 import { formatDateWithYear, formatCurrency, getStatusColor } from '~/lib/formatters'
 
 const supabase = useSupabase()
 const { profile } = useAuth()
 const route = useRoute()
 const patientsStore = usePatientsStore()
+const invoicesStore = useInvoicesStore()
 const { dropdownByClinic } = storeToRefs(patientsStore)
+const { byClinic } = storeToRefs(invoicesStore)
 
-const invoices = ref<IInvoiceWithRelations[]>([])
 const isLoading = ref(true)
 const showNewDialog = ref(route.query.action === 'new')
 const filter = ref<'all' | 'pending' | 'paid' | 'overdue'>('all')
 const patients = computed(() => {
   if (!profile.value) return []
   return dropdownByClinic.value[profile.value.clinic_id] ?? []
+})
+const invoices = computed<IInvoiceWithRelations[]>(() => {
+  if (!profile.value) return []
+  return byClinic.value[profile.value.clinic_id] ?? []
 })
 
 const newInvoice = ref({
@@ -211,7 +217,7 @@ async function loadInvoices() {
   isLoading.value = true
 
   try {
-    invoices.value = await invoiceService(supabase).list(profile.value.clinic_id)
+    await invoicesStore.fetchList(profile.value.clinic_id)
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Failed to load invoices'
     toast.error(message)
@@ -311,6 +317,7 @@ async function createInvoice() {
     })
 
     toast.success('Invoice created')
+    invoicesStore.invalidate(profile.value.clinic_id)
     await loadInvoices()
     showNewDialog.value = false
     newInvoice.value = {

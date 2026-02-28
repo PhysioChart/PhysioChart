@@ -1,5 +1,6 @@
 import type { Tables } from '~/types/database'
 import type { IAppointmentWithRelations } from '~/types/models/appointment.types'
+import { toLocalDateKey } from '~/lib/date'
 
 export type CalendarAppointment = IAppointmentWithRelations
 
@@ -109,12 +110,12 @@ export function useCalendar() {
     const monday = new Date(d)
     monday.setDate(d.getDate() - ((dayOfWeek + 6) % 7))
 
-    const todayStr = new Date().toLocaleDateString('en-CA')
+    const todayStr = toLocalDateKey(new Date())
     const days: CalendarDay[] = []
     for (let i = 0; i < 7; i++) {
       const day = new Date(monday)
       day.setDate(monday.getDate() + i)
-      const dateStr = day.toLocaleDateString('en-CA')
+      const dateStr = toLocalDateKey(day)
       days.push({
         date: day,
         dateStr,
@@ -128,8 +129,8 @@ export function useCalendar() {
 
   const currentDay = computed<CalendarDay>(() => {
     const d = selectedDate.value
-    const dateStr = d.toLocaleDateString('en-CA')
-    const todayStr = new Date().toLocaleDateString('en-CA')
+    const dateStr = toLocalDateKey(d)
+    const todayStr = toLocalDateKey(new Date())
     return {
       date: d,
       dateStr,
@@ -196,7 +197,7 @@ export function useCalendar() {
 
   function appointmentsForDate(appointments: CalendarAppointment[], dateStr: string) {
     return appointments.filter((a) => {
-      const localDate = new Date(a.start_time).toLocaleDateString('en-CA')
+      const localDate = toLocalDateKey(a.start_time)
       return localDate === dateStr
     })
   }

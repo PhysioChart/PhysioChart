@@ -44,7 +44,7 @@
             </FormItem>
           </FormField>
 
-          <Button type="submit" class="w-full" :disabled="isLoading">
+          <Button type="submit" size="lg" class="w-full" :disabled="isLoading">
             <template v-if="isLoading">Signing in...</template>
             <template v-else>Sign in</template>
           </Button>

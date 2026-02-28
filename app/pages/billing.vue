@@ -5,7 +5,7 @@
         <h1 class="text-2xl font-bold tracking-tight">Billing</h1>
         <p class="text-muted-foreground text-sm">Manage invoices and payments</p>
       </div>
-      <Button @click="openDialog()">
+      <Button size="lg" @click="openDialog()">
         <Plus class="mr-2 h-4 w-4" />
         New Invoice
       </Button>

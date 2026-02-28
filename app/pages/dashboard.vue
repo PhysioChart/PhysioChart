@@ -1,21 +1,33 @@
 <template>
   <div class="space-y-6">
     <!-- Header -->
-    <div>
-      <h1 class="text-2xl font-bold tracking-tight">
-        Good
-        {{
-          new Date().getHours() < 12
-            ? 'morning'
-            : new Date().getHours() < 17
-              ? 'afternoon'
-              : 'evening'
-        }},
-        {{ profile?.full_name?.split(' ')[0] ?? 'Doctor' }}
-      </h1>
-      <p class="text-muted-foreground">
-        Here's what's happening at {{ clinic?.name ?? 'your clinic' }} today.
-      </p>
+    <div class="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+      <div>
+        <h1 class="text-2xl font-bold tracking-tight">
+          Good
+          {{
+            new Date().getHours() < 12
+              ? 'morning'
+              : new Date().getHours() < 17
+                ? 'afternoon'
+                : 'evening'
+          }},
+          {{ profile?.full_name?.split(' ')[0] ?? 'Doctor' }}
+        </h1>
+        <p class="text-muted-foreground">
+          Here's what's happening at {{ clinic?.name ?? 'your clinic' }} today.
+        </p>
+      </div>
+      <div class="flex flex-wrap items-center gap-2">
+        <Button size="lg" @click="navigateTo('/patients?action=new')">
+          <UserPlus class="mr-2 h-4 w-4" />
+          New Patient
+        </Button>
+        <Button size="lg" @click="navigateTo('/appointments?action=new')">
+          <CalendarPlus class="mr-2 h-4 w-4" />
+          Book Appointment
+        </Button>
+      </div>
     </div>
 
     <!-- Stats -->
@@ -30,30 +42,6 @@
           <p class="text-muted-foreground text-xs">{{ stat.description }}</p>
         </CardContent>
       </Card>
-    </div>
-
-    <!-- Quick Actions -->
-    <div>
-      <h2 class="mb-3 text-lg font-semibold">Quick Actions</h2>
-      <div class="grid gap-3 sm:grid-cols-3">
-        <Card
-          v-for="action in quickActions"
-          :key="action.title"
-          role="button"
-          tabindex="0"
-          :aria-label="action.title"
-          class="hover:bg-muted/50 cursor-pointer transition-colors"
-          @click="navigateTo(action.to)"
-          @keydown.enter="navigateTo(action.to)"
-        >
-          <CardContent class="flex items-center gap-3 p-4">
-            <div :class="[action.color, 'flex h-10 w-10 items-center justify-center rounded-lg']">
-              <component :is="action.icon" class="h-5 w-5 text-white" />
-            </div>
-            <span class="font-medium">{{ action.title }}</span>
-          </CardContent>
-        </Card>
-      </div>
     </div>
 
     <!-- Recent Activity Placeholder -->
@@ -85,28 +73,11 @@ import {
   ClipboardList,
   UserPlus,
   CalendarPlus,
-  FilePlus,
   Clock,
   IndianRupee,
 } from 'lucide-vue-next'
 
 const { clinic, profile } = useAuth()
-
-const quickActions = [
-  { title: 'New Patient', icon: UserPlus, to: '/patients?action=new', color: 'bg-blue-500' },
-  {
-    title: 'Book Appointment',
-    icon: CalendarPlus,
-    to: '/appointments?action=new',
-    color: 'bg-green-500',
-  },
-  {
-    title: 'Create Invoice',
-    icon: FilePlus,
-    to: '/billing?action=new',
-    color: 'bg-amber-500',
-  },
-]
 
 // Placeholder stats — will be replaced with real data
 const stats = ref([

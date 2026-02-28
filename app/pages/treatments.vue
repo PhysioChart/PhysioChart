@@ -5,7 +5,7 @@
         <h1 class="text-2xl font-bold tracking-tight">Treatment Plans</h1>
         <p class="text-muted-foreground text-sm">Track treatment progress for your patients</p>
       </div>
-      <Button @click="openDialog()">
+      <Button size="lg" @click="openDialog()">
         <Plus class="mr-2 h-4 w-4" />
         New Plan
       </Button>

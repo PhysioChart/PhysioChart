@@ -8,7 +8,7 @@
       </div>
       <Dialog v-model:open="showNewPatientDialog">
         <DialogTrigger as-child>
-          <Button>
+          <Button size="lg">
             <UserPlus class="mr-2 h-4 w-4" />
             New Patient
           </Button>

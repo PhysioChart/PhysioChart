@@ -14,6 +14,21 @@ export function invoiceService(supabase: SupabaseClient<Database>) {
     return (data ?? []) as IInvoiceWithRelations[]
   }
 
+  async function getByPatientId(
+    clinicId: string,
+    patientId: string,
+  ): Promise<IInvoiceWithRelations[]> {
+    const { data, error } = await supabase
+      .from('invoices')
+      .select('*, patient:patients(*)')
+      .eq('clinic_id', clinicId)
+      .eq('patient_id', patientId)
+      .order('created_at', { ascending: false })
+
+    if (error) throw error
+    return (data ?? []) as IInvoiceWithRelations[]
+  }
+
   async function create(invoice: InsertDto<'invoices'>): Promise<void> {
     const { error } = await supabase.from('invoices').insert(invoice)
 
@@ -31,5 +46,5 @@ export function invoiceService(supabase: SupabaseClient<Database>) {
     return `INV-${dateStr}-${String((count ?? 0) + 1).padStart(3, '0')}`
   }
 
-  return { list, create, nextInvoiceNumber }
+  return { list, getByPatientId, create, nextInvoiceNumber }
 }

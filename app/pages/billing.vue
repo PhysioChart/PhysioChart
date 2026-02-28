@@ -227,9 +227,15 @@ async function loadPatients() {
 }
 
 function openDialog() {
-  loadPatients()
+  void loadPatients()
   showNewDialog.value = true
 }
+
+watch(showNewDialog, (isOpen) => {
+  if (isOpen) {
+    void loadPatients()
+  }
+})
 
 const PENDING_STATUSES: InvoiceStatus[] = [
   InvoiceStatus.DRAFT,

@@ -118,7 +118,6 @@ const onSubmit = handleSubmit(async (values) => {
   isLoading.value = true
   try {
     await signUp(values.clinicName, values.fullName, values.email, values.password)
-    await navigateTo('/home')
   } catch (e: unknown) {
     error.value = e instanceof Error ? e.message : 'Registration failed'
   } finally {

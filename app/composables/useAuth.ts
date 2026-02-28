@@ -19,6 +19,7 @@ export function useAuth() {
   const loading = useState<boolean>('auth:loading', () => true)
   const initStatus = useState<'idle' | 'initializing' | 'done'>('auth:initStatus', () => 'idle')
   const listenerAttached = useState<boolean>('auth:listenerAttached', () => false)
+  const skipNextSignedIn = useState<boolean>('auth:skipNextSignedIn', () => false)
 
   const authState: AuthState = {
     user,
@@ -29,18 +30,15 @@ export function useAuth() {
     isAdmin: computed(() => profile.value?.role === UserRole.ADMIN),
   }
 
-  async function fetchProfile() {
-    if (!user.value) {
+  async function fetchProfile(userId?: string) {
+    const id = userId ?? user.value?.id
+    if (!id) {
       profile.value = null
       clinic.value = null
       return
     }
 
-    const { data: profileData } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', user.value.id)
-      .single()
+    const { data: profileData } = await supabase.from('profiles').select('*').eq('id', id).single()
 
     authState.profile.value = profileData ?? null
 
@@ -95,6 +93,11 @@ export function useAuth() {
         // initialize() already resolves the startup session + profile/clinic.
         // Skip this event to avoid duplicate profile/clinic requests on page refresh.
         if (event === 'INITIAL_SESSION') return
+        // signIn/signUp set the skip flag when they handle profile fetch themselves.
+        if (event === 'SIGNED_IN' && skipNextSignedIn.value) {
+          skipNextSignedIn.value = false
+          return
+        }
         authState.user.value = session?.user ?? null
         await fetchProfile()
       })
@@ -115,7 +118,8 @@ export function useAuth() {
     const clinicId = (rpcData as Record<string, unknown>).clinic_id as string
 
     // 2. Sign up the user with clinic_id in metadata
-    const { error: signUpError } = await supabase.auth.signUp({
+    skipNextSignedIn.value = true
+    const { data, error: signUpError } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -127,12 +131,29 @@ export function useAuth() {
       },
     })
 
-    if (signUpError) throw signUpError
+    if (signUpError) {
+      skipNextSignedIn.value = false
+      throw signUpError
+    }
+
+    // If auto-confirm is enabled, signUp returns a session — fetch profile before setting user
+    if (data.session?.user) {
+      await fetchProfile(data.session.user.id)
+      authState.user.value = data.session.user
+    }
   }
 
   async function signIn(email: string, password: string) {
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
-    if (error) throw error
+    skipNextSignedIn.value = true
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password })
+    if (error) {
+      skipNextSignedIn.value = false
+      throw error
+    }
+    if (data.session?.user) {
+      await fetchProfile(data.session.user.id)
+      authState.user.value = data.session.user
+    }
   }
 
   async function signOut() {

@@ -46,7 +46,7 @@ export function appointmentService(supabase: SupabaseClient<Database>) {
   }
 
   async function create(appointment: InsertDto<'appointments'>): Promise<void> {
-    const { error } = await supabase.from('appointments').insert(appointment)
+    const { error } = await supabase.from('appointments').insert(appointment).select().single()
 
     if (error) throw error
   }

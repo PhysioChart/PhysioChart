@@ -25,8 +25,19 @@ export function treatmentService(supabase: SupabaseClient<Database>) {
     return data as ITreatmentPlanWithRelations | null
   }
 
+  async function getByPatientId(patientId: string): Promise<ITreatmentPlanWithRelations[]> {
+    const { data, error } = await supabase
+      .from('treatment_plans')
+      .select('*, patient:patients(*), therapist:profiles(*)')
+      .eq('patient_id', patientId)
+      .order('created_at', { ascending: false })
+
+    if (error) throw error
+    return (data ?? []) as ITreatmentPlanWithRelations[]
+  }
+
   async function create(plan: InsertDto<'treatment_plans'>): Promise<void> {
-    const { error } = await supabase.from('treatment_plans').insert(plan)
+    const { error } = await supabase.from('treatment_plans').insert(plan).select().single()
 
     if (error) throw error
   }
@@ -37,5 +48,5 @@ export function treatmentService(supabase: SupabaseClient<Database>) {
     if (error) throw error
   }
 
-  return { list, getById, create, update }
+  return { list, getById, getByPatientId, create, update }
 }

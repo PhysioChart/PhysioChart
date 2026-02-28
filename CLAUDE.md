@@ -99,6 +99,9 @@ This project uses Supabase Free plan — 500 MB DB, 1 GB storage, 10 GB egress, 
 
 - **Loading states**: Any async function that sets a loading/submitting flag MUST use `try/catch/finally`. Set the flag `true` before `try`, set it `false` in `finally`. Never set it inline after an `await`.
 - **Lazy-load secondary data**: Only fetch what the page needs on mount. Defer dropdowns, lookups, and supporting data until the user actually needs them (e.g. opening a dialog, switching tabs).
+- **Page size and decomposition**: Keep page SFCs focused on orchestration. If a page approaches 300 lines, extract domain UI sections into `app/components/{domain}/` and move page-specific logic into a `use{Page}...` composable unless true global shared state is needed.
+- **Service tenant scoping**: In services, always apply `.eq('clinic_id', clinicId)` for tenant-owned tables in addition to record-level filters (defense-in-depth), and include `clinicId` in method signatures where required.
+- **Supabase changes checklist**: Before changing any Supabase query/schema/RLS/auth/storage behavior, read `dev.md` and explicitly mention expected free-tier impact in chat before implementation.
 - **No duplicate computation in templates**: Don't call the same function twice for different props (`:top="fn(x).top" :height="fn(x).height"`). Pre-compute into a mapped array or computed property.
 - **Await before resetting UI**: When an async action completes (e.g. form submit), await the data refresh first, then reset the form/close the dialog — not the other way around.
 - **Clamp computed positions**: Any pixel math derived from data (e.g. calendar grids) must clamp values to valid bounds. Never assume data falls within the visible range.

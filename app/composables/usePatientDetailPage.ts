@@ -1,0 +1,319 @@
+import { toast } from 'vue-sonner'
+import type { Tables, MedicalHistory } from '~/types/database'
+import type { IAppointmentWithRelations } from '~/types/models/appointment.types'
+import type { IInvoiceWithRelations } from '~/types/models/invoice.types'
+import type { IPatientEditForm } from '~/types/models/patient.types'
+import type { ITreatmentPlanWithRelations } from '~/types/models/treatment.types'
+import { InvoiceStatus } from '~/enums/invoice.enum'
+import { TreatmentStatus } from '~/enums/treatment.enum'
+import { appointmentService } from '~/services/appointment.service'
+import { invoiceService } from '~/services/invoice.service'
+import { patientService } from '~/services/patient.service'
+import { treatmentService } from '~/services/treatment.service'
+
+export function usePatientDetailPage() {
+  const route = useRoute()
+  const supabase = useSupabase()
+  const { profile } = useAuth()
+
+  const patient = ref<Tables<'patients'> | null>(null)
+  const appointments = ref<IAppointmentWithRelations[]>([])
+  const invoices = ref<IInvoiceWithRelations[]>([])
+  const treatments = ref<ITreatmentPlanWithRelations[]>([])
+
+  const isLoading = ref(true)
+  const isLoadingAppointments = ref(false)
+  const isLoadingTreatments = ref(false)
+  const isLoadingInvoices = ref(false)
+
+  const activeTab = ref('overview')
+  const hasLoadedInvoices = ref(false)
+  const showAllPast = ref(false)
+  const isEditing = ref(false)
+  const isSaving = ref(false)
+  const isArchiving = ref(false)
+
+  async function loadPatient() {
+    isLoading.value = true
+
+    try {
+      const data = await patientService(supabase).getById(route.params.id as string)
+      if (!data) {
+        toast.error('Patient not found')
+        navigateTo('/patients')
+        return
+      }
+      patient.value = data
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to load patient'
+      toast.error(message)
+      navigateTo('/patients')
+    } finally {
+      isLoading.value = false
+    }
+  }
+
+  async function loadAppointments() {
+    isLoadingAppointments.value = true
+    showAllPast.value = false
+
+    try {
+      appointments.value = await appointmentService(supabase).getByPatientId(
+        route.params.id as string,
+      )
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to load appointments'
+      toast.error(message)
+    } finally {
+      isLoadingAppointments.value = false
+    }
+  }
+
+  async function loadTreatments() {
+    isLoadingTreatments.value = true
+
+    try {
+      treatments.value = await treatmentService(supabase).getByPatientId(route.params.id as string)
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to load treatment plans'
+      toast.error(message)
+    } finally {
+      isLoadingTreatments.value = false
+    }
+  }
+
+  async function loadInvoices() {
+    if (!profile.value) return
+
+    isLoadingInvoices.value = true
+
+    try {
+      invoices.value = await invoiceService(supabase).getByPatientId(
+        profile.value.clinic_id,
+        route.params.id as string,
+      )
+      hasLoadedInvoices.value = true
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to load invoices'
+      toast.error(message)
+    } finally {
+      isLoadingInvoices.value = false
+    }
+  }
+
+  const todayDateKey = computed(() => new Date().toLocaleDateString('en-CA'))
+
+  const upcomingAppointments = computed(() => {
+    return appointments.value
+      .filter((appt) => {
+        const apptDateKey = new Date(appt.start_time).toLocaleDateString('en-CA')
+        return appt.status === 'scheduled' && apptDateKey >= todayDateKey.value
+      })
+      .slice()
+      .sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime())
+  })
+
+  const pastAppointments = computed(() => {
+    return appointments.value
+      .filter((appt) => {
+        const apptDateKey = new Date(appt.start_time).toLocaleDateString('en-CA')
+        return appt.status !== 'scheduled' || apptDateKey < todayDateKey.value
+      })
+      .slice()
+      .sort((a, b) => new Date(b.start_time).getTime() - new Date(a.start_time).getTime())
+  })
+
+  const visiblePastAppointments = computed(() => {
+    return showAllPast.value ? pastAppointments.value : pastAppointments.value.slice(0, 10)
+  })
+
+  const remainingPastCount = computed(() => Math.max(0, pastAppointments.value.length - 10))
+
+  const activeTreatments = computed(() => {
+    return treatments.value.filter((t) => t.status === TreatmentStatus.ACTIVE)
+  })
+
+  const completedTreatments = computed(() => {
+    return treatments.value.filter(
+      (t) => t.status === TreatmentStatus.COMPLETED || t.status === TreatmentStatus.CANCELLED,
+    )
+  })
+
+  const unpaidPendingInvoices = computed(() => {
+    return invoices.value.filter((inv) => inv.status !== InvoiceStatus.PAID)
+  })
+
+  const paidInvoices = computed(() => {
+    return invoices.value.filter((inv) => inv.status === InvoiceStatus.PAID)
+  })
+
+  function getAppointmentStatusBadgeClass(status: string): string {
+    const base = 'rounded-full px-2.5 py-0.5 text-xs font-medium'
+
+    switch (status) {
+      case 'scheduled':
+        return `${base} bg-yellow-100 text-yellow-800`
+      case 'completed':
+        return `${base} bg-green-100 text-green-800`
+      case 'cancelled':
+        return `${base} bg-gray-100 text-gray-800`
+      case 'no_show':
+        return `${base} bg-red-100 text-red-800`
+      default:
+        return `${base} bg-gray-100 text-gray-800`
+    }
+  }
+
+  function getTreatmentStatusBadgeClass(status: string): string {
+    const base = 'rounded-full px-2.5 py-0.5 text-xs font-medium'
+
+    switch (status) {
+      case TreatmentStatus.ACTIVE:
+        return `${base} bg-green-100 text-green-800`
+      case TreatmentStatus.COMPLETED:
+        return `${base} bg-emerald-100 text-emerald-800`
+      case TreatmentStatus.CANCELLED:
+        return `${base} bg-slate-100 text-slate-600`
+      default:
+        return `${base} bg-gray-100 text-gray-800`
+    }
+  }
+
+  function getInvoiceStatusBadgeClass(status: InvoiceStatus): string {
+    switch (status) {
+      case InvoiceStatus.PAID:
+        return 'badge-paid'
+      case InvoiceStatus.OVERDUE:
+        return 'badge-overdue'
+      case InvoiceStatus.CANCELLED:
+        return 'badge-cancelled'
+      case InvoiceStatus.DRAFT:
+      case InvoiceStatus.SENT:
+      case InvoiceStatus.PARTIALLY_PAID:
+        return 'badge-pending'
+      default:
+        return 'badge-cancelled'
+    }
+  }
+
+  function treatmentProgress(plan: ITreatmentPlanWithRelations): number {
+    if (plan.total_sessions === 0) return 0
+    return Math.round((plan.completed_sessions / plan.total_sessions) * 100)
+  }
+
+  function startEdit() {
+    if (!patient.value) return
+    isEditing.value = true
+  }
+
+  function buildEditForm(patientData: Tables<'patients'>): IPatientEditForm {
+    return {
+      full_name: patientData.full_name,
+      phone: patientData.phone,
+      email: patientData.email ?? '',
+      date_of_birth: patientData.date_of_birth ?? '',
+      gender: patientData.gender ?? '',
+      address: patientData.address ?? '',
+      emergency_contact_name: patientData.emergency_contact_name ?? '',
+      emergency_contact_phone: patientData.emergency_contact_phone ?? '',
+      notes: patientData.notes ?? '',
+    }
+  }
+
+  async function saveEdit(form: IPatientEditForm) {
+    if (!patient.value || !form.full_name) return
+    isSaving.value = true
+
+    try {
+      await patientService(supabase).update(patient.value.id, {
+        full_name: form.full_name,
+        phone: form.phone,
+        email: form.email || null,
+        date_of_birth: form.date_of_birth || null,
+        gender: (form.gender || null) as Tables<'patients'>['gender'],
+        address: form.address || null,
+        emergency_contact_name: form.emergency_contact_name || null,
+        emergency_contact_phone: form.emergency_contact_phone || null,
+        notes: form.notes || null,
+      })
+
+      toast.success('Patient updated')
+      await loadPatient()
+      isEditing.value = false
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to update patient'
+      toast.error(message)
+    } finally {
+      isSaving.value = false
+    }
+  }
+
+  async function archivePatient() {
+    if (!patient.value) return
+    isArchiving.value = true
+
+    try {
+      await patientService(supabase).archive(patient.value.id)
+      toast.success('Patient archived')
+      navigateTo('/patients')
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to archive patient'
+      toast.error(message)
+    } finally {
+      isArchiving.value = false
+    }
+  }
+
+  const medicalHistory = computed(() => {
+    return (patient.value?.medical_history as MedicalHistory) ?? {}
+  })
+
+  watch(
+    [activeTab, () => profile.value?.clinic_id],
+    ([tab, clinicId]) => {
+      if (tab === 'billing' && clinicId && !hasLoadedInvoices.value) {
+        void loadInvoices()
+      }
+    },
+    { immediate: true },
+  )
+
+  onMounted(() => {
+    void loadPatient()
+    void loadAppointments()
+    void loadTreatments()
+  })
+
+  return {
+    patient,
+    appointments,
+    invoices,
+    treatments,
+    isLoading,
+    isLoadingAppointments,
+    isLoadingTreatments,
+    isLoadingInvoices,
+    activeTab,
+    showAllPast,
+    isEditing,
+    isSaving,
+    isArchiving,
+    medicalHistory,
+    upcomingAppointments,
+    pastAppointments,
+    visiblePastAppointments,
+    remainingPastCount,
+    activeTreatments,
+    completedTreatments,
+    unpaidPendingInvoices,
+    paidInvoices,
+    getAppointmentStatusBadgeClass,
+    getTreatmentStatusBadgeClass,
+    getInvoiceStatusBadgeClass,
+    treatmentProgress,
+    startEdit,
+    buildEditForm,
+    saveEdit,
+    archivePatient,
+  }
+}

@@ -64,3 +64,54 @@ Browse available components at [shadcn-vue.com/docs/components](https://www.shad
 ## Deployment
 
 Hosted on [Vercel](https://vercel.com). Pushes to `develop` trigger preview deployments, `main` triggers production.
+
+## Production DB Migration Runbook
+
+Run these in order against the production Supabase project.
+
+### 1) Full migration order (old + new)
+
+1. `supabase/migrations/001_initial_schema.sql`
+2. `supabase/migrations/002_recurring_appointments.sql`
+3. `supabase/migrations/003_doctor_conflict_enforcement.sql`
+4. `supabase/migrations/004_doctor_conflict_atomic_series.sql`
+
+Important: run `003` and `004` as separate executions in SQL Editor (or via `supabase db push` in sequence). `003` must commit before `004` because `004` uses the new enum value.
+
+### 2) What each migration does
+
+1. `001_initial_schema.sql`
+   - Creates base schema, tables, indexes, triggers, and RLS policies.
+
+2. `002_recurring_appointments.sql`
+   - Adds recurring-series support columns/index (`series_id`, `series_index`).
+
+3. `003_doctor_conflict_enforcement.sql`
+   - Adds appointment status `checked_in` to enum `appointment_status`.
+
+4. `004_doctor_conflict_atomic_series.sql`
+   - Adds duration constraints (`end_time > start_time`, max 12 hours).
+   - Auto-resolves legacy overlapping doctor appointments by cancelling later conflicting rows and appending note:
+     - `[System] Auto-cancelled during overlap-enforcement migration`
+   - Adds DB exclusion constraint to block same-doctor overlapping appointments for blocking statuses (`scheduled`, `checked_in`).
+   - Creates RPC function `create_appointment_series` for atomic all-or-nothing recurring booking.
+
+### 3) How to run in production (SQL Editor)
+
+1. Open Supabase Dashboard -> Project -> SQL Editor.
+2. Run file `001_initial_schema.sql`.
+3. Run file `002_recurring_appointments.sql`.
+4. Run file `003_doctor_conflict_enforcement.sql`.
+5. After success, run file `004_doctor_conflict_atomic_series.sql`.
+
+### 4) Post-migration verification
+
+1. Same doctor + overlapping time should fail.
+2. Different doctors at same time should succeed.
+3. Series with one conflicting occurrence should fail atomically (no partial inserts).
+4. Check for any auto-cancelled legacy rows:
+   ```sql
+   select id, clinic_id, therapist_id, start_time, end_time, status, notes
+   from public.appointments
+   where notes ilike '%Auto-cancelled during overlap-enforcement migration%';
+   ```

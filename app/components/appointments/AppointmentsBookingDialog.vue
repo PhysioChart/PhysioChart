@@ -44,10 +44,10 @@
         </div>
 
         <div>
-          <Label>Therapist</Label>
+          <Label>Doctor *</Label>
           <Select v-model="form.therapist_id">
             <SelectTrigger>
-              <SelectValue placeholder="Select therapist (optional)" />
+              <SelectValue placeholder="Select doctor" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem v-for="t in therapists" :key="t.id" :value="t.id">
@@ -79,7 +79,26 @@
           </div>
           <div>
             <Label>Time *</Label>
-            <Input v-model="form.start_time" type="time" />
+            <Select v-model="form.start_time" :disabled="!isDoctorSelected">
+              <SelectTrigger>
+                <SelectValue
+                  :placeholder="isDoctorSelected ? 'Select time' : 'Select doctor first'"
+                />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem
+                  v-for="option in timeOptions"
+                  :key="option.value"
+                  :value="option.value"
+                  :disabled="option.disabled"
+                >
+                  {{ option.label }}
+                  <span v-if="option.disabledReason" class="text-muted-foreground ml-2 text-xs">
+                    ({{ option.disabledReason }})
+                  </span>
+                </SelectItem>
+              </SelectContent>
+            </Select>
           </div>
           <div>
             <Label>Duration</Label>
@@ -144,10 +163,16 @@
               </div>
             </div>
             <p v-if="conflicts.size > 0" class="mt-2 text-xs text-amber-600">
-              {{ conflicts.size }} slot(s) have conflicts. You can still proceed.
+              {{ conflicts.size }} slot(s) have conflicts. Resolve them before booking.
             </p>
           </div>
         </template>
+
+        <p v-if="hasSelectedSlotConflict && selectedSlotConflict" class="text-sm text-red-600">
+          This doctor is already booked from
+          {{ formatTime(selectedSlotConflict.start_time) }} to
+          {{ formatTime(selectedSlotConflict.end_time) }}.
+        </p>
 
         <div>
           <Label>Notes</Label>
@@ -161,6 +186,9 @@
             :disabled="
               isSubmitting ||
               !form.patient_id ||
+              !form.therapist_id ||
+              hasSelectedSlotConflict ||
+              (bookingMode === 'series' && conflicts.size > 0) ||
               (bookingMode === 'series' && seriesConfig.days.length === 0)
             "
           >
@@ -184,9 +212,11 @@ import type { ITreatmentPlanWithRelations } from '~/types/models/treatment.types
 import type {
   AppointmentBookingMode,
   AppointmentFormState,
+  AppointmentTimeOption,
   SeriesConfigState,
 } from '~/features/appointments/types'
-import { formatSeriesDate } from '~/lib/formatters'
+import { formatSeriesDate, formatTime } from '~/lib/formatters'
+import type { IAppointmentBlockingInterval } from '~/services/appointment.service'
 
 withDefaults(
   defineProps<{
@@ -200,6 +230,10 @@ withDefaults(
     dayNames: string[]
     seriesDates: string[]
     conflicts: Set<string>
+    timeOptions: AppointmentTimeOption[]
+    isDoctorSelected: boolean
+    hasSelectedSlotConflict: boolean
+    selectedSlotConflict: IAppointmentBlockingInterval | null
   }>(),
   {
     canSelectTreatment: false,

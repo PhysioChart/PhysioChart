@@ -220,7 +220,7 @@ export type Database = {
           treatment_plan_id: string | null
           start_time: string
           end_time: string
-          status: 'scheduled' | 'completed' | 'cancelled' | 'no_show'
+          status: 'scheduled' | 'checked_in' | 'completed' | 'cancelled' | 'no_show'
           notes: string | null
           series_id: string | null
           series_index: number | null
@@ -235,7 +235,7 @@ export type Database = {
           treatment_plan_id?: string | null
           start_time: string
           end_time: string
-          status?: 'scheduled' | 'completed' | 'cancelled' | 'no_show'
+          status?: 'scheduled' | 'checked_in' | 'completed' | 'cancelled' | 'no_show'
           notes?: string | null
           series_id?: string | null
           series_index?: number | null
@@ -248,7 +248,7 @@ export type Database = {
           treatment_plan_id?: string | null
           start_time?: string
           end_time?: string
-          status?: 'scheduled' | 'completed' | 'cancelled' | 'no_show'
+          status?: 'scheduled' | 'checked_in' | 'completed' | 'cancelled' | 'no_show'
           notes?: string | null
           series_id?: string | null
           series_index?: number | null
@@ -525,12 +525,23 @@ export type Database = {
         }
         Returns: Record<string, unknown>
       }
+      create_appointment_series: {
+        Args: {
+          p_clinic_id: string
+          p_patient_id: string
+          p_therapist_id: string
+          p_treatment_plan_id?: string | null
+          p_notes?: string | null
+          p_occurrences?: Record<string, unknown>[]
+        }
+        Returns: Record<string, unknown>
+      }
     }
     Enums: {
       user_role: 'admin' | 'staff'
       gender: 'male' | 'female' | 'other'
       treatment_status: 'active' | 'completed' | 'cancelled'
-      appointment_status: 'scheduled' | 'completed' | 'cancelled' | 'no_show'
+      appointment_status: 'scheduled' | 'checked_in' | 'completed' | 'cancelled' | 'no_show'
       invoice_status: 'draft' | 'sent' | 'paid' | 'partially_paid' | 'overdue' | 'cancelled'
       payment_method: 'cash' | 'upi' | 'card' | 'bank_transfer' | 'other'
     }

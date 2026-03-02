@@ -4,7 +4,11 @@ import { toast } from 'vue-sonner'
 import { APPOINTMENT_STATUS_LABELS, type AppointmentStatus } from '~/enums/appointment.enum'
 import { TreatmentStatus } from '~/enums/treatment.enum'
 import { toLocalDateKey } from '~/lib/date'
-import { appointmentService } from '~/services/appointment.service'
+import {
+  AppointmentConflictError,
+  appointmentService,
+  type IAppointmentBlockingInterval,
+} from '~/services/appointment.service'
 import { useAppointmentsStore } from '~/stores/appointments.store'
 import { usePatientsStore } from '~/stores/patients.store'
 import { useStaffStore } from '~/stores/staff.store'
@@ -14,11 +18,17 @@ import type { ITreatmentPlanWithRelations } from '~/types/models/treatment.types
 import type {
   AppointmentBookingMode,
   AppointmentFormState,
+  AppointmentTimeOption,
   AppointmentsListFilter,
   AppointmentsViewMode,
   SeriesConfigState,
   TherapistLegendItem,
 } from '~/features/appointments/types'
+
+const SLOT_STEP_MINUTES = 15
+const MAX_APPOINTMENT_DURATION_MINUTES = 12 * 60
+const START_HOUR = 6
+const END_HOUR = 22
 
 function createDefaultAppointmentForm(noTreatmentPlanValue: string): AppointmentFormState {
   return {
@@ -34,6 +44,22 @@ function createDefaultAppointmentForm(noTreatmentPlanValue: string): Appointment
 
 function createDefaultSeriesConfig(): SeriesConfigState {
   return { days: [], totalSessions: 10 }
+}
+
+function toTimeLabel(time: string): string {
+  return new Date(`2000-01-01T${time}:00`).toLocaleTimeString('en-IN', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true,
+  })
+}
+
+function overlapsInterval(
+  startIso: string,
+  endIso: string,
+  interval: IAppointmentBlockingInterval,
+): boolean {
+  return startIso < interval.end_time && endIso > interval.start_time
 }
 
 export const useAppointmentsPageStore = defineStore('appointmentsPage', () => {
@@ -84,6 +110,8 @@ export const useAppointmentsPageStore = defineStore('appointmentsPage', () => {
   const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
   const conflicts = ref<Set<string>>(new Set())
+  const blockedIntervals = ref<IAppointmentBlockingInterval[]>([])
+  const isLoadingAvailability = ref(false)
   const isUpdatingStatus = ref(false)
   const isCancellingSeries = ref(false)
   const isLoadingTreatmentPlans = ref(false)
@@ -177,37 +205,169 @@ export const useAppointmentsPageStore = defineStore('appointmentsPage', () => {
     return 'Select treatment plan (optional)'
   })
 
+  const isDoctorSelected = computed(() => Boolean(newAppointment.value.therapist_id))
+
+  const selectedDateTimeRange = computed(() => {
+    if (!newAppointment.value.date || !newAppointment.value.start_time) return null
+
+    const durationMin = Number.parseInt(newAppointment.value.duration, 10)
+    if (!Number.isFinite(durationMin) || durationMin <= 0) return null
+
+    const startDateTime = `${newAppointment.value.date}T${newAppointment.value.start_time}:00`
+    const start = new Date(startDateTime)
+    const end = new Date(startDateTime)
+    end.setMinutes(end.getMinutes() + durationMin)
+
+    if (end <= start) return null
+
+    return {
+      startIso: start.toISOString(),
+      endIso: end.toISOString(),
+    }
+  })
+
+  const selectedSlotConflict = computed<IAppointmentBlockingInterval | null>(() => {
+    if (!isDoctorSelected.value) return null
+    if (!selectedDateTimeRange.value) return null
+
+    return (
+      blockedIntervals.value.find((interval) =>
+        overlapsInterval(
+          selectedDateTimeRange.value!.startIso,
+          selectedDateTimeRange.value!.endIso,
+          interval,
+        ),
+      ) ?? null
+    )
+  })
+
+  const hasSelectedSlotConflict = computed(() => Boolean(selectedSlotConflict.value))
+
+  const timeOptions = computed<AppointmentTimeOption[]>(() => {
+    const options: AppointmentTimeOption[] = []
+    const durationMin = Number.parseInt(newAppointment.value.duration, 10)
+    const hasValidDuration =
+      Number.isFinite(durationMin) &&
+      durationMin > 0 &&
+      durationMin <= MAX_APPOINTMENT_DURATION_MINUTES
+
+    for (let hour = START_HOUR; hour < END_HOUR; hour++) {
+      for (let minute = 0; minute < 60; minute += SLOT_STEP_MINUTES) {
+        const value = `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`
+        const option: AppointmentTimeOption = {
+          value,
+          label: toTimeLabel(value),
+          disabled: false,
+        }
+
+        if (!isDoctorSelected.value) {
+          option.disabled = true
+          option.disabledReason = 'Select doctor first'
+        } else if (!newAppointment.value.date) {
+          option.disabled = true
+          option.disabledReason = 'Select date first'
+        } else if (!hasValidDuration) {
+          option.disabled = true
+          option.disabledReason = 'Select a valid duration'
+        } else {
+          const startDateTime = `${newAppointment.value.date}T${value}:00`
+          const start = new Date(startDateTime)
+          const end = new Date(startDateTime)
+          end.setMinutes(end.getMinutes() + durationMin)
+          const startIso = start.toISOString()
+          const endIso = end.toISOString()
+
+          const hasConflict = blockedIntervals.value.some((interval) =>
+            overlapsInterval(startIso, endIso, interval),
+          )
+          if (hasConflict) {
+            option.disabled = true
+            option.disabledReason = 'Already booked'
+          }
+        }
+
+        options.push(option)
+      }
+    }
+
+    return options
+  })
+
   watchDebounced(
-    [seriesDates, () => newAppointment.value.therapist_id],
+    [() => newAppointment.value.therapist_id, () => newAppointment.value.date],
+    async () => {
+      if (!profile.value || !newAppointment.value.therapist_id || !newAppointment.value.date) {
+        blockedIntervals.value = []
+        return
+      }
+
+      isLoadingAvailability.value = true
+      try {
+        blockedIntervals.value = await appointmentService(supabase).listDoctorBlockedIntervals(
+          profile.value.clinic_id,
+          newAppointment.value.therapist_id,
+          newAppointment.value.date,
+        )
+      } catch {
+        blockedIntervals.value = []
+      } finally {
+        isLoadingAvailability.value = false
+      }
+    },
+    { debounce: 200 },
+  )
+
+  watchDebounced(
+    [
+      seriesDates,
+      () => newAppointment.value.therapist_id,
+      () => newAppointment.value.start_time,
+      () => newAppointment.value.duration,
+    ],
     async () => {
       if (seriesDates.value.length === 0 || !newAppointment.value.therapist_id || !profile.value) {
         conflicts.value = new Set()
         return
       }
 
+      const durationMin = Number.parseInt(newAppointment.value.duration, 10)
+      if (
+        !Number.isFinite(durationMin) ||
+        durationMin <= 0 ||
+        durationMin > MAX_APPOINTMENT_DURATION_MINUTES
+      ) {
+        conflicts.value = new Set()
+        return
+      }
+
       const firstDate = seriesDates.value[0]!
       const lastDate = seriesDates.value[seriesDates.value.length - 1]!
+      try {
+        const data = await appointmentService(supabase).findConflicts(
+          profile.value.clinic_id,
+          newAppointment.value.therapist_id,
+          firstDate,
+          lastDate,
+        )
 
-      const data = await appointmentService(supabase).findConflicts(
-        profile.value.clinic_id,
-        newAppointment.value.therapist_id,
-        firstDate,
-        lastDate,
-      )
+        const existing = new Set<string>()
+        for (const dateStr of seriesDates.value) {
+          const startDateTime = `${dateStr}T${newAppointment.value.start_time}:00`
+          const start = new Date(startDateTime).toISOString()
+          const endDate = new Date(startDateTime)
+          endDate.setMinutes(endDate.getMinutes() + durationMin)
+          const end = endDate.toISOString()
 
-      const existing = new Set(
-        data
-          .filter((startTime) => {
-            const d = new Date(startTime)
-            const t = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
-            return t === newAppointment.value.start_time
-          })
-          .map((startTime) => toLocalDateKey(startTime)),
-      )
+          const hasConflict = data.some((interval) => overlapsInterval(start, end, interval))
+          if (hasConflict) existing.add(dateStr)
+        }
 
-      conflicts.value = existing
+        conflicts.value = existing
+      } catch {
+        conflicts.value = new Set()
+      }
     },
-    { debounce: 300 },
+    { debounce: 250 },
   )
 
   watch(
@@ -315,11 +475,16 @@ export const useAppointmentsPageStore = defineStore('appointmentsPage', () => {
     bookingMode.value = 'single'
     seriesConfig.value = createDefaultSeriesConfig()
     conflicts.value = new Set()
+    blockedIntervals.value = []
     newAppointment.value = createDefaultAppointmentForm(NO_TREATMENT_PLAN_VALUE)
   }
 
   async function createAppointment() {
     if (!profile.value || !newAppointment.value.patient_id) return
+    if (!newAppointment.value.therapist_id) {
+      toast.error('Select a doctor before booking an appointment')
+      return
+    }
 
     if (
       newAppointment.value.treatment_plan_id !== NO_TREATMENT_PLAN_VALUE &&
@@ -343,50 +508,134 @@ export const useAppointmentsPageStore = defineStore('appointmentsPage', () => {
       if (bookingMode.value === 'single') {
         const startDateTime = `${newAppointment.value.date}T${newAppointment.value.start_time}:00`
         const endDate = new Date(startDateTime)
-        endDate.setMinutes(endDate.getMinutes() + parseInt(newAppointment.value.duration))
+        const durationMin = Number.parseInt(newAppointment.value.duration, 10)
+        if (!Number.isFinite(durationMin) || durationMin <= 0) {
+          toast.error('Appointment duration must be greater than 0 minutes')
+          return
+        }
+        if (durationMin > MAX_APPOINTMENT_DURATION_MINUTES) {
+          toast.error('Appointment duration cannot exceed 12 hours')
+          return
+        }
+        endDate.setMinutes(endDate.getMinutes() + durationMin)
+
+        if (endDate <= new Date(startDateTime)) {
+          toast.error('Appointment end time must be after start time')
+          return
+        }
+
+        if (selectedSlotConflict.value) {
+          throw new AppointmentConflictError(
+            'This doctor already has an appointment during this time.',
+            {
+              conflict: {
+                conflictingAppointmentId: selectedSlotConflict.value.id,
+                conflictingStartTime: selectedSlotConflict.value.start_time,
+                conflictingEndTime: selectedSlotConflict.value.end_time,
+              },
+            },
+          )
+        }
+
+        const startIso = new Date(startDateTime).toISOString()
+        const endIso = endDate.toISOString()
+        const overlap = await service.findDoctorConflicts(
+          profile.value.clinic_id,
+          newAppointment.value.therapist_id,
+          startIso,
+          endIso,
+        )
+        if (overlap) {
+          throw new AppointmentConflictError(
+            'This doctor already has an appointment during this time.',
+            {
+              conflict: overlap,
+            },
+          )
+        }
 
         await service.create({
           clinic_id: profile.value.clinic_id,
           patient_id: newAppointment.value.patient_id,
-          therapist_id: newAppointment.value.therapist_id || null,
+          therapist_id: newAppointment.value.therapist_id,
           treatment_plan_id: treatmentPlanId,
-          start_time: new Date(startDateTime).toISOString(),
-          end_time: endDate.toISOString(),
+          start_time: startIso,
+          end_time: endIso,
           notes: newAppointment.value.notes || null,
         })
 
         toast.success('Appointment booked')
       } else {
-        const seriesId = crypto.randomUUID()
-        const durationMin = parseInt(newAppointment.value.duration)
+        const durationMin = Number.parseInt(newAppointment.value.duration, 10)
+        if (!Number.isFinite(durationMin) || durationMin <= 0) {
+          toast.error('Appointment duration must be greater than 0 minutes')
+          return
+        }
+        if (durationMin > MAX_APPOINTMENT_DURATION_MINUTES) {
+          toast.error('Appointment duration cannot exceed 12 hours')
+          return
+        }
 
-        const rows = seriesDates.value.map((dateStr, index) => {
+        const occurrences = seriesDates.value.map((dateStr, index) => {
           const startDateTime = `${dateStr}T${newAppointment.value.start_time}:00`
           const endDate = new Date(startDateTime)
           endDate.setMinutes(endDate.getMinutes() + durationMin)
 
           return {
-            clinic_id: profile.value!.clinic_id,
-            patient_id: newAppointment.value.patient_id,
-            therapist_id: newAppointment.value.therapist_id || null,
-            treatment_plan_id: treatmentPlanId,
             start_time: new Date(startDateTime).toISOString(),
             end_time: endDate.toISOString(),
-            notes: newAppointment.value.notes || null,
-            series_id: seriesId,
             series_index: index + 1,
           }
         })
 
-        await service.createSeries(rows)
-        toast.success(`${rows.length} appointments booked`)
+        await service.createSeries({
+          clinicId: profile.value.clinic_id,
+          patientId: newAppointment.value.patient_id,
+          therapistId: newAppointment.value.therapist_id,
+          treatmentPlanId,
+          notes: newAppointment.value.notes || null,
+          occurrences,
+        })
+        toast.success(`${occurrences.length} appointments booked`)
       }
 
       await loadAppointments()
       resetBookingForm()
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Failed to book appointment'
-      toast.error(message)
+      if (err instanceof AppointmentConflictError) {
+        if (err.conflict) {
+          const start = new Date(err.conflict.conflictingStartTime).toLocaleTimeString('en-IN', {
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: true,
+          })
+          const end = new Date(err.conflict.conflictingEndTime).toLocaleTimeString('en-IN', {
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: true,
+          })
+          toast.error(`This doctor is booked from ${start} to ${end}`)
+        } else if (err.conflicts && err.conflicts.length > 0) {
+          const first = err.conflicts[0]
+          if (!first) {
+            toast.error(err.message)
+            return
+          }
+          const start = new Date(first.occurrenceStartTime).toLocaleString('en-IN', {
+            day: 'numeric',
+            month: 'short',
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: true,
+          })
+          toast.error(`Series conflict at ${start}. Resolve conflicts and retry.`)
+        } else {
+          toast.error(err.message)
+        }
+      } else {
+        const message = err instanceof Error ? err.message : 'Failed to book appointment'
+        toast.error(message)
+      }
     } finally {
       isSubmitting.value = false
     }
@@ -454,6 +703,12 @@ export const useAppointmentsPageStore = defineStore('appointmentsPage', () => {
     bookingMode,
     seriesConfig,
     conflicts,
+    blockedIntervals,
+    isLoadingAvailability,
+    isDoctorSelected,
+    selectedSlotConflict,
+    hasSelectedSlotConflict,
+    timeOptions,
     isUpdatingStatus,
     isCancellingSeries,
     isLoadingTreatmentPlans,

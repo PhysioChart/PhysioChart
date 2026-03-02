@@ -3,6 +3,45 @@ import type { Database, InsertDto } from '~/types/database'
 import type { IAppointmentWithRelations } from '~/types/models/appointment.types'
 import { AppointmentStatus } from '~/enums/appointment.enum'
 
+export interface IAppointmentBlockingInterval {
+  id: string
+  start_time: string
+  end_time: string
+}
+
+export interface IAppointmentConflictMetadata {
+  conflictingAppointmentId: string
+  conflictingStartTime: string
+  conflictingEndTime: string
+}
+
+export interface ISeriesConflictMetadata {
+  occurrenceStartTime: string
+  occurrenceEndTime: string
+  conflictingAppointmentId?: string
+  conflictingStartTime?: string
+  conflictingEndTime?: string
+}
+
+export class AppointmentConflictError extends Error {
+  readonly code = 'APPOINTMENT_DOCTOR_CONFLICT'
+  readonly status = 409
+  conflict?: IAppointmentConflictMetadata
+  conflicts?: ISeriesConflictMetadata[]
+
+  constructor(
+    message: string,
+    args?: { conflict?: IAppointmentConflictMetadata; conflicts?: ISeriesConflictMetadata[] },
+  ) {
+    super(message)
+    this.name = 'AppointmentConflictError'
+    this.conflict = args?.conflict
+    this.conflicts = args?.conflicts
+  }
+}
+
+const BLOCKING_STATUSES = [AppointmentStatus.SCHEDULED, AppointmentStatus.CHECKED_IN]
+
 export function appointmentService(supabase: SupabaseClient<Database>) {
   async function list(clinicId: string): Promise<IAppointmentWithRelations[]> {
     const { data, error } = await supabase
@@ -56,13 +95,56 @@ export function appointmentService(supabase: SupabaseClient<Database>) {
   async function create(appointment: InsertDto<'appointments'>): Promise<void> {
     const { error } = await supabase.from('appointments').insert(appointment).select().single()
 
-    if (error) throw error
+    if (error) {
+      if (error.code === '23P01') {
+        throw new AppointmentConflictError(
+          'This doctor already has an appointment during this time.',
+        )
+      }
+      throw error
+    }
   }
 
-  async function createSeries(appointments: InsertDto<'appointments'>[]): Promise<void> {
-    const { error } = await supabase.from('appointments').insert(appointments)
+  async function createSeries(args: {
+    clinicId: string
+    patientId: string
+    therapistId: string
+    treatmentPlanId: string | null
+    notes: string | null
+    occurrences: Array<{ start_time: string; end_time: string; series_index: number }>
+  }): Promise<void> {
+    const { data, error } = await supabase.rpc('create_appointment_series', {
+      p_clinic_id: args.clinicId,
+      p_patient_id: args.patientId,
+      p_therapist_id: args.therapistId,
+      p_treatment_plan_id: args.treatmentPlanId,
+      p_notes: args.notes,
+      p_occurrences: args.occurrences,
+    })
 
-    if (error) throw error
+    if (error) {
+      if (error.code === '23P01') {
+        throw new AppointmentConflictError(
+          'This doctor already has an appointment during this time.',
+        )
+      }
+      throw error
+    }
+
+    const payload = (data ?? {}) as {
+      hasConflict?: boolean
+      code?: string
+      conflicts?: ISeriesConflictMetadata[]
+    }
+
+    if (payload.hasConflict && payload.code === 'APPOINTMENT_DOCTOR_CONFLICT') {
+      throw new AppointmentConflictError(
+        "One or more sessions conflict with this doctor's schedule.",
+        {
+          conflicts: payload.conflicts ?? [],
+        },
+      )
+    }
   }
 
   async function updateStatus(
@@ -90,24 +172,83 @@ export function appointmentService(supabase: SupabaseClient<Database>) {
     if (error) throw error
   }
 
+  async function listDoctorBlockedIntervals(
+    clinicId: string,
+    therapistId: string,
+    dateStr: string,
+  ): Promise<IAppointmentBlockingInterval[]> {
+    const dayStart = `${dateStr}T00:00:00`
+    const dayEnd = `${dateStr}T23:59:59`
+    const { data, error } = await supabase
+      .from('appointments')
+      .select('id, start_time, end_time')
+      .eq('clinic_id', clinicId)
+      .eq('therapist_id', therapistId)
+      .in('status', BLOCKING_STATUSES)
+      .lt('start_time', dayEnd)
+      .gt('end_time', dayStart)
+      .order('start_time', { ascending: true })
+
+    if (error) throw error
+    return (data ?? []) as IAppointmentBlockingInterval[]
+  }
+
+  async function findDoctorConflicts(
+    clinicId: string,
+    therapistId: string,
+    startTimeIso: string,
+    endTimeIso: string,
+    excludeAppointmentId?: string,
+  ): Promise<IAppointmentConflictMetadata | null> {
+    let query = supabase
+      .from('appointments')
+      .select('id, start_time, end_time')
+      .eq('clinic_id', clinicId)
+      .eq('therapist_id', therapistId)
+      .in('status', BLOCKING_STATUSES)
+      .lt('start_time', endTimeIso)
+      .gt('end_time', startTimeIso)
+      .order('start_time', { ascending: true })
+      .limit(1)
+
+    if (excludeAppointmentId) {
+      query = query.neq('id', excludeAppointmentId)
+    }
+
+    const { data, error } = await query
+
+    if (error) throw error
+    const first = data?.[0]
+    if (!first) return null
+
+    return {
+      conflictingAppointmentId: first.id,
+      conflictingStartTime: first.start_time,
+      conflictingEndTime: first.end_time,
+    }
+  }
+
   /** Check for scheduling conflicts in a date range for a therapist */
   async function findConflicts(
     clinicId: string,
     therapistId: string,
     startDate: string,
     endDate: string,
-  ): Promise<string[]> {
+  ): Promise<IAppointmentBlockingInterval[]> {
+    const rangeStart = `${startDate}T00:00:00`
+    const rangeEnd = `${endDate}T23:59:59`
     const { data, error } = await supabase
       .from('appointments')
-      .select('start_time')
+      .select('id, start_time, end_time')
       .eq('clinic_id', clinicId)
       .eq('therapist_id', therapistId)
-      .eq('status', AppointmentStatus.SCHEDULED)
-      .gte('start_time', `${startDate}T00:00:00`)
-      .lte('start_time', `${endDate}T23:59:59`)
+      .in('status', BLOCKING_STATUSES)
+      .lt('start_time', rangeEnd)
+      .gt('end_time', rangeStart)
+      .order('start_time', { ascending: true })
 
     if (error) throw error
-    return (data ?? []).map((a) => a.start_time)
+    return (data ?? []) as IAppointmentBlockingInterval[]
   }
 
   return {
@@ -118,6 +259,8 @@ export function appointmentService(supabase: SupabaseClient<Database>) {
     createSeries,
     updateStatus,
     cancelSeries,
+    listDoctorBlockedIntervals,
+    findDoctorConflicts,
     findConflicts,
   }
 }

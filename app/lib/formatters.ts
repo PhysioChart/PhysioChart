@@ -94,6 +94,7 @@ export function getStatusColor(
       return 'bg-amber-500/10 text-amber-700 dark:text-amber-300'
     case TreatmentStatus.ACTIVE:
     case AppointmentStatus.SCHEDULED:
+    case AppointmentStatus.CHECKED_IN:
     case InvoiceStatus.DRAFT:
     case InvoiceStatus.SENT:
       return 'bg-blue-500/10 text-blue-700 dark:text-blue-300'

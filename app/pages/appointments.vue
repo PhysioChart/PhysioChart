@@ -17,6 +17,10 @@
       :day-names="DAY_NAMES"
       :series-dates="seriesDates"
       :conflicts="conflicts"
+      :time-options="timeOptions"
+      :is-doctor-selected="isDoctorSelected"
+      :has-selected-slot-conflict="hasSelectedSlotConflict"
+      :selected-slot-conflict="selectedSlotConflict"
       @submit="createAppointment"
       @cancel="closeBookingDialog"
       @toggle-day="toggleDay"
@@ -92,6 +96,10 @@ const {
   bookingMode,
   seriesConfig,
   conflicts,
+  timeOptions,
+  isDoctorSelected,
+  hasSelectedSlotConflict,
+  selectedSlotConflict,
   weekDays,
   currentDay,
   dayViewLabel,

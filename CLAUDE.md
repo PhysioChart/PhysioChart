@@ -95,6 +95,14 @@ MedPractice/
 
 This project uses Supabase Free plan — 500 MB DB, 1 GB storage, 10 GB egress, 500k edge function calls/month. See `dev.md` for full limits and emergency procedures.
 
+## Migration Documentation Rule (MANDATORY)
+
+- If any file in `supabase/migrations/` is added, removed, or modified, update the migration runbook in `README.md` in the same change.
+- The README update must include:
+  - exact migration order
+  - what each changed migration does
+  - any special execution notes (for example: separate transactions, data cleanup behavior, manual steps)
+
 ## Code Rules
 
 - **Loading states**: Any async function that sets a loading/submitting flag MUST use `try/catch/finally`. Set the flag `true` before `try`, set it `false` in `finally`. Never set it inline after an `await`.

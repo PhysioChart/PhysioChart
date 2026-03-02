@@ -24,3 +24,10 @@ export interface TherapistLegendItem {
   name: string
   color: TherapistColor
 }
+
+export interface AppointmentTimeOption {
+  value: string
+  label: string
+  disabled: boolean
+  disabledReason?: string
+}

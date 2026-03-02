@@ -40,6 +40,19 @@
           Part of a recurring series (session {{ appointment.series_index }})
         </div>
 
+        <div v-if="appointment.treatment_plan" class="flex items-center gap-3">
+          <ClipboardList class="text-muted-foreground h-4 w-4" />
+          <div>
+            <p class="text-sm font-medium">{{ appointment.treatment_plan.name }}</p>
+            <p class="text-muted-foreground text-xs">
+              Plan ({{ appointment.treatment_plan.completed_sessions }}/{{
+                appointment.treatment_plan.total_sessions
+              }}
+              sessions)
+            </p>
+          </div>
+        </div>
+
         <div v-if="appointment.notes" class="bg-muted rounded-md p-3">
           <p class="text-muted-foreground mb-1 text-xs">Notes</p>
           <p class="text-sm">{{ appointment.notes }}</p>
@@ -90,7 +103,7 @@
 </template>
 
 <script setup lang="ts">
-import { Clock, MessageCircle, Stethoscope, User } from 'lucide-vue-next'
+import { ClipboardList, Clock, MessageCircle, Stethoscope, User } from 'lucide-vue-next'
 import type { CalendarAppointment } from '~/composables/useCalendar'
 import { AppointmentStatus, APPOINTMENT_STATUS_LABELS } from '~/enums/appointment.enum'
 import { formatDateTime, formatTime, getStatusColor, getWhatsAppLink } from '~/lib/formatters'

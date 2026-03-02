@@ -7,7 +7,9 @@ export function appointmentService(supabase: SupabaseClient<Database>) {
   async function list(clinicId: string): Promise<IAppointmentWithRelations[]> {
     const { data, error } = await supabase
       .from('appointments')
-      .select('*, patient:patients(*), therapist:profiles(*)')
+      .select(
+        '*, patient:patients(*), therapist:profiles(*), treatment_plan:treatment_plans(name, completed_sessions, total_sessions)',
+      )
       .eq('clinic_id', clinicId)
       .order('start_time', { ascending: true })
 
@@ -39,7 +41,9 @@ export function appointmentService(supabase: SupabaseClient<Database>) {
   ): Promise<IAppointmentWithRelations[]> {
     const { data, error } = await supabase
       .from('appointments')
-      .select('*, patient:patients(*), therapist:profiles(*)')
+      .select(
+        '*, patient:patients(*), therapist:profiles(*), treatment_plan:treatment_plans(name, completed_sessions, total_sessions)',
+      )
       .eq('clinic_id', clinicId)
       .gte('start_time', `${dateStr}T00:00:00`)
       .lt('start_time', `${dateStr}T23:59:59`)

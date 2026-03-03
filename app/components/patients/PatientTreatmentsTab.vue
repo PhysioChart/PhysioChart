@@ -49,8 +49,14 @@
 
               <div>
                 <div class="flex items-center justify-between text-sm">
-                  <span class="text-muted-foreground">
-                    Session {{ plan.completed_sessions }} of {{ plan.total_sessions }}
+                  <span v-if="plan.total_sessions !== null" class="text-muted-foreground">
+                    Session {{ plan.derived_completed_sessions }} of {{ plan.total_sessions }}
+                    <span v-if="plan.derived_completed_sessions > plan.total_sessions">
+                      (Extended)
+                    </span>
+                  </span>
+                  <span v-else class="text-muted-foreground">
+                    {{ plan.derived_completed_sessions }} sessions completed
                   </span>
                   <span class="text-muted-foreground">{{ treatmentProgress(plan) }}%</span>
                 </div>
@@ -96,8 +102,14 @@
 
               <div>
                 <div class="flex items-center justify-between text-sm">
-                  <span class="text-muted-foreground">
-                    Session {{ plan.completed_sessions }} of {{ plan.total_sessions }}
+                  <span v-if="plan.total_sessions !== null" class="text-muted-foreground">
+                    Session {{ plan.derived_completed_sessions }} of {{ plan.total_sessions }}
+                    <span v-if="plan.derived_completed_sessions > plan.total_sessions">
+                      (Extended)
+                    </span>
+                  </span>
+                  <span v-else class="text-muted-foreground">
+                    {{ plan.derived_completed_sessions }} sessions completed
                   </span>
                   <span class="text-muted-foreground">{{ treatmentProgress(plan) }}%</span>
                 </div>

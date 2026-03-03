@@ -20,6 +20,9 @@
           :key="appt.id"
           :appointment="appt"
           :series-total="appt.series_id ? getSeriesTotal(appt.series_id) : 0"
+          :can-reopen="canReopenAppointment(appt)"
+          @request-complete="emit('request-complete', $event)"
+          @request-reopen="emit('request-reopen', $event)"
           @update-status="(id, status) => emit('update-status', id, status)"
           @cancel-series="emit('cancel-series', $event)"
         />
@@ -38,11 +41,13 @@ defineProps<{
   appointments: IAppointmentWithRelations[]
   listFilter: AppointmentsListFilter
   getSeriesTotal: (seriesId: string) => number
+  canReopenAppointment: (appointment: IAppointmentWithRelations) => boolean
 }>()
 
 const emit = defineEmits<{
   (e: 'open-booking'): void
+  (e: 'request-complete', appointment: IAppointmentWithRelations): void
+  (e: 'request-reopen' | 'cancel-series', id: string): void
   (e: 'update-status', id: string, status: AppointmentStatus): void
-  (e: 'cancel-series', seriesId: string): void
 }>()
 </script>

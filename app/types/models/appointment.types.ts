@@ -1,13 +1,17 @@
 import type { Tables } from '~/types/database'
 import type { AppointmentStatus } from '~/enums/appointment.enum'
 
+export interface IAppointmentTreatmentPlanSummary {
+  id: string
+  name: string
+  total_sessions: number | null
+  derived_completed_sessions: number
+}
+
 export interface IAppointmentWithRelations extends Tables<'appointments'> {
   patient: Tables<'patients'> | null
   therapist: Tables<'profiles'> | null
-  treatment_plan: Pick<
-    Tables<'treatment_plans'>,
-    'name' | 'completed_sessions' | 'total_sessions'
-  > | null
+  treatment_plan: IAppointmentTreatmentPlanSummary | null
 }
 
 export interface IAppointmentFilters {

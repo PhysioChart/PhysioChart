@@ -1,5 +1,4 @@
 // Supabase database types for MedPractice
-// Manually written to match supabase/migrations/001_initial_schema.sql
 // Regenerate with: npx supabase gen types typescript --project-id <id> > app/types/database.ts
 
 export type Database = {
@@ -147,8 +146,7 @@ export type Database = {
           name: string
           diagnosis: string | null
           treatment_type: string | null
-          total_sessions: number
-          completed_sessions: number
+          total_sessions: number | null
           price_per_session: number | null
           package_price: number | null
           status: 'active' | 'completed' | 'cancelled'
@@ -164,8 +162,7 @@ export type Database = {
           name: string
           diagnosis?: string | null
           treatment_type?: string | null
-          total_sessions?: number
-          completed_sessions?: number
+          total_sessions?: number | null
           price_per_session?: number | null
           package_price?: number | null
           status?: 'active' | 'completed' | 'cancelled'
@@ -179,8 +176,7 @@ export type Database = {
           name?: string
           diagnosis?: string | null
           treatment_type?: string | null
-          total_sessions?: number
-          completed_sessions?: number
+          total_sessions?: number | null
           price_per_session?: number | null
           package_price?: number | null
           status?: 'active' | 'completed' | 'cancelled'
@@ -222,6 +218,17 @@ export type Database = {
           end_time: string
           status: 'scheduled' | 'checked_in' | 'completed' | 'cancelled' | 'no_show'
           notes: string | null
+          status_before_completion:
+            | 'scheduled'
+            | 'checked_in'
+            | 'completed'
+            | 'cancelled'
+            | 'no_show'
+            | null
+          completed_at: string | null
+          completed_by: string | null
+          reopened_at: string | null
+          reopened_by: string | null
           series_id: string | null
           series_index: number | null
           created_at: string
@@ -237,6 +244,17 @@ export type Database = {
           end_time: string
           status?: 'scheduled' | 'checked_in' | 'completed' | 'cancelled' | 'no_show'
           notes?: string | null
+          status_before_completion?:
+            | 'scheduled'
+            | 'checked_in'
+            | 'completed'
+            | 'cancelled'
+            | 'no_show'
+            | null
+          completed_at?: string | null
+          completed_by?: string | null
+          reopened_at?: string | null
+          reopened_by?: string | null
           series_id?: string | null
           series_index?: number | null
           created_at?: string
@@ -250,6 +268,17 @@ export type Database = {
           end_time?: string
           status?: 'scheduled' | 'checked_in' | 'completed' | 'cancelled' | 'no_show'
           notes?: string | null
+          status_before_completion?:
+            | 'scheduled'
+            | 'checked_in'
+            | 'completed'
+            | 'cancelled'
+            | 'no_show'
+            | null
+          completed_at?: string | null
+          completed_by?: string | null
+          reopened_at?: string | null
+          reopened_by?: string | null
           series_id?: string | null
           series_index?: number | null
           updated_at?: string
@@ -289,7 +318,7 @@ export type Database = {
         Row: {
           id: string
           clinic_id: string
-          treatment_plan_id: string
+          treatment_plan_id: string | null
           appointment_id: string | null
           session_number: number
           complaints: string | null
@@ -298,13 +327,22 @@ export type Database = {
           exercises_prescribed: string | null
           next_session_plan: string | null
           notes: string | null
+          patient_id: string
+          practitioner_id: string
+          plan_id: string | null
+          note_text: string | null
+          status: 'draft' | 'final' | 'voided'
+          finalized_at: string
+          voided_at: string | null
+          voided_by: string | null
+          session_order_time: string
           created_at: string
           updated_at: string
         }
         Insert: {
           id?: string
           clinic_id: string
-          treatment_plan_id: string
+          treatment_plan_id?: string | null
           appointment_id?: string | null
           session_number: number
           complaints?: string | null
@@ -313,11 +351,20 @@ export type Database = {
           exercises_prescribed?: string | null
           next_session_plan?: string | null
           notes?: string | null
+          patient_id: string
+          practitioner_id: string
+          plan_id?: string | null
+          note_text?: string | null
+          status?: 'draft' | 'final' | 'voided'
+          finalized_at?: string
+          voided_at?: string | null
+          voided_by?: string | null
+          session_order_time: string
           created_at?: string
           updated_at?: string
         }
         Update: {
-          treatment_plan_id?: string
+          treatment_plan_id?: string | null
           appointment_id?: string | null
           session_number?: number
           complaints?: string | null
@@ -326,6 +373,15 @@ export type Database = {
           exercises_prescribed?: string | null
           next_session_plan?: string | null
           notes?: string | null
+          patient_id?: string
+          practitioner_id?: string
+          plan_id?: string | null
+          note_text?: string | null
+          status?: 'draft' | 'final' | 'voided'
+          finalized_at?: string
+          voided_at?: string | null
+          voided_by?: string | null
+          session_order_time?: string
           updated_at?: string
         }
         Relationships: [
@@ -344,10 +400,31 @@ export type Database = {
             referencedColumns: ['id']
           },
           {
+            foreignKeyName: 'treatment_sessions_plan_id_fkey'
+            columns: ['plan_id']
+            isOneToOne: false
+            referencedRelation: 'treatment_plans'
+            referencedColumns: ['id']
+          },
+          {
             foreignKeyName: 'treatment_sessions_appointment_id_fkey'
             columns: ['appointment_id']
             isOneToOne: false
             referencedRelation: 'appointments'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'treatment_sessions_patient_id_fkey'
+            columns: ['patient_id']
+            isOneToOne: false
+            referencedRelation: 'patients'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'treatment_sessions_practitioner_id_fkey'
+            columns: ['practitioner_id']
+            isOneToOne: false
+            referencedRelation: 'profiles'
             referencedColumns: ['id']
           },
         ]
@@ -536,11 +613,37 @@ export type Database = {
         }
         Returns: Record<string, unknown>
       }
+      complete_appointment_with_session_note: {
+        Args: {
+          p_clinic_id: string
+          p_appointment_id: string
+          p_session_note?: string | null
+        }
+        Returns: Record<string, unknown>
+      }
+      reopen_completed_appointment: {
+        Args: {
+          p_clinic_id: string
+          p_appointment_id: string
+        }
+        Returns: Record<string, unknown>
+      }
+      get_treatment_plan_progress_bulk: {
+        Args: {
+          p_clinic_id: string
+          p_plan_ids?: string[] | null
+        }
+        Returns: {
+          plan_id: string
+          completed_sessions: number
+        }[]
+      }
     }
     Enums: {
       user_role: 'admin' | 'staff'
       gender: 'male' | 'female' | 'other'
       treatment_status: 'active' | 'completed' | 'cancelled'
+      session_status: 'draft' | 'final' | 'voided'
       appointment_status: 'scheduled' | 'checked_in' | 'completed' | 'cancelled' | 'no_show'
       invoice_status: 'draft' | 'sent' | 'paid' | 'partially_paid' | 'overdue' | 'cancelled'
       payment_method: 'cash' | 'upi' | 'card' | 'bank_transfer' | 'other'

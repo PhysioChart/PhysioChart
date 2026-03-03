@@ -44,35 +44,50 @@
         <TooltipContent>Send WhatsApp reminder</TooltipContent>
       </Tooltip>
 
-      <DropdownMenu v-if="appointment.status === AppointmentStatus.SCHEDULED">
+      <DropdownMenu
+        v-if="
+          appointment.status === AppointmentStatus.SCHEDULED ||
+          appointment.status === AppointmentStatus.CHECKED_IN ||
+          appointment.status === AppointmentStatus.COMPLETED
+        "
+      >
         <DropdownMenuTrigger as-child>
-          <Button variant="ghost" size="sm">Update</Button>
+          <Button variant="ghost" size="sm">
+            {{ appointment.status === AppointmentStatus.COMPLETED ? 'Manage' : 'Update' }}
+          </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent>
-          <DropdownMenuItem
-            @click="emit('update-status', appointment.id, AppointmentStatus.COMPLETED)"
-          >
-            Mark Completed
-          </DropdownMenuItem>
-          <DropdownMenuItem
-            @click="emit('update-status', appointment.id, AppointmentStatus.CANCELLED)"
-          >
-            Mark Cancelled
-          </DropdownMenuItem>
-          <DropdownMenuItem
-            @click="emit('update-status', appointment.id, AppointmentStatus.NO_SHOW)"
-          >
-            Mark No-Show
-          </DropdownMenuItem>
-          <template v-if="appointment.series_id">
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              class="text-destructive"
-              @click="emit('cancel-series', appointment.series_id)"
-            >
-              Cancel Remaining in Series
+          <template v-if="appointment.status !== AppointmentStatus.COMPLETED">
+            <DropdownMenuItem @click="emit('request-complete', appointment)">
+              Mark Completed
             </DropdownMenuItem>
+            <DropdownMenuItem
+              @click="emit('update-status', appointment.id, AppointmentStatus.CANCELLED)"
+            >
+              Mark Cancelled
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              @click="emit('update-status', appointment.id, AppointmentStatus.NO_SHOW)"
+            >
+              Mark No-Show
+            </DropdownMenuItem>
+            <template v-if="appointment.series_id">
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                class="text-destructive"
+                @click="emit('cancel-series', appointment.series_id)"
+              >
+                Cancel Remaining in Series
+              </DropdownMenuItem>
+            </template>
           </template>
+          <DropdownMenuItem
+            v-else
+            :disabled="!canReopen"
+            @click="emit('request-reopen', appointment.id)"
+          >
+            Reopen Appointment
+          </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
     </div>
@@ -88,10 +103,12 @@ import type { IAppointmentWithRelations } from '~/types/models/appointment.types
 defineProps<{
   appointment: IAppointmentWithRelations
   seriesTotal: number
+  canReopen: boolean
 }>()
 
 const emit = defineEmits<{
+  (e: 'request-complete', appointment: IAppointmentWithRelations): void
+  (e: 'request-reopen' | 'cancel-series', id: string): void
   (e: 'update-status', id: string, status: AppointmentStatus): void
-  (e: 'cancel-series', seriesId: string): void
 }>()
 </script>

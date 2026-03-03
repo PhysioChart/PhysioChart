@@ -138,14 +138,28 @@
           <!-- Progress bar -->
           <div class="space-y-1">
             <div class="flex justify-between text-xs">
-              <span>{{ plan.completed_sessions }}/{{ plan.total_sessions }} sessions</span>
-              <span>{{ progressPercent(plan.completed_sessions, plan.total_sessions) }}%</span>
+              <span v-if="plan.total_sessions !== null">
+                {{ plan.derived_completed_sessions }}/{{ plan.total_sessions }} sessions
+              </span>
+              <span v-else>{{ plan.derived_completed_sessions }} sessions completed</span>
+              <span v-if="plan.total_sessions !== null">
+                {{ progressPercent(plan.derived_completed_sessions, plan.total_sessions) }}%
+              </span>
             </div>
+            <p
+              v-if="
+                plan.total_sessions !== null &&
+                plan.derived_completed_sessions > plan.total_sessions
+              "
+              class="text-[11px] text-amber-500"
+            >
+              Extended
+            </p>
             <div class="bg-muted h-2 w-full rounded-full">
               <div
                 class="bg-primary h-full rounded-full transition-all"
                 :style="{
-                  width: `${progressPercent(plan.completed_sessions, plan.total_sessions)}%`,
+                  width: `${progressPercent(plan.derived_completed_sessions, plan.total_sessions)}%`,
                 }"
               />
             </div>

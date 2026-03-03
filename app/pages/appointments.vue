@@ -51,7 +51,10 @@
       :appointments="filteredAppointments"
       :list-filter="listFilter"
       :get-series-total="getSeriesTotal"
+      :can-reopen-appointment="canReopenAppointment"
       @open-booking="openBookingDialog"
+      @request-complete="openCompleteDialog"
+      @request-reopen="reopenAppointment"
       @update-status="updateStatus"
       @cancel-series="cancelRemainingSeries"
     />
@@ -70,13 +73,29 @@
     <AppointmentDetailSheet
       v-model:open="showDetailSheet"
       :appointment="selectedAppointment"
+      :can-reopen="selectedAppointment ? canReopenAppointment(selectedAppointment) : false"
+      @request-complete="openCompleteDialog"
+      @request-reopen="reopenAppointment"
       @update-status="updateStatus"
+    />
+
+    <AppointmentCompleteDialog
+      v-if="completeTargetAppointment"
+      v-model:open="showCompleteDialog"
+      v-model:note="completeSessionNote"
+      :appointment="completeTargetAppointment"
+      :variant="completeTargetAppointment.treatment_plan_id ? 'withPlan' : 'withoutPlan'"
+      :is-submitting="isCompletingAppointment"
+      :max-length="1000"
+      @submit="completeAppointment()"
+      @cancel="closeCompleteDialog"
     />
   </div>
 </template>
 
 <script setup lang="ts">
 import { storeToRefs } from 'pinia'
+import AppointmentCompleteDialog from '~/components/appointments/AppointmentCompleteDialog.vue'
 import { useAppointmentsPageStore } from '~/features/appointments/store/appointmentsPage.store'
 
 const route = useRoute()
@@ -91,8 +110,12 @@ const {
   listFilter,
   showDetailSheet,
   selectedAppointment,
+  showCompleteDialog,
+  completeTargetAppointment,
+  completeSessionNote,
   newAppointment,
   isSubmitting,
+  isCompletingAppointment,
   bookingMode,
   seriesConfig,
   conflicts,
@@ -128,6 +151,11 @@ const {
   getSeriesTotal,
   handleAppointmentClick,
   handleSlotClick,
+  canReopenAppointment,
+  openCompleteDialog,
+  closeCompleteDialog,
+  completeAppointment,
+  reopenAppointment,
   createAppointment,
   updateStatus,
   cancelRemainingSeries,

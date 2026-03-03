@@ -52,10 +52,26 @@
             </p>
 
             <p v-if="appt.treatment_plan" class="text-muted-foreground text-sm">
-              Plan: {{ appt.treatment_plan.name }} ({{ appt.treatment_plan.completed_sessions }}/{{
-                appt.treatment_plan.total_sessions
-              }}
-              sessions)
+              <span v-if="appt.treatment_plan.total_sessions !== null">
+                Plan: {{ appt.treatment_plan.name }} ({{
+                  appt.treatment_plan.derived_completed_sessions
+                }}/{{ appt.treatment_plan.total_sessions }}
+                sessions)
+                <span
+                  v-if="
+                    appt.treatment_plan.derived_completed_sessions >
+                    appt.treatment_plan.total_sessions
+                  "
+                >
+                  (Extended)
+                </span>
+              </span>
+              <span v-else>
+                Plan: {{ appt.treatment_plan.name }} ({{
+                  appt.treatment_plan.derived_completed_sessions
+                }}
+                sessions)
+              </span>
             </p>
 
             <p v-if="appt.notes" class="text-sm">{{ appt.notes }}</p>
@@ -85,10 +101,26 @@
             </p>
 
             <p v-if="appt.treatment_plan" class="text-muted-foreground text-sm">
-              Plan: {{ appt.treatment_plan.name }} ({{ appt.treatment_plan.completed_sessions }}/{{
-                appt.treatment_plan.total_sessions
-              }}
-              sessions)
+              <span v-if="appt.treatment_plan.total_sessions !== null">
+                Plan: {{ appt.treatment_plan.name }} ({{
+                  appt.treatment_plan.derived_completed_sessions
+                }}/{{ appt.treatment_plan.total_sessions }}
+                sessions)
+                <span
+                  v-if="
+                    appt.treatment_plan.derived_completed_sessions >
+                    appt.treatment_plan.total_sessions
+                  "
+                >
+                  (Extended)
+                </span>
+              </span>
+              <span v-else>
+                Plan: {{ appt.treatment_plan.name }} ({{
+                  appt.treatment_plan.derived_completed_sessions
+                }}
+                sessions)
+              </span>
             </p>
 
             <p v-if="appt.notes" class="text-sm">{{ appt.notes }}</p>

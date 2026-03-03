@@ -217,8 +217,8 @@ export function usePatientDetailPage() {
   }
 
   function treatmentProgress(plan: ITreatmentPlanWithRelations): number {
-    if (plan.total_sessions === 0) return 0
-    return Math.round((plan.completed_sessions / plan.total_sessions) * 100)
+    if (!plan.total_sessions || plan.total_sessions <= 0) return 0
+    return Math.round((plan.derived_completed_sessions / plan.total_sessions) * 100)
   }
 
   function startEdit() {

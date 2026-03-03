@@ -1,7 +1,11 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database, InsertDto } from '~/types/database'
-import type { IAppointmentWithRelations } from '~/types/models/appointment.types'
+import type {
+  IAppointmentTreatmentPlanSummary,
+  IAppointmentWithRelations,
+} from '~/types/models/appointment.types'
 import { AppointmentStatus } from '~/enums/appointment.enum'
+import { AppointmentErrorCode } from '~/enums/appointment-error.enum'
 
 export interface IAppointmentBlockingInterval {
   id: string
@@ -23,8 +27,29 @@ export interface ISeriesConflictMetadata {
   conflictingEndTime?: string
 }
 
+export interface ITreatmentPlanProgressSummary {
+  completed: number
+  total: number | null
+  extended: boolean
+  suggested_completed: boolean
+}
+
+export interface ICompleteAppointmentResult {
+  appointmentCompleted: boolean
+  sessionCreated: boolean
+  sessionId: string | null
+  planProgress: ITreatmentPlanProgressSummary | null
+  message?: string | null
+}
+
+export interface IReopenAppointmentResult {
+  reopened: boolean
+  sessionVoided: boolean
+  message?: string | null
+}
+
 export class AppointmentConflictError extends Error {
-  readonly code = 'APPOINTMENT_DOCTOR_CONFLICT'
+  readonly code = AppointmentErrorCode.APPOINTMENT_DOCTOR_CONFLICT
   readonly status = 409
   conflict?: IAppointmentConflictMetadata
   conflicts?: ISeriesConflictMetadata[]
@@ -42,18 +67,110 @@ export class AppointmentConflictError extends Error {
 
 const BLOCKING_STATUSES = [AppointmentStatus.SCHEDULED, AppointmentStatus.CHECKED_IN]
 
+function isTreatmentPlanProgressSummary(value: unknown): value is ITreatmentPlanProgressSummary {
+  if (!value || typeof value !== 'object') return false
+  const progress = value as Record<string, unknown>
+  return (
+    typeof progress.completed === 'number' &&
+    (typeof progress.total === 'number' || progress.total === null) &&
+    typeof progress.extended === 'boolean' &&
+    typeof progress.suggested_completed === 'boolean'
+  )
+}
+
+function isCompleteAppointmentResult(value: unknown): value is ICompleteAppointmentResult {
+  if (!value || typeof value !== 'object') return false
+  const payload = value as Record<string, unknown>
+  const hasValidProgress =
+    payload.planProgress === null || isTreatmentPlanProgressSummary(payload.planProgress)
+
+  return (
+    typeof payload.appointmentCompleted === 'boolean' &&
+    typeof payload.sessionCreated === 'boolean' &&
+    (typeof payload.sessionId === 'string' || payload.sessionId === null) &&
+    hasValidProgress
+  )
+}
+
+function isReopenAppointmentResult(value: unknown): value is IReopenAppointmentResult {
+  if (!value || typeof value !== 'object') return false
+  const payload = value as Record<string, unknown>
+  return (
+    typeof payload.reopened === 'boolean' &&
+    typeof payload.sessionVoided === 'boolean' &&
+    (typeof payload.message === 'string' ||
+      payload.message === null ||
+      payload.message === undefined)
+  )
+}
+
 export function appointmentService(supabase: SupabaseClient<Database>) {
+  async function fetchTreatmentPlanProgressMap(
+    clinicId: string,
+    planIds: string[],
+  ): Promise<Map<string, number>> {
+    if (planIds.length === 0) return new Map<string, number>()
+
+    const deduped = Array.from(new Set(planIds))
+    const { data, error } = await supabase.rpc('get_treatment_plan_progress_bulk', {
+      p_clinic_id: clinicId,
+      p_plan_ids: deduped,
+    })
+
+    if (error) throw error
+
+    const progressMap = new Map<string, number>()
+    for (const row of data ?? []) {
+      if (!row.plan_id) continue
+      progressMap.set(row.plan_id, row.completed_sessions ?? 0)
+    }
+
+    return progressMap
+  }
+
+  function attachDerivedPlanProgress(
+    appointments: IAppointmentWithRelations[],
+    progressMap: Map<string, number>,
+  ): IAppointmentWithRelations[] {
+    return appointments.map((appointment) => {
+      const rawPlan = appointment.treatment_plan as Partial<IAppointmentTreatmentPlanSummary> | null
+      if (!rawPlan?.id) {
+        return {
+          ...appointment,
+          treatment_plan: null,
+        }
+      }
+
+      return {
+        ...appointment,
+        treatment_plan: {
+          id: rawPlan.id,
+          name: rawPlan.name ?? 'Untitled plan',
+          total_sessions: rawPlan.total_sessions ?? null,
+          derived_completed_sessions: progressMap.get(rawPlan.id) ?? 0,
+        },
+      }
+    })
+  }
+
   async function list(clinicId: string): Promise<IAppointmentWithRelations[]> {
     const { data, error } = await supabase
       .from('appointments')
       .select(
-        '*, patient:patients(*), therapist:profiles(*), treatment_plan:treatment_plans(name, completed_sessions, total_sessions)',
+        '*, patient:patients(*), therapist:profiles(*), treatment_plan:treatment_plans(id, name, total_sessions)',
       )
       .eq('clinic_id', clinicId)
       .order('start_time', { ascending: true })
 
     if (error) throw error
-    return (data ?? []) as IAppointmentWithRelations[]
+
+    const appointments = (data ?? []) as IAppointmentWithRelations[]
+    const planIds = appointments
+      .map((appointment) => appointment.treatment_plan?.id)
+      .filter((id): id is string => Boolean(id))
+    const progressMap = await fetchTreatmentPlanProgressMap(clinicId, planIds)
+
+    return attachDerivedPlanProgress(appointments, progressMap)
   }
 
   async function getByPatientId(
@@ -63,15 +180,21 @@ export function appointmentService(supabase: SupabaseClient<Database>) {
     const { data, error } = await supabase
       .from('appointments')
       .select(
-        '*, patient:patients(*), therapist:profiles(*), treatment_plan:treatment_plans(name, completed_sessions, total_sessions)',
+        '*, patient:patients(*), therapist:profiles(*), treatment_plan:treatment_plans(id, name, total_sessions)',
       )
       .eq('clinic_id', clinicId)
       .eq('patient_id', patientId)
-      // TODO: Add .order('appointment_date', { ascending: false }) once appointments.appointment_date exists.
       .order('start_time', { ascending: false })
 
     if (error) throw error
-    return (data ?? []) as IAppointmentWithRelations[]
+
+    const appointments = (data ?? []) as IAppointmentWithRelations[]
+    const planIds = appointments
+      .map((appointment) => appointment.treatment_plan?.id)
+      .filter((id): id is string => Boolean(id))
+    const progressMap = await fetchTreatmentPlanProgressMap(clinicId, planIds)
+
+    return attachDerivedPlanProgress(appointments, progressMap)
   }
 
   async function listForDate(
@@ -81,7 +204,7 @@ export function appointmentService(supabase: SupabaseClient<Database>) {
     const { data, error } = await supabase
       .from('appointments')
       .select(
-        '*, patient:patients(*), therapist:profiles(*), treatment_plan:treatment_plans(name, completed_sessions, total_sessions)',
+        '*, patient:patients(*), therapist:profiles(*), treatment_plan:treatment_plans(id, name, total_sessions)',
       )
       .eq('clinic_id', clinicId)
       .gte('start_time', `${dateStr}T00:00:00`)
@@ -89,14 +212,21 @@ export function appointmentService(supabase: SupabaseClient<Database>) {
       .order('start_time', { ascending: true })
 
     if (error) throw error
-    return (data ?? []) as IAppointmentWithRelations[]
+
+    const appointments = (data ?? []) as IAppointmentWithRelations[]
+    const planIds = appointments
+      .map((appointment) => appointment.treatment_plan?.id)
+      .filter((id): id is string => Boolean(id))
+    const progressMap = await fetchTreatmentPlanProgressMap(clinicId, planIds)
+
+    return attachDerivedPlanProgress(appointments, progressMap)
   }
 
   async function create(appointment: InsertDto<'appointments'>): Promise<void> {
     const { error } = await supabase.from('appointments').insert(appointment).select().single()
 
     if (error) {
-      if (error.code === '23P01') {
+      if (error.code === AppointmentErrorCode.APPOINTMENT_CONFLICT_POSTGRES) {
         throw new AppointmentConflictError(
           'This doctor already has an appointment during this time.',
         )
@@ -123,7 +253,7 @@ export function appointmentService(supabase: SupabaseClient<Database>) {
     })
 
     if (error) {
-      if (error.code === '23P01') {
+      if (error.code === AppointmentErrorCode.APPOINTMENT_CONFLICT_POSTGRES) {
         throw new AppointmentConflictError(
           'This doctor already has an appointment during this time.',
         )
@@ -137,7 +267,7 @@ export function appointmentService(supabase: SupabaseClient<Database>) {
       conflicts?: ISeriesConflictMetadata[]
     }
 
-    if (payload.hasConflict && payload.code === 'APPOINTMENT_DOCTOR_CONFLICT') {
+    if (payload.hasConflict && payload.code === AppointmentErrorCode.APPOINTMENT_DOCTOR_CONFLICT) {
       throw new AppointmentConflictError(
         "One or more sessions conflict with this doctor's schedule.",
         {
@@ -228,7 +358,6 @@ export function appointmentService(supabase: SupabaseClient<Database>) {
     }
   }
 
-  /** Check for scheduling conflicts in a date range for a therapist */
   async function findConflicts(
     clinicId: string,
     therapistId: string,
@@ -251,6 +380,40 @@ export function appointmentService(supabase: SupabaseClient<Database>) {
     return (data ?? []) as IAppointmentBlockingInterval[]
   }
 
+  async function completeWithSessionNote(
+    clinicId: string,
+    appointmentId: string,
+    sessionNote?: string | null,
+  ): Promise<ICompleteAppointmentResult> {
+    const { data, error } = await supabase.rpc('complete_appointment_with_session_note', {
+      p_clinic_id: clinicId,
+      p_appointment_id: appointmentId,
+      p_session_note: sessionNote ?? null,
+    })
+
+    if (error) throw error
+    if (!isCompleteAppointmentResult(data)) {
+      throw new Error('INVALID_COMPLETE_APPOINTMENT_RESPONSE')
+    }
+    return data
+  }
+
+  async function reopenCompletedAppointment(
+    clinicId: string,
+    appointmentId: string,
+  ): Promise<IReopenAppointmentResult> {
+    const { data, error } = await supabase.rpc('reopen_completed_appointment', {
+      p_clinic_id: clinicId,
+      p_appointment_id: appointmentId,
+    })
+
+    if (error) throw error
+    if (!isReopenAppointmentResult(data)) {
+      throw new Error('INVALID_REOPEN_APPOINTMENT_RESPONSE')
+    }
+    return data
+  }
+
   return {
     list,
     getByPatientId,
@@ -262,5 +425,7 @@ export function appointmentService(supabase: SupabaseClient<Database>) {
     listDoctorBlockedIntervals,
     findDoctorConflicts,
     findConflicts,
+    completeWithSessionNote,
+    reopenCompletedAppointment,
   }
 }

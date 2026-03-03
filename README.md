@@ -75,6 +75,7 @@ Run these in order against the production Supabase project.
 2. `supabase/migrations/002_recurring_appointments.sql`
 3. `supabase/migrations/003_doctor_conflict_enforcement.sql`
 4. `supabase/migrations/004_doctor_conflict_atomic_series.sql`
+5. `supabase/migrations/005_session_notes_completion.sql`
 
 Important: run `003` and `004` as separate executions in SQL Editor (or via `supabase db push` in sequence). `003` must commit before `004` because `004` uses the new enum value.
 
@@ -96,6 +97,18 @@ Important: run `003` and `004` as separate executions in SQL Editor (or via `sup
    - Adds DB exclusion constraint to block same-doctor overlapping appointments for blocking statuses (`scheduled`, `checked_in`).
    - Creates RPC function `create_appointment_series` for atomic all-or-nothing recurring booking.
 
+5. `005_session_notes_completion.sql`
+   - Introduces canonical session lifecycle (`draft`, `final`, `voided`) on `treatment_sessions`.
+   - Adds appointment completion/reopen metadata fields on `appointments`.
+   - Backfills missing sessions for completed appointments and populates session ordering/finalization metadata.
+   - Keeps legacy orphan `treatment_sessions.appointment_id` rows nullable for this release (non-destructive hardening); all new completion/reopen writes are appointment-bound.
+   - Deduplicates active sessions per appointment, then enforces one active session via partial unique index:
+     - `UNIQUE(appointment_id) WHERE status != 'voided'`
+   - Adds bulk plan progress RPC `get_treatment_plan_progress_bulk` (no N+1 reads).
+   - Replaces completion flow with atomic RPC `complete_appointment_with_session_note`.
+   - Adds atomic reopen RPC `reopen_completed_appointment`.
+   - Drops `treatment_plans.completed_sessions` in favor of derived progress.
+
 ### 3) How to run in production (SQL Editor)
 
 1. Open Supabase Dashboard -> Project -> SQL Editor.
@@ -103,6 +116,7 @@ Important: run `003` and `004` as separate executions in SQL Editor (or via `sup
 3. Run file `002_recurring_appointments.sql`.
 4. Run file `003_doctor_conflict_enforcement.sql`.
 5. After success, run file `004_doctor_conflict_atomic_series.sql`.
+6. Run file `005_session_notes_completion.sql`.
 
 ### 4) Post-migration verification
 
@@ -114,4 +128,22 @@ Important: run `003` and `004` as separate executions in SQL Editor (or via `sup
    select id, clinic_id, therapist_id, start_time, end_time, status, notes
    from public.appointments
    where notes ilike '%Auto-cancelled during overlap-enforcement migration%';
+   ```
+5. Ensure no completed appointment is missing an active session:
+   ```sql
+   select count(*)
+   from public.appointments a
+   left join public.treatment_sessions ts
+     on ts.appointment_id = a.id
+     and ts.status <> 'voided'
+   where a.status = 'completed'
+     and ts.id is null;
+   ```
+6. Ensure no appointment has more than one active session:
+   ```sql
+   select appointment_id, count(*)
+   from public.treatment_sessions
+   where status <> 'voided'
+   group by appointment_id
+   having count(*) > 1;
    ```

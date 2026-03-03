@@ -66,7 +66,10 @@
             <SelectContent>
               <SelectItem :value="noTreatmentPlanValue">No linked plan</SelectItem>
               <SelectItem v-for="plan in activeTreatmentPlans" :key="plan.id" :value="plan.id">
-                {{ plan.name }} ({{ plan.completed_sessions }}/{{ plan.total_sessions }})
+                <span v-if="plan.total_sessions !== null">
+                  {{ plan.name }} ({{ plan.derived_completed_sessions }}/{{ plan.total_sessions }})
+                </span>
+                <span v-else>{{ plan.name }} ({{ plan.derived_completed_sessions }} sessions)</span>
               </SelectItem>
             </SelectContent>
           </Select>

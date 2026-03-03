@@ -45,10 +45,24 @@
           <div>
             <p class="text-sm font-medium">{{ appointment.treatment_plan.name }}</p>
             <p class="text-muted-foreground text-xs">
-              Plan ({{ appointment.treatment_plan.completed_sessions }}/{{
-                appointment.treatment_plan.total_sessions
-              }}
-              sessions)
+              <span v-if="appointment.treatment_plan.total_sessions !== null">
+                Plan ({{ appointment.treatment_plan.derived_completed_sessions }}/{{
+                  appointment.treatment_plan.total_sessions
+                }}
+                sessions)
+              </span>
+              <span v-else>
+                {{ appointment.treatment_plan.derived_completed_sessions }} sessions completed
+              </span>
+              <span
+                v-if="
+                  appointment.treatment_plan.total_sessions !== null &&
+                  appointment.treatment_plan.derived_completed_sessions >
+                    appointment.treatment_plan.total_sessions
+                "
+              >
+                (Extended)
+              </span>
             </p>
           </div>
         </div>
@@ -73,11 +87,16 @@
             Send WhatsApp Reminder
           </Button>
 
-          <template v-if="appointment.status === AppointmentStatus.SCHEDULED">
+          <template
+            v-if="
+              appointment.status === AppointmentStatus.SCHEDULED ||
+              appointment.status === AppointmentStatus.CHECKED_IN
+            "
+          >
             <Button
               variant="outline"
               class="w-full justify-start"
-              @click="emit('updateStatus', appointment.id, AppointmentStatus.COMPLETED)"
+              @click="emit('requestComplete', appointment)"
             >
               Mark Completed
             </Button>
@@ -96,6 +115,15 @@
               Mark No-Show
             </Button>
           </template>
+          <Button
+            v-else-if="appointment.status === AppointmentStatus.COMPLETED"
+            variant="outline"
+            class="w-full justify-start"
+            :disabled="!canReopen"
+            @click="emit('requestReopen', appointment.id)"
+          >
+            Reopen Appointment
+          </Button>
         </div>
       </div>
     </SheetContent>
@@ -110,11 +138,14 @@ import { formatDateTime, formatTime, getStatusColor, getWhatsAppLink } from '~/l
 
 defineProps<{
   appointment: CalendarAppointment | null
+  canReopen: boolean
 }>()
 
 const open = defineModel<boolean>('open', { required: true })
 
 const emit = defineEmits<{
+  requestComplete: [appointment: CalendarAppointment]
+  requestReopen: [appointmentId: string]
   updateStatus: [id: string, status: AppointmentStatus]
 }>()
 </script>

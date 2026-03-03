@@ -2,6 +2,7 @@ import { watchDebounced } from '@vueuse/core'
 import { storeToRefs } from 'pinia'
 import { toast } from 'vue-sonner'
 import { APPOINTMENT_STATUS_LABELS, type AppointmentStatus } from '~/enums/appointment.enum'
+import { AppointmentErrorCode } from '~/enums/appointment-error.enum'
 import { TreatmentStatus } from '~/enums/treatment.enum'
 import { toLocalDateKey } from '~/lib/date'
 import {
@@ -29,6 +30,31 @@ const SLOT_STEP_MINUTES = 15
 const MAX_APPOINTMENT_DURATION_MINUTES = 12 * 60
 const START_HOUR = 6
 const END_HOUR = 22
+
+function getAppointmentErrorMessage(codeOrMessage: string): string {
+  switch (codeOrMessage) {
+    case AppointmentErrorCode.APPOINTMENT_NOT_FOUND:
+      return 'Appointment not found or inaccessible.'
+    case AppointmentErrorCode.INVALID_STATUS_TRANSITION:
+      return 'Only scheduled or checked-in appointments can be completed.'
+    case AppointmentErrorCode.PATIENT_PLAN_MISMATCH:
+      return 'The linked treatment plan does not match this patient.'
+    case AppointmentErrorCode.NOTE_TOO_LONG:
+      return 'Session note must be 1000 characters or fewer.'
+    case AppointmentErrorCode.REOPEN_WINDOW_EXPIRED:
+      return 'This appointment can now only be reopened by an admin.'
+    case AppointmentErrorCode.FORBIDDEN_REOPEN:
+      return 'You do not have permission to reopen this appointment.'
+    case AppointmentErrorCode.NOT_COMPLETED:
+      return 'Only completed appointments can be reopened.'
+    case AppointmentErrorCode.REOPEN_NO_ACTIVE_SESSION:
+      return 'Appointment reopened. No active session was found.'
+    case AppointmentErrorCode.PRACTITIONER_REQUIRED:
+      return 'Assign a therapist before completing this appointment.'
+    default:
+      return codeOrMessage
+  }
+}
 
 function createDefaultAppointmentForm(noTreatmentPlanValue: string): AppointmentFormState {
   return {
@@ -99,11 +125,16 @@ export const useAppointmentsPageStore = defineStore('appointmentsPage', () => {
 
   const showDetailSheet = ref(false)
   const selectedAppointment = ref<IAppointmentWithRelations | null>(null)
+  const showCompleteDialog = ref(false)
+  const completeTargetAppointment = ref<IAppointmentWithRelations | null>(null)
+  const completeSessionNote = ref('')
 
   const newAppointment = ref<AppointmentFormState>(
     createDefaultAppointmentForm(NO_TREATMENT_PLAN_VALUE),
   )
   const isSubmitting = ref(false)
+  const isCompletingAppointment = ref(false)
+  const isReopeningAppointment = ref(false)
 
   const bookingMode = ref<AppointmentBookingMode>('single')
   const seriesConfig = ref<SeriesConfigState>(createDefaultSeriesConfig())
@@ -463,6 +494,24 @@ export const useAppointmentsPageStore = defineStore('appointmentsPage', () => {
     showDetailSheet.value = true
   }
 
+  function openCompleteDialog(appt: IAppointmentWithRelations) {
+    completeTargetAppointment.value = appt
+    completeSessionNote.value = ''
+    showCompleteDialog.value = true
+  }
+
+  function canReopenAppointment(appt: IAppointmentWithRelations): boolean {
+    if (profile.value?.role === 'admin') return true
+    if (!appt.completed_at) return false
+    return Date.now() - new Date(appt.completed_at).getTime() <= 24 * 60 * 60 * 1000
+  }
+
+  function closeCompleteDialog() {
+    showCompleteDialog.value = false
+    completeTargetAppointment.value = null
+    completeSessionNote.value = ''
+  }
+
   function handleSlotClick(date: string, time: string) {
     newAppointment.value.date = date
     newAppointment.value.start_time = time
@@ -641,6 +690,64 @@ export const useAppointmentsPageStore = defineStore('appointmentsPage', () => {
     }
   }
 
+  async function completeAppointment(noteOverride?: string) {
+    if (!profile.value || !completeTargetAppointment.value) return
+    isCompletingAppointment.value = true
+
+    const rawNote = noteOverride ?? completeSessionNote.value
+    const trimmedNote = rawNote?.trim() ?? ''
+    const noteToSend = trimmedNote.length > 0 ? trimmedNote : null
+
+    try {
+      const result = await appointmentService(supabase).completeWithSessionNote(
+        profile.value.clinic_id,
+        completeTargetAppointment.value.id,
+        noteToSend,
+      )
+
+      if (result.message === AppointmentErrorCode.ALREADY_COMPLETED) {
+        toast.info('Appointment already completed')
+      } else {
+        toast.success(
+          noteToSend ? 'Appointment completed. Session note saved.' : 'Appointment completed.',
+        )
+      }
+
+      await loadAppointments()
+      closeCompleteDialog()
+      showDetailSheet.value = false
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to complete appointment'
+      toast.error(getAppointmentErrorMessage(message))
+    } finally {
+      isCompletingAppointment.value = false
+    }
+  }
+
+  async function reopenAppointment(appointmentId: string) {
+    if (!profile.value) return
+    isReopeningAppointment.value = true
+
+    try {
+      const result = await appointmentService(supabase).reopenCompletedAppointment(
+        profile.value.clinic_id,
+        appointmentId,
+      )
+      toast.success(
+        result.sessionVoided
+          ? 'Appointment reopened.'
+          : 'Appointment reopened (no active session was found).',
+      )
+      await loadAppointments()
+      showDetailSheet.value = false
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to reopen appointment'
+      toast.error(getAppointmentErrorMessage(message))
+    } finally {
+      isReopeningAppointment.value = false
+    }
+  }
+
   async function updateStatus(id: string, status: AppointmentStatus) {
     isUpdatingStatus.value = true
 
@@ -698,8 +805,13 @@ export const useAppointmentsPageStore = defineStore('appointmentsPage', () => {
     listFilter,
     showDetailSheet,
     selectedAppointment,
+    showCompleteDialog,
+    completeTargetAppointment,
+    completeSessionNote,
     newAppointment,
     isSubmitting,
+    isCompletingAppointment,
+    isReopeningAppointment,
     bookingMode,
     seriesConfig,
     conflicts,
@@ -740,6 +852,11 @@ export const useAppointmentsPageStore = defineStore('appointmentsPage', () => {
     getSeriesTotal,
     handleAppointmentClick,
     handleSlotClick,
+    canReopenAppointment,
+    openCompleteDialog,
+    closeCompleteDialog,
+    completeAppointment,
+    reopenAppointment,
     resetBookingForm,
     createAppointment,
     updateStatus,

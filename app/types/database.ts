@@ -512,6 +512,8 @@ export type Database = {
           notes: string | null
           paid_at: string
           created_at: string
+          recorded_by: string | null
+          idempotency_key: string | null
         }
         Insert: {
           id?: string
@@ -522,6 +524,8 @@ export type Database = {
           notes?: string | null
           paid_at?: string
           created_at?: string
+          recorded_by?: string | null
+          idempotency_key?: string | null
         }
         Update: {
           invoice_id?: string
@@ -529,6 +533,8 @@ export type Database = {
           method?: 'cash' | 'upi' | 'card' | 'bank_transfer' | 'other'
           notes?: string | null
           paid_at?: string
+          recorded_by?: string | null
+          idempotency_key?: string | null
         }
         Relationships: [
           {
@@ -543,6 +549,13 @@ export type Database = {
             columns: ['invoice_id']
             isOneToOne: false
             referencedRelation: 'invoices'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'payments_recorded_by_fkey'
+            columns: ['recorded_by']
+            isOneToOne: false
+            referencedRelation: 'profiles'
             referencedColumns: ['id']
           },
         ]
@@ -637,6 +650,18 @@ export type Database = {
           plan_id: string
           completed_sessions: number
         }[]
+      }
+      record_invoice_payment: {
+        Args: {
+          p_clinic_id: string
+          p_invoice_id: string
+          p_amount: number
+          p_method: 'cash' | 'upi' | 'card' | 'bank_transfer' | 'other'
+          p_paid_at: string
+          p_reference_note?: string | null
+          p_idempotency_key?: string | null
+        }
+        Returns: Record<string, unknown>
       }
     }
     Enums: {

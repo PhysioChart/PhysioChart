@@ -76,6 +76,7 @@ Run these in order against the production Supabase project.
 3. `supabase/migrations/003_doctor_conflict_enforcement.sql`
 4. `supabase/migrations/004_doctor_conflict_atomic_series.sql`
 5. `supabase/migrations/005_session_notes_completion.sql`
+6. `supabase/migrations/006_payment_recording.sql`
 
 Important: run `003` and `004` as separate executions in SQL Editor (or via `supabase db push` in sequence). `003` must commit before `004` because `004` uses the new enum value.
 
@@ -109,6 +110,24 @@ Important: run `003` and `004` as separate executions in SQL Editor (or via `sup
    - Adds atomic reopen RPC `reopen_completed_appointment`.
    - Drops `treatment_plans.completed_sessions` in favor of derived progress.
 
+6. `006_payment_recording.sql`
+   - Hardens payments schema with audit/idempotency columns:
+     - `payments.recorded_by`
+     - `payments.idempotency_key`
+   - Adds payment constraints:
+     - positive amount check
+     - reference note max length check
+   - Adds indexes:
+     - unique partial idempotency index on `(invoice_id, idempotency_key)` when key is not null
+     - stable payment-history index on `(invoice_id, paid_at desc, created_at desc)`
+   - Adds invoice total guard trigger:
+     - blocks `invoices.total` from dropping below `invoices.amount_paid`
+   - Adds atomic RPC `record_invoice_payment` with:
+     - invoice status gate (`sent`, `overdue`, `partially_paid`)
+     - overpayment prevention
+     - deterministic status recompute (`paid`/`overdue`/`partially_paid`)
+     - idempotent replay handling
+
 ### 3) How to run in production (SQL Editor)
 
 1. Open Supabase Dashboard -> Project -> SQL Editor.
@@ -117,6 +136,7 @@ Important: run `003` and `004` as separate executions in SQL Editor (or via `sup
 4. Run file `003_doctor_conflict_enforcement.sql`.
 5. After success, run file `004_doctor_conflict_atomic_series.sql`.
 6. Run file `005_session_notes_completion.sql`.
+7. Run file `006_payment_recording.sql`.
 
 ### 4) Post-migration verification
 
@@ -147,3 +167,33 @@ Important: run `003` and `004` as separate executions in SQL Editor (or via `sup
    group by appointment_id
    having count(*) > 1;
    ```
+7. Ensure payment RPC exists:
+   ```sql
+   select proname
+   from pg_proc
+   where pronamespace = 'public'::regnamespace
+     and proname = 'record_invoice_payment';
+   ```
+8. Ensure payment schema hardening columns exist:
+   ```sql
+   select column_name
+   from information_schema.columns
+   where table_schema = 'public'
+     and table_name = 'payments'
+     and column_name in ('recorded_by', 'idempotency_key');
+   ```
+9. Ensure invoice total guard trigger exists:
+   ```sql
+   select trigger_name
+   from information_schema.triggers
+   where event_object_schema = 'public'
+     and event_object_table = 'invoices'
+     and trigger_name = 'enforce_invoice_total_not_below_paid';
+   ```
+10. Ensure no invoice is in an impossible state (`amount_paid > total`):
+
+```sql
+select id, invoice_number, total, amount_paid
+from public.invoices
+where amount_paid > total;
+```

@@ -78,6 +78,14 @@
               <p v-else-if="plan.price_per_session" class="text-muted-foreground/70 text-xs">
                 {{ formatCurrency(plan.price_per_session) }}/session
               </p>
+
+              <div class="mt-2">
+                <TreatmentSessionHistory
+                  :history="historyByPlan[plan.id] || []"
+                  :loading="loadingByPlan[plan.id]"
+                  :error="errorByPlan[plan.id]"
+                />
+              </div>
             </CardContent>
           </Card>
         </div>
@@ -131,6 +139,14 @@
               <p v-else-if="plan.price_per_session" class="text-muted-foreground/70 text-xs">
                 {{ formatCurrency(plan.price_per_session) }}/session
               </p>
+
+              <div class="mt-2">
+                <TreatmentSessionHistory
+                  :history="historyByPlan[plan.id] || []"
+                  :loading="loadingByPlan[plan.id]"
+                  :error="errorByPlan[plan.id]"
+                />
+              </div>
             </CardContent>
           </Card>
         </div>
@@ -140,13 +156,16 @@
 </template>
 
 <script setup lang="ts">
+import { computed, toRefs, watch } from 'vue'
 import { ClipboardList } from 'lucide-vue-next'
+import TreatmentSessionHistory from '~/components/common/TreatmentSessionHistory.vue'
+import { useTreatmentSessionHistory } from '~/composables/useTreatmentSessionHistory'
 import type { ITreatmentPlanWithRelations } from '~/types/models/treatment.types'
 import type { TreatmentStatus } from '~/enums/treatment.enum'
 import { TREATMENT_STATUS_LABELS } from '~/enums/treatment.enum'
 import { formatCurrency } from '~/lib/formatters'
 
-defineProps<{
+const props = defineProps<{
   patientId: string
   isLoadingTreatments: boolean
   treatments: ITreatmentPlanWithRelations[]
@@ -155,4 +174,30 @@ defineProps<{
   getTreatmentStatusBadgeClass: (status: TreatmentStatus) => string
   treatmentProgress: (plan: ITreatmentPlanWithRelations) => number
 }>()
+
+const {
+  activeTreatments,
+  completedTreatments,
+  treatments,
+  isLoadingTreatments,
+  patientId,
+  getTreatmentStatusBadgeClass,
+  treatmentProgress,
+} = toRefs(props)
+
+const { profile } = useAuth()
+const { historyByPlan, loadingByPlan, errorByPlan, loadHistory } = useTreatmentSessionHistory()
+
+const planIds = computed(() => {
+  return [...activeTreatments.value, ...completedTreatments.value].map((p) => p.id)
+})
+
+watch(
+  planIds,
+  async (ids) => {
+    if (!profile.value || ids.length === 0) return
+    await loadHistory(profile.value.clinic_id, ids)
+  },
+  { immediate: true },
+)
 </script>

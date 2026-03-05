@@ -713,6 +713,14 @@ export const useAppointmentsPageStore = defineStore('appointmentsPage', () => {
         )
       }
 
+      if (result.planCompleted) {
+        toast.success('Treatment plan completed')
+      }
+
+      if (completeTargetAppointment.value.treatment_plan?.id) {
+        treatmentsStore.invalidate(profile.value.clinic_id)
+      }
+
       await loadAppointments()
       closeCompleteDialog()
       showDetailSheet.value = false

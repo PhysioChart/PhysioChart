@@ -173,6 +173,14 @@
               >{{ formatCurrency(plan.price_per_session) }}/session</span
             >
           </div>
+
+          <div class="mt-3">
+            <TreatmentSessionHistory
+              :history="historyByPlan[plan.id] || []"
+              :loading="loadingByPlan[plan.id]"
+              :error="errorByPlan[plan.id]"
+            />
+          </div>
         </CardContent>
       </Card>
     </div>
@@ -180,9 +188,12 @@
 </template>
 
 <script setup lang="ts">
+import { computed, watch } from 'vue'
 import { ClipboardList, Plus } from 'lucide-vue-next'
-import { TreatmentStatus, TREATMENT_STATUS_LABELS } from '~/enums/treatment.enum'
+import TreatmentSessionHistory from '~/components/common/TreatmentSessionHistory.vue'
+import { useTreatmentSessionHistory } from '~/composables/useTreatmentSessionHistory'
 import { useTreatmentsPage } from '~/composables/useTreatmentsPage'
+import { TreatmentStatus, TREATMENT_STATUS_LABELS } from '~/enums/treatment.enum'
 import { getStatusColor, progressPercent, formatCurrency } from '~/lib/formatters'
 
 const {
@@ -197,4 +208,18 @@ const {
   openDialog,
   createPlan,
 } = useTreatmentsPage()
+
+const { profile } = useAuth()
+const { historyByPlan, loadingByPlan, errorByPlan, loadHistory } = useTreatmentSessionHistory()
+
+const filteredPlanIds = computed(() => filteredPlans.value.map((p) => p.id))
+
+watch(
+  filteredPlanIds,
+  async (ids) => {
+    if (!profile.value || ids.length === 0) return
+    await loadHistory(profile.value.clinic_id, ids)
+  },
+  { immediate: true },
+)
 </script>

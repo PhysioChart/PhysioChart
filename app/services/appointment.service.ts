@@ -40,12 +40,16 @@ export interface ICompleteAppointmentResult {
   sessionId: string | null
   planProgress: ITreatmentPlanProgressSummary | null
   message?: string | null
+  planStatus?: string | null
+  planCompleted?: boolean | null
 }
 
 export interface IReopenAppointmentResult {
   reopened: boolean
   sessionVoided: boolean
   message?: string | null
+  planStatus?: string | null
+  planCompleted?: boolean | null
 }
 
 export class AppointmentConflictError extends Error {
@@ -84,11 +88,23 @@ function isCompleteAppointmentResult(value: unknown): value is ICompleteAppointm
   const hasValidProgress =
     payload.planProgress === null || isTreatmentPlanProgressSummary(payload.planProgress)
 
+  const planStatusOk =
+    payload.planStatus === undefined ||
+    payload.planStatus === null ||
+    typeof payload.planStatus === 'string'
+
+  const planCompletedOk =
+    payload.planCompleted === undefined ||
+    payload.planCompleted === null ||
+    typeof payload.planCompleted === 'boolean'
+
   return (
     typeof payload.appointmentCompleted === 'boolean' &&
     typeof payload.sessionCreated === 'boolean' &&
     (typeof payload.sessionId === 'string' || payload.sessionId === null) &&
-    hasValidProgress
+    hasValidProgress &&
+    planStatusOk &&
+    planCompletedOk
   )
 }
 
@@ -100,7 +116,13 @@ function isReopenAppointmentResult(value: unknown): value is IReopenAppointmentR
     typeof payload.sessionVoided === 'boolean' &&
     (typeof payload.message === 'string' ||
       payload.message === null ||
-      payload.message === undefined)
+      payload.message === undefined) &&
+    (payload.planStatus === undefined ||
+      payload.planStatus === null ||
+      typeof payload.planStatus === 'string') &&
+    (payload.planCompleted === undefined ||
+      payload.planCompleted === null ||
+      typeof payload.planCompleted === 'boolean')
   )
 }
 

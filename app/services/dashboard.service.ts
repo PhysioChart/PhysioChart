@@ -61,11 +61,9 @@ function isDashboardOverview(payload: unknown): payload is DashboardOverview {
     recentActivity?: unknown
   }
   const counts = value.counts as Record<string, unknown> | undefined
-  return (
-    counts &&
-    typeof counts.upcomingAppointments7d === 'number' &&
-    Array.isArray(value.upcomingAppointments) &&
-    Array.isArray(value.recentActivity)
+  const hasCounts = typeof counts?.upcomingAppointments7d === 'number'
+  return Boolean(
+    hasCounts && Array.isArray(value.upcomingAppointments) && Array.isArray(value.recentActivity),
   )
 }
 
@@ -77,7 +75,8 @@ export function dashboardService(supabase: SupabaseClient<Database>) {
     todayLocal: string
     tzOffsetMinutes: number
   }): Promise<DashboardOverview> {
-    const { data, error } = await supabase.rpc('get_dashboard_overview', {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data, error } = await (supabase as any).rpc('get_dashboard_overview', {
       p_clinic_id: params.clinicId,
       p_now: params.nowIso,
       p_range_end: params.rangeEndIso,

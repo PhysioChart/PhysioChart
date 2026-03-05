@@ -76,6 +76,23 @@ export function formatCurrency(amount: number): string {
   })
 }
 
+/** "2h ago", "Yesterday", or fallback date */
+export function formatRelativeTime(dateStr: string): string {
+  const target = new Date(dateStr).getTime()
+  if (Number.isNaN(target)) return formatDateTime(dateStr)
+  const now = Date.now()
+  const diffMs = target - now
+  if (diffMs > 0 && diffMs < 60_000) return 'just now'
+  const rtf = new Intl.RelativeTimeFormat('en', { numeric: 'auto' })
+  const mins = Math.round(diffMs / 60_000)
+  const hours = Math.round(diffMs / 3_600_000)
+  const days = Math.round(diffMs / 86_400_000)
+  if (Math.abs(mins) < 60) return rtf.format(mins, 'minute')
+  if (Math.abs(hours) < 24) return rtf.format(hours, 'hour')
+  if (Math.abs(days) < 7) return rtf.format(days, 'day')
+  return formatDateTime(dateStr)
+}
+
 /** Tailwind classes for appointment/treatment/invoice status badges */
 export function getStatusColor(
   status: AppointmentStatus | TreatmentStatus | InvoiceStatus | string,

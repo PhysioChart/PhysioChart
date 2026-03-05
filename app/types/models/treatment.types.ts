@@ -12,3 +12,10 @@ export interface ITreatmentSessionHistoryItem {
   finalizedAt: string
   note: string | null
 }
+
+export interface ITreatmentLinkedAppointmentItem {
+  id: string
+  startTime: string
+  endTime: string
+  status: Tables<'appointments'>['status']
+}

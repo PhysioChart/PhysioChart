@@ -45,6 +45,18 @@
           <div>
             <p class="text-sm font-medium">{{ appointment.treatment_plan.name }}</p>
             <p class="text-muted-foreground text-xs">
+              Status: {{ TREATMENT_STATUS_LABELS[appointment.treatment_plan.status] }}
+            </p>
+            <p v-if="appointment.treatment_plan.diagnosis" class="text-muted-foreground text-xs">
+              Diagnosis: {{ appointment.treatment_plan.diagnosis }}
+            </p>
+            <p
+              v-if="appointment.treatment_plan.treatment_type"
+              class="text-muted-foreground text-xs"
+            >
+              Type: {{ appointment.treatment_plan.treatment_type }}
+            </p>
+            <p class="text-muted-foreground text-xs">
               <span v-if="appointment.treatment_plan.total_sessions !== null">
                 Plan ({{ appointment.treatment_plan.derived_completed_sessions }}/{{
                   appointment.treatment_plan.total_sessions
@@ -134,6 +146,7 @@
 import { ClipboardList, Clock, MessageCircle, Stethoscope, User } from 'lucide-vue-next'
 import type { CalendarAppointment } from '~/composables/useCalendar'
 import { AppointmentStatus, APPOINTMENT_STATUS_LABELS } from '~/enums/appointment.enum'
+import { TREATMENT_STATUS_LABELS } from '~/enums/treatment.enum'
 import { formatDateTime, formatTime, getStatusColor, getWhatsAppLink } from '~/lib/formatters'
 
 defineProps<{

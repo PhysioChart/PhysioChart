@@ -12,6 +12,9 @@
       :therapists="therapists"
       :active-treatment-plans="activeTreatmentPlansForSelectedPatient"
       :can-select-treatment="canSelectTreatment"
+      :lock-patient="lockPatientSelection"
+      :lock-treatment-plan="lockTreatmentPlanSelection"
+      :linked-treatment-name="linkedTreatmentName"
       :treatment-select-placeholder="treatmentSelectPlaceholder"
       :no-treatment-plan-value="NO_TREATMENT_PLAN_VALUE"
       :day-names="DAY_NAMES"
@@ -136,6 +139,9 @@ const {
   filteredAppointments,
   activeTreatmentPlansForSelectedPatient,
   canSelectTreatment,
+  lockPatientSelection,
+  lockTreatmentPlanSelection,
+  linkedTreatmentName,
   treatmentSelectPlaceholder,
 } = storeToRefs(appointmentsPageStore)
 

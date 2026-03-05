@@ -7,6 +7,10 @@
       </DialogHeader>
 
       <form class="space-y-4" @submit.prevent="emit('submit')">
+        <p v-if="linkedTreatmentName" class="text-xs text-blue-600">
+          Linked booking: {{ linkedTreatmentName }} (patient and treatment are locked)
+        </p>
+
         <div>
           <Label>Booking Type</Label>
           <div class="mt-1 flex gap-2">
@@ -31,7 +35,7 @@
 
         <div>
           <Label>Patient *</Label>
-          <Select v-model="form.patient_id">
+          <Select v-model="form.patient_id" :disabled="lockPatient">
             <SelectTrigger>
               <SelectValue placeholder="Select patient" />
             </SelectTrigger>
@@ -59,7 +63,10 @@
 
         <div>
           <Label>Treatment Plan (Optional)</Label>
-          <Select v-model="form.treatment_plan_id" :disabled="!canSelectTreatment">
+          <Select
+            v-model="form.treatment_plan_id"
+            :disabled="!canSelectTreatment || lockTreatmentPlan"
+          >
             <SelectTrigger>
               <SelectValue :placeholder="treatmentSelectPlaceholder" />
             </SelectTrigger>
@@ -228,6 +235,9 @@ withDefaults(
     therapists: Tables<'profiles'>[]
     activeTreatmentPlans: ITreatmentPlanWithRelations[]
     canSelectTreatment?: boolean
+    lockPatient?: boolean
+    lockTreatmentPlan?: boolean
+    linkedTreatmentName?: string | null
     treatmentSelectPlaceholder: string
     noTreatmentPlanValue: string
     dayNames: string[]
@@ -240,6 +250,9 @@ withDefaults(
   }>(),
   {
     canSelectTreatment: false,
+    lockPatient: false,
+    lockTreatmentPlan: false,
+    linkedTreatmentName: null,
   },
 )
 

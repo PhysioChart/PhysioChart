@@ -77,6 +77,9 @@ Run these in order against the production Supabase project.
 4. `supabase/migrations/004_doctor_conflict_atomic_series.sql`
 5. `supabase/migrations/005_session_notes_completion.sql`
 6. `supabase/migrations/006_payment_recording.sql`
+7. `supabase/migrations/007_dashboard_overview.sql`
+8. `supabase/migrations/008_treatment_progress_automation.sql`
+9. `supabase/migrations/009_treatment_linked_appointments.sql`
 
 Important: run `003` and `004` as separate executions in SQL Editor (or via `supabase db push` in sequence). `003` must commit before `004` because `004` uses the new enum value.
 
@@ -128,6 +131,19 @@ Important: run `003` and `004` as separate executions in SQL Editor (or via `sup
      - deterministic status recompute (`paid`/`overdue`/`partially_paid`)
      - idempotent replay handling
 
+7. `007_dashboard_overview.sql`
+   - Adds scoped dashboard overview RPC with timezone-safe day boundaries and bounded lists.
+
+8. `008_treatment_progress_automation.sql`
+   - Adds treatment session history RPC and automates treatment status recompute in completion/reopen RPCs.
+
+9. `009_treatment_linked_appointments.sql`
+   - Adds idempotency key support for appointments.
+   - Adds DB-level appointment relationship validation trigger (clinic/patient/therapist/treatment consistency).
+   - Adds atomic idempotent RPC `create_treatment_linked_appointment`.
+   - Adds bulk linked appointments RPC `get_treatment_linked_appointments_bulk`.
+   - Adds read-optimized index for clinic + treatment-linked appointment lookups.
+
 ### 3) How to run in production (SQL Editor)
 
 1. Open Supabase Dashboard -> Project -> SQL Editor.
@@ -137,6 +153,9 @@ Important: run `003` and `004` as separate executions in SQL Editor (or via `sup
 5. After success, run file `004_doctor_conflict_atomic_series.sql`.
 6. Run file `005_session_notes_completion.sql`.
 7. Run file `006_payment_recording.sql`.
+8. Run file `007_dashboard_overview.sql`.
+9. Run file `008_treatment_progress_automation.sql`.
+10. Run file `009_treatment_linked_appointments.sql`.
 
 ### 4) Post-migration verification
 

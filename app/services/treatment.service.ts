@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database, InsertDto, UpdateDto } from '~/types/database'
 import type {
+  ITreatmentLinkedAppointmentItem,
   ITreatmentPlanWithRelations,
   ITreatmentSessionHistoryItem,
 } from '~/types/models/treatment.types'
@@ -164,5 +165,49 @@ export function treatmentService(supabase: SupabaseClient<Database>) {
     return map
   }
 
-  return { list, getById, getByPatientId, create, update, fetchSessionHistory }
+  async function fetchLinkedAppointments(
+    clinicId: string,
+    planIds: string[],
+    limitPerPlan = 3,
+  ): Promise<Map<string, ITreatmentLinkedAppointmentItem[]>> {
+    if (planIds.length === 0) return new Map<string, ITreatmentLinkedAppointmentItem[]>()
+
+    const { data, error } = await supabase.rpc('get_treatment_linked_appointments_bulk', {
+      p_clinic_id: clinicId,
+      p_plan_ids: Array.from(new Set(planIds)),
+      p_limit_per_plan: limitPerPlan,
+    })
+
+    if (error) throw error
+
+    const map = new Map<string, ITreatmentLinkedAppointmentItem[]>()
+    for (const row of (data ?? []) as {
+      plan_id: string
+      appointment_id: string
+      start_time: string
+      end_time: string
+      status: ITreatmentLinkedAppointmentItem['status']
+    }[]) {
+      const list = map.get(row.plan_id) ?? []
+      list.push({
+        id: row.appointment_id,
+        startTime: row.start_time,
+        endTime: row.end_time,
+        status: row.status,
+      })
+      map.set(row.plan_id, list)
+    }
+
+    return map
+  }
+
+  return {
+    list,
+    getById,
+    getByPatientId,
+    create,
+    update,
+    fetchSessionHistory,
+    fetchLinkedAppointments,
+  }
 }

@@ -52,6 +52,39 @@ export interface IReopenAppointmentResult {
   planCompleted?: boolean | null
 }
 
+export interface ICreateTreatmentLinkedAppointmentInput {
+  clinicId: string
+  treatmentPlanId: string
+  therapistId: string
+  startTime: string
+  endTime: string
+  notes?: string | null
+  idempotencyKey: string
+}
+
+export interface ICreateTreatmentLinkedAppointmentResult {
+  appointmentId: string
+  alreadyCreated: boolean
+  message: string | null
+  appointment: {
+    id: string
+    patientId: string
+    therapistId: string | null
+    treatmentPlanId: string | null
+    startTime: string
+    endTime: string
+    status: string
+    notes: string | null
+  }
+  treatmentSummary: {
+    id: string
+    patientId: string
+    name: string
+    status: string
+    totalSessions: number | null
+  }
+}
+
 export class AppointmentConflictError extends Error {
   readonly code = AppointmentErrorCode.APPOINTMENT_DOCTOR_CONFLICT
   readonly status = 409
@@ -126,6 +159,46 @@ function isReopenAppointmentResult(value: unknown): value is IReopenAppointmentR
   )
 }
 
+function isCreateTreatmentLinkedAppointmentResult(
+  value: unknown,
+): value is ICreateTreatmentLinkedAppointmentResult {
+  if (!value || typeof value !== 'object') return false
+  const payload = value as Record<string, unknown>
+  if (
+    typeof payload.appointmentId !== 'string' ||
+    typeof payload.alreadyCreated !== 'boolean' ||
+    (typeof payload.message !== 'string' && payload.message !== null)
+  ) {
+    return false
+  }
+
+  const appointment = payload.appointment
+  const treatmentSummary = payload.treatmentSummary
+  if (!appointment || typeof appointment !== 'object') return false
+  if (!treatmentSummary || typeof treatmentSummary !== 'object') return false
+
+  const appointmentObj = appointment as Record<string, unknown>
+  const treatmentSummaryObj = treatmentSummary as Record<string, unknown>
+
+  return (
+    typeof appointmentObj.id === 'string' &&
+    typeof appointmentObj.patientId === 'string' &&
+    (typeof appointmentObj.therapistId === 'string' || appointmentObj.therapistId === null) &&
+    (typeof appointmentObj.treatmentPlanId === 'string' ||
+      appointmentObj.treatmentPlanId === null) &&
+    typeof appointmentObj.startTime === 'string' &&
+    typeof appointmentObj.endTime === 'string' &&
+    typeof appointmentObj.status === 'string' &&
+    (typeof appointmentObj.notes === 'string' || appointmentObj.notes === null) &&
+    typeof treatmentSummaryObj.id === 'string' &&
+    typeof treatmentSummaryObj.patientId === 'string' &&
+    typeof treatmentSummaryObj.name === 'string' &&
+    typeof treatmentSummaryObj.status === 'string' &&
+    (typeof treatmentSummaryObj.totalSessions === 'number' ||
+      treatmentSummaryObj.totalSessions === null)
+  )
+}
+
 export function appointmentService(supabase: SupabaseClient<Database>) {
   async function fetchTreatmentPlanProgressMap(
     clinicId: string,
@@ -168,6 +241,9 @@ export function appointmentService(supabase: SupabaseClient<Database>) {
         treatment_plan: {
           id: rawPlan.id,
           name: rawPlan.name ?? 'Untitled plan',
+          status: rawPlan.status ?? 'active',
+          diagnosis: rawPlan.diagnosis ?? null,
+          treatment_type: rawPlan.treatment_type ?? null,
           total_sessions: rawPlan.total_sessions ?? null,
           derived_completed_sessions: progressMap.get(rawPlan.id) ?? 0,
         },
@@ -179,7 +255,7 @@ export function appointmentService(supabase: SupabaseClient<Database>) {
     const { data, error } = await supabase
       .from('appointments')
       .select(
-        '*, patient:patients(*), therapist:profiles(*), treatment_plan:treatment_plans(id, name, total_sessions)',
+        '*, patient:patients(*), therapist:profiles(*), treatment_plan:treatment_plans(id, name, status, diagnosis, treatment_type, total_sessions)',
       )
       .eq('clinic_id', clinicId)
       .order('start_time', { ascending: true })
@@ -202,7 +278,7 @@ export function appointmentService(supabase: SupabaseClient<Database>) {
     const { data, error } = await supabase
       .from('appointments')
       .select(
-        '*, patient:patients(*), therapist:profiles(*), treatment_plan:treatment_plans(id, name, total_sessions)',
+        '*, patient:patients(*), therapist:profiles(*), treatment_plan:treatment_plans(id, name, status, diagnosis, treatment_type, total_sessions)',
       )
       .eq('clinic_id', clinicId)
       .eq('patient_id', patientId)
@@ -226,7 +302,7 @@ export function appointmentService(supabase: SupabaseClient<Database>) {
     const { data, error } = await supabase
       .from('appointments')
       .select(
-        '*, patient:patients(*), therapist:profiles(*), treatment_plan:treatment_plans(id, name, total_sessions)',
+        '*, patient:patients(*), therapist:profiles(*), treatment_plan:treatment_plans(id, name, status, diagnosis, treatment_type, total_sessions)',
       )
       .eq('clinic_id', clinicId)
       .gte('start_time', `${dateStr}T00:00:00`)
@@ -297,6 +373,35 @@ export function appointmentService(supabase: SupabaseClient<Database>) {
         },
       )
     }
+  }
+
+  async function createTreatmentLinkedAppointment(
+    payload: ICreateTreatmentLinkedAppointmentInput,
+  ): Promise<ICreateTreatmentLinkedAppointmentResult> {
+    const { data, error } = await supabase.rpc('create_treatment_linked_appointment', {
+      p_clinic_id: payload.clinicId,
+      p_treatment_plan_id: payload.treatmentPlanId,
+      p_therapist_id: payload.therapistId,
+      p_start_time: payload.startTime,
+      p_end_time: payload.endTime,
+      p_notes: payload.notes ?? null,
+      p_idempotency_key: payload.idempotencyKey,
+    })
+
+    if (error) {
+      if (error.code === AppointmentErrorCode.APPOINTMENT_CONFLICT_POSTGRES) {
+        throw new AppointmentConflictError(
+          'This doctor already has an appointment during this time.',
+        )
+      }
+      throw error
+    }
+
+    if (!isCreateTreatmentLinkedAppointmentResult(data)) {
+      throw new Error('INVALID_CREATE_TREATMENT_LINKED_APPOINTMENT_RESPONSE')
+    }
+
+    return data
   }
 
   async function updateStatus(
@@ -442,6 +547,7 @@ export function appointmentService(supabase: SupabaseClient<Database>) {
     listForDate,
     create,
     createSeries,
+    createTreatmentLinkedAppointment,
     updateStatus,
     cancelSeries,
     listDoctorBlockedIntervals,

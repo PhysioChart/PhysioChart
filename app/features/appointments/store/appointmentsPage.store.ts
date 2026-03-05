@@ -33,10 +33,34 @@ const END_HOUR = 22
 
 function getAppointmentErrorMessage(codeOrMessage: string): string {
   switch (codeOrMessage) {
+    case AppointmentErrorCode.INVALID_CLINIC_ID:
+      return 'Clinic context is missing. Please refresh and try again.'
+    case AppointmentErrorCode.CLINIC_SCOPE_MISMATCH:
+      return 'You are not allowed to access this clinic.'
     case AppointmentErrorCode.APPOINTMENT_NOT_FOUND:
       return 'Appointment not found or inaccessible.'
+    case AppointmentErrorCode.INVALID_APPOINTMENT_RANGE:
+      return 'Appointment start and end time are invalid.'
     case AppointmentErrorCode.INVALID_STATUS_TRANSITION:
       return 'Only scheduled or checked-in appointments can be completed.'
+    case AppointmentErrorCode.APPOINTMENT_ALREADY_CREATED:
+      return 'Appointment already created for this request.'
+    case AppointmentErrorCode.IDEMPOTENCY_KEY_REQUIRED:
+      return 'Please retry the booking request.'
+    case AppointmentErrorCode.TREATMENT_PLAN_NOT_FOUND:
+      return 'Treatment plan not found.'
+    case AppointmentErrorCode.TREATMENT_PLAN_NOT_ACTIVE:
+      return 'Only active treatment plans can be linked to new appointments.'
+    case AppointmentErrorCode.PATIENT_NOT_FOUND:
+      return 'Patient not found.'
+    case AppointmentErrorCode.PATIENT_CLINIC_MISMATCH:
+      return 'Selected patient does not belong to this clinic.'
+    case AppointmentErrorCode.THERAPIST_NOT_FOUND:
+      return 'Therapist not found.'
+    case AppointmentErrorCode.THERAPIST_CLINIC_MISMATCH:
+      return 'Selected therapist does not belong to this clinic.'
+    case AppointmentErrorCode.TREATMENT_PLAN_CLINIC_MISMATCH:
+      return 'Selected treatment plan does not belong to this clinic.'
     case AppointmentErrorCode.PATIENT_PLAN_MISMATCH:
       return 'The linked treatment plan does not match this patient.'
     case AppointmentErrorCode.NOTE_TOO_LONG:
@@ -88,6 +112,13 @@ function overlapsInterval(
   return startIso < interval.end_time && endIso > interval.start_time
 }
 
+function generateIdempotencyKey(prefix: string): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return `${prefix}-${crypto.randomUUID()}`
+  }
+  return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`
+}
+
 export const useAppointmentsPageStore = defineStore('appointmentsPage', () => {
   const NO_TREATMENT_PLAN_VALUE = '__none__'
 
@@ -135,6 +166,12 @@ export const useAppointmentsPageStore = defineStore('appointmentsPage', () => {
   const isSubmitting = ref(false)
   const isCompletingAppointment = ref(false)
   const isReopeningAppointment = ref(false)
+  const linkedCreateIdempotencyKey = ref(generateIdempotencyKey('appt'))
+  const linkedBookingContext = ref<{
+    patientId: string
+    treatmentPlanId: string
+    treatmentName: string
+  } | null>(null)
 
   const bookingMode = ref<AppointmentBookingMode>('single')
   const seriesConfig = ref<SeriesConfigState>(createDefaultSeriesConfig())
@@ -227,6 +264,9 @@ export const useAppointmentsPageStore = defineStore('appointmentsPage', () => {
   )
 
   const canSelectTreatment = computed(() => Boolean(newAppointment.value.patient_id))
+  const lockPatientSelection = computed(() => Boolean(linkedBookingContext.value))
+  const lockTreatmentPlanSelection = computed(() => Boolean(linkedBookingContext.value))
+  const linkedTreatmentName = computed(() => linkedBookingContext.value?.treatmentName ?? null)
 
   const treatmentSelectPlaceholder = computed(() => {
     if (!newAppointment.value.patient_id) return 'Select patient first'
@@ -411,7 +451,10 @@ export const useAppointmentsPageStore = defineStore('appointmentsPage', () => {
   watch(
     () => newAppointment.value.patient_id,
     async (patientId, prevPatientId) => {
-      if (patientId !== prevPatientId) {
+      if (
+        patientId !== prevPatientId &&
+        (!linkedBookingContext.value || patientId !== linkedBookingContext.value.patientId)
+      ) {
         newAppointment.value.treatment_plan_id = NO_TREATMENT_PLAN_VALUE
       }
 
@@ -526,6 +569,8 @@ export const useAppointmentsPageStore = defineStore('appointmentsPage', () => {
     conflicts.value = new Set()
     blockedIntervals.value = []
     newAppointment.value = createDefaultAppointmentForm(NO_TREATMENT_PLAN_VALUE)
+    linkedBookingContext.value = null
+    linkedCreateIdempotencyKey.value = generateIdempotencyKey('appt')
   }
 
   async function createAppointment() {
@@ -603,17 +648,34 @@ export const useAppointmentsPageStore = defineStore('appointmentsPage', () => {
           )
         }
 
-        await service.create({
-          clinic_id: profile.value.clinic_id,
-          patient_id: newAppointment.value.patient_id,
-          therapist_id: newAppointment.value.therapist_id,
-          treatment_plan_id: treatmentPlanId,
-          start_time: startIso,
-          end_time: endIso,
-          notes: newAppointment.value.notes || null,
-        })
+        if (treatmentPlanId) {
+          const result = await service.createTreatmentLinkedAppointment({
+            clinicId: profile.value.clinic_id,
+            treatmentPlanId,
+            therapistId: newAppointment.value.therapist_id,
+            startTime: startIso,
+            endTime: endIso,
+            notes: newAppointment.value.notes || null,
+            idempotencyKey: linkedCreateIdempotencyKey.value,
+          })
 
-        toast.success('Appointment booked')
+          if (result.alreadyCreated) {
+            toast.info('Appointment already booked for this request')
+          } else {
+            toast.success('Appointment booked')
+          }
+        } else {
+          await service.create({
+            clinic_id: profile.value.clinic_id,
+            patient_id: newAppointment.value.patient_id,
+            therapist_id: newAppointment.value.therapist_id,
+            treatment_plan_id: null,
+            start_time: startIso,
+            end_time: endIso,
+            notes: newAppointment.value.notes || null,
+          })
+          toast.success('Appointment booked')
+        }
       } else {
         const durationMin = Number.parseInt(newAppointment.value.duration, 10)
         if (!Number.isFinite(durationMin) || durationMin <= 0) {
@@ -683,7 +745,7 @@ export const useAppointmentsPageStore = defineStore('appointmentsPage', () => {
         }
       } else {
         const message = err instanceof Error ? err.message : 'Failed to book appointment'
-        toast.error(message)
+        toast.error(getAppointmentErrorMessage(message))
       }
     } finally {
       isSubmitting.value = false
@@ -790,6 +852,7 @@ export const useAppointmentsPageStore = defineStore('appointmentsPage', () => {
   }
 
   async function initialize(routeQuery: Record<string, unknown>) {
+    resetBookingForm()
     await loadAppointments()
     await loadDropdowns()
 
@@ -797,6 +860,44 @@ export const useAppointmentsPageStore = defineStore('appointmentsPage', () => {
     const patientId = Array.isArray(patientIdParam) ? patientIdParam[0] : patientIdParam
     if (typeof patientId === 'string' && patients.value.some((p) => p.id === patientId)) {
       newAppointment.value.patient_id = patientId
+    }
+
+    const treatmentPlanIdParam = routeQuery.treatmentPlanId
+    const treatmentPlanId = Array.isArray(treatmentPlanIdParam)
+      ? treatmentPlanIdParam[0]
+      : treatmentPlanIdParam
+
+    if (
+      profile.value &&
+      typeof patientId === 'string' &&
+      patientId &&
+      typeof treatmentPlanId === 'string' &&
+      treatmentPlanId
+    ) {
+      try {
+        await treatmentsStore.fetchByPatient(profile.value.clinic_id, patientId)
+        const linkedPlan =
+          treatmentsByPatientByClinic.value[profile.value.clinic_id]?.[patientId]?.find(
+            (plan) => plan.id === treatmentPlanId && plan.status === TreatmentStatus.ACTIVE,
+          ) ?? null
+
+        if (linkedPlan) {
+          newAppointment.value.patient_id = linkedPlan.patient_id
+          newAppointment.value.treatment_plan_id = linkedPlan.id
+          if (linkedPlan.therapist_id) {
+            newAppointment.value.therapist_id = linkedPlan.therapist_id
+          }
+          linkedBookingContext.value = {
+            patientId: linkedPlan.patient_id,
+            treatmentPlanId: linkedPlan.id,
+            treatmentName: linkedPlan.name,
+          }
+        } else {
+          toast.error('Linked treatment plan is unavailable. Please select another plan.')
+        }
+      } catch {
+        toast.error('Failed to load linked treatment plan.')
+      }
     }
 
     if (routeQuery.action === 'new') {
@@ -846,6 +947,9 @@ export const useAppointmentsPageStore = defineStore('appointmentsPage', () => {
     filteredAppointments,
     activeTreatmentPlansForSelectedPatient,
     canSelectTreatment,
+    lockPatientSelection,
+    lockTreatmentPlanSelection,
+    linkedTreatmentName,
     treatmentSelectPlaceholder,
     goToToday,
     goToPrevDay,

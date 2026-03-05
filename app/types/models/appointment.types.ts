@@ -1,9 +1,13 @@
 import type { Tables } from '~/types/database'
 import type { AppointmentStatus } from '~/enums/appointment.enum'
+import type { TreatmentStatus } from '~/enums/treatment.enum'
 
 export interface IAppointmentTreatmentPlanSummary {
   id: string
   name: string
+  status: TreatmentStatus
+  diagnosis: string | null
+  treatment_type: string | null
   total_sessions: number | null
   derived_completed_sessions: number
 }

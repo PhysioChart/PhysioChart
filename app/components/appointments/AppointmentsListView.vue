@@ -19,11 +19,13 @@
           v-for="appt in appointments"
           :key="appt.id"
           :appointment="appt"
+          :clinic-name="clinicName"
+          :show-prominent-reminder-cta="listFilter === 'today'"
           :series-total="appt.series_id ? getSeriesTotal(appt.series_id) : 0"
           :can-reopen="canReopenAppointment(appt)"
           @request-complete="emit('request-complete', $event)"
           @request-reopen="emit('request-reopen', $event)"
-          @update-status="(id, status) => emit('update-status', id, status)"
+          @update-status="handleUpdateStatus"
           @cancel-series="emit('cancel-series', $event)"
         />
       </div>
@@ -33,6 +35,7 @@
 
 <script setup lang="ts">
 import { CalendarDays } from 'lucide-vue-next'
+import AppointmentsListRow from '~/components/appointments/AppointmentsListRow.vue'
 import type { AppointmentsListFilter } from '~/features/appointments/types'
 import type { AppointmentStatus } from '~/enums/appointment.enum'
 import type { IAppointmentWithRelations } from '~/types/models/appointment.types'
@@ -40,6 +43,7 @@ import type { IAppointmentWithRelations } from '~/types/models/appointment.types
 defineProps<{
   appointments: IAppointmentWithRelations[]
   listFilter: AppointmentsListFilter
+  clinicName: string | null
   getSeriesTotal: (seriesId: string) => number
   canReopenAppointment: (appointment: IAppointmentWithRelations) => boolean
 }>()
@@ -50,4 +54,8 @@ const emit = defineEmits<{
   (e: 'request-reopen' | 'cancel-series', id: string): void
   (e: 'update-status', id: string, status: AppointmentStatus): void
 }>()
+
+function handleUpdateStatus(id: string, status: AppointmentStatus) {
+  emit('update-status', id, status)
+}
 </script>

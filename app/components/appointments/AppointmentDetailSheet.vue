@@ -45,6 +45,18 @@
           <div>
             <p class="text-sm font-medium">{{ appointment.treatment_plan.name }}</p>
             <p class="text-muted-foreground text-xs">
+              Status: {{ TREATMENT_STATUS_LABELS[appointment.treatment_plan.status] }}
+            </p>
+            <p v-if="appointment.treatment_plan.diagnosis" class="text-muted-foreground text-xs">
+              Diagnosis: {{ appointment.treatment_plan.diagnosis }}
+            </p>
+            <p
+              v-if="appointment.treatment_plan.treatment_type"
+              class="text-muted-foreground text-xs"
+            >
+              Type: {{ appointment.treatment_plan.treatment_type }}
+            </p>
+            <p class="text-muted-foreground text-xs">
               <span v-if="appointment.treatment_plan.total_sessions !== null">
                 Plan ({{ appointment.treatment_plan.derived_completed_sessions }}/{{
                   appointment.treatment_plan.total_sessions
@@ -75,16 +87,11 @@
         <Separator />
 
         <div class="space-y-2">
-          <Button
-            v-if="appointment.patient"
-            variant="outline"
-            class="w-full justify-start"
-            as="a"
-            :href="getWhatsAppLink(appointment.patient, appointment.start_time)"
-            target="_blank"
-          >
-            <MessageCircle class="mr-2 h-4 w-4" />
-            Send WhatsApp Reminder
+          <Button v-if="reminderHref" as-child variant="outline" class="w-full justify-start">
+            <a :href="reminderHref" target="_blank" rel="noopener noreferrer">
+              <MessageCircle class="mr-2 h-4 w-4" />
+              Send WhatsApp Reminder
+            </a>
           </Button>
 
           <template
@@ -134,12 +141,36 @@
 import { ClipboardList, Clock, MessageCircle, Stethoscope, User } from 'lucide-vue-next'
 import type { CalendarAppointment } from '~/composables/useCalendar'
 import { AppointmentStatus, APPOINTMENT_STATUS_LABELS } from '~/enums/appointment.enum'
-import { formatDateTime, formatTime, getStatusColor, getWhatsAppLink } from '~/lib/formatters'
+import { TREATMENT_STATUS_LABELS } from '~/enums/treatment.enum'
+import {
+  formatDateTime,
+  formatTime,
+  getAppointmentWhatsAppLink,
+  getStatusColor,
+} from '~/lib/formatters'
 
-defineProps<{
+const props = defineProps<{
   appointment: CalendarAppointment | null
+  clinicName: string | null
   canReopen: boolean
 }>()
+
+const reminderHref = computed(() => {
+  if (!props.appointment) return null
+  if (
+    props.appointment.status !== AppointmentStatus.SCHEDULED &&
+    props.appointment.status !== AppointmentStatus.CHECKED_IN
+  ) {
+    return null
+  }
+
+  return getAppointmentWhatsAppLink({
+    patient: props.appointment.patient,
+    startTime: props.appointment.start_time,
+    therapistName: props.appointment.therapist?.full_name ?? null,
+    clinicName: props.clinicName,
+  })
+})
 
 const open = defineModel<boolean>('open', { required: true })
 

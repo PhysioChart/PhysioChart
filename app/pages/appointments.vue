@@ -12,6 +12,9 @@
       :therapists="therapists"
       :active-treatment-plans="activeTreatmentPlansForSelectedPatient"
       :can-select-treatment="canSelectTreatment"
+      :lock-patient="lockPatientSelection"
+      :lock-treatment-plan="lockTreatmentPlanSelection"
+      :linked-treatment-name="linkedTreatmentName"
       :treatment-select-placeholder="treatmentSelectPlaceholder"
       :no-treatment-plan-value="NO_TREATMENT_PLAN_VALUE"
       :day-names="DAY_NAMES"
@@ -50,6 +53,7 @@
       v-else-if="viewMode === 'list'"
       :appointments="filteredAppointments"
       :list-filter="listFilter"
+      :clinic-name="clinic?.name ?? null"
       :get-series-total="getSeriesTotal"
       :can-reopen-appointment="canReopenAppointment"
       @open-booking="openBookingDialog"
@@ -73,6 +77,7 @@
     <AppointmentDetailSheet
       v-model:open="showDetailSheet"
       :appointment="selectedAppointment"
+      :clinic-name="clinic?.name ?? null"
       :can-reopen="selectedAppointment ? canReopenAppointment(selectedAppointment) : false"
       @request-complete="openCompleteDialog"
       @request-reopen="reopenAppointment"
@@ -95,10 +100,18 @@
 
 <script setup lang="ts">
 import { storeToRefs } from 'pinia'
+import AppointmentDetailSheet from '~/components/appointments/AppointmentDetailSheet.vue'
 import AppointmentCompleteDialog from '~/components/appointments/AppointmentCompleteDialog.vue'
+import AppointmentsBookingDialog from '~/components/appointments/AppointmentsBookingDialog.vue'
+import AppointmentsCalendarPanel from '~/components/appointments/AppointmentsCalendarPanel.vue'
+import AppointmentsHeader from '~/components/appointments/AppointmentsHeader.vue'
+import AppointmentsListView from '~/components/appointments/AppointmentsListView.vue'
+import AppointmentsTherapistLegend from '~/components/appointments/AppointmentsTherapistLegend.vue'
+import AppointmentsViewControls from '~/components/appointments/AppointmentsViewControls.vue'
 import { useAppointmentsPageStore } from '~/features/appointments/store/appointmentsPage.store'
 
 const route = useRoute()
+const { clinic } = useAuth()
 const appointmentsPageStore = useAppointmentsPageStore()
 
 const {
@@ -136,6 +149,9 @@ const {
   filteredAppointments,
   activeTreatmentPlansForSelectedPatient,
   canSelectTreatment,
+  lockPatientSelection,
+  lockTreatmentPlanSelection,
+  linkedTreatmentName,
   treatmentSelectPlaceholder,
 } = storeToRefs(appointmentsPageStore)
 

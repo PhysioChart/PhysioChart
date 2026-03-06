@@ -181,6 +181,49 @@
               :error="errorByPlan[plan.id]"
             />
           </div>
+
+          <div class="mt-3 border-t pt-3">
+            <div class="mb-2 flex items-center justify-between">
+              <p class="text-muted-foreground text-xs font-medium">Linked appointments</p>
+              <Button
+                v-if="plan.status === TreatmentStatus.ACTIVE"
+                size="sm"
+                variant="outline"
+                @click="openLinkedAppointment(plan)"
+              >
+                <CalendarPlus class="mr-1 h-3.5 w-3.5" />
+                Create appointment
+              </Button>
+            </div>
+
+            <p v-if="linkedLoadingByPlan[plan.id]" class="text-muted-foreground text-xs">
+              Loading linked appointments...
+            </p>
+            <p v-else-if="linkedErrorByPlan[plan.id]" class="text-xs text-amber-600">
+              {{ linkedErrorByPlan[plan.id] }}
+            </p>
+            <p
+              v-else-if="(linkedByPlan[plan.id] || []).length === 0"
+              class="text-muted-foreground text-xs"
+            >
+              No linked appointments yet
+            </p>
+            <ul v-else class="space-y-1">
+              <li
+                v-for="appointment in linkedByPlan[plan.id]"
+                :key="appointment.id"
+                class="flex items-center justify-between gap-2 text-xs"
+              >
+                <span>
+                  {{ formatDateWithYear(appointment.startTime) }} ·
+                  {{ formatTime(appointment.startTime) }} - {{ formatTime(appointment.endTime) }}
+                </span>
+                <Badge :class="getStatusColor(appointment.status)" variant="secondary">
+                  {{ APPOINTMENT_STATUS_LABELS[appointment.status] }}
+                </Badge>
+              </li>
+            </ul>
+          </div>
         </CardContent>
       </Card>
     </div>
@@ -188,13 +231,25 @@
 </template>
 
 <script setup lang="ts">
-import { computed, watch } from 'vue'
-import { ClipboardList, Plus } from 'lucide-vue-next'
+import { computed, ref, watch } from 'vue'
+import { CalendarPlus, ClipboardList, Plus } from 'lucide-vue-next'
 import TreatmentSessionHistory from '~/components/common/TreatmentSessionHistory.vue'
 import { useTreatmentSessionHistory } from '~/composables/useTreatmentSessionHistory'
 import { useTreatmentsPage } from '~/composables/useTreatmentsPage'
+import { APPOINTMENT_STATUS_LABELS } from '~/enums/appointment.enum'
 import { TreatmentStatus, TREATMENT_STATUS_LABELS } from '~/enums/treatment.enum'
-import { getStatusColor, progressPercent, formatCurrency } from '~/lib/formatters'
+import {
+  formatCurrency,
+  formatDateWithYear,
+  formatTime,
+  getStatusColor,
+  progressPercent,
+} from '~/lib/formatters'
+import { treatmentService } from '~/services/treatment.service'
+import type {
+  ITreatmentLinkedAppointmentItem,
+  ITreatmentPlanWithRelations,
+} from '~/types/models/treatment.types'
 
 const {
   isLoading,
@@ -210,15 +265,63 @@ const {
 } = useTreatmentsPage()
 
 const { profile } = useAuth()
+const supabase = useSupabase()
 const { historyByPlan, loadingByPlan, errorByPlan, loadHistory } = useTreatmentSessionHistory()
+const linkedByPlan = ref<Record<string, ITreatmentLinkedAppointmentItem[]>>({})
+const linkedLoadingByPlan = ref<Record<string, boolean>>({})
+const linkedErrorByPlan = ref<Record<string, string | null>>({})
+let linkedFetchToken = 0
 
 const filteredPlanIds = computed(() => filteredPlans.value.map((p) => p.id))
+
+async function loadLinkedAppointments(clinicId: string, planIds: string[]) {
+  const token = ++linkedFetchToken
+
+  for (const planId of planIds) {
+    linkedLoadingByPlan.value[planId] = true
+    linkedErrorByPlan.value[planId] = null
+  }
+
+  try {
+    const map = await treatmentService(supabase).fetchLinkedAppointments(clinicId, planIds, 3)
+    if (token !== linkedFetchToken) return
+
+    for (const planId of planIds) {
+      linkedByPlan.value[planId] = map.get(planId) ?? []
+      linkedLoadingByPlan.value[planId] = false
+      linkedErrorByPlan.value[planId] = null
+    }
+  } catch (err: unknown) {
+    if (token !== linkedFetchToken) return
+
+    const message = err instanceof Error ? err.message : 'Failed to load linked appointments'
+    for (const planId of planIds) {
+      linkedByPlan.value[planId] = []
+      linkedLoadingByPlan.value[planId] = false
+      linkedErrorByPlan.value[planId] = message
+    }
+  }
+}
+
+function openLinkedAppointment(plan: ITreatmentPlanWithRelations) {
+  void navigateTo({
+    path: '/appointments',
+    query: {
+      action: 'new',
+      patientId: plan.patient_id,
+      treatmentPlanId: plan.id,
+    },
+  })
+}
 
 watch(
   filteredPlanIds,
   async (ids) => {
     if (!profile.value || ids.length === 0) return
-    await loadHistory(profile.value.clinic_id, ids)
+    await Promise.all([
+      loadHistory(profile.value.clinic_id, ids),
+      loadLinkedAppointments(profile.value.clinic_id, ids),
+    ])
   },
   { immediate: true },
 )

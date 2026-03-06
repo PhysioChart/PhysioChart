@@ -19,7 +19,7 @@ export default defineNuxtConfig({
     plugins: [tailwindcss()] as any,
   },
 
-  components: [{ path: '~/components', pathPrefix: false }],
+  components: [{ path: '~/app/components', pathPrefix: false }],
 
   typescript: {
     strict: true,

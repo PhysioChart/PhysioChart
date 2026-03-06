@@ -129,9 +129,7 @@
               <CardTitle class="text-base">{{ plan.name }}</CardTitle>
               <CardDescription>
                 {{ plan.patient?.full_name ?? 'Unknown' }}
-                <template v-if="plan.therapist">
-                  &middot; Dr. {{ plan.therapist.full_name }}</template
-                >
+                <template v-if="plan.therapist"> &middot; {{ plan.therapist.full_name }}</template>
               </CardDescription>
             </div>
             <Badge :class="getStatusColor(plan.status)" variant="secondary">

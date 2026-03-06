@@ -43,6 +43,7 @@
 </template>
 
 <script setup lang="ts">
+import CalendarNavigation from '~/components/appointments/CalendarNavigation.vue'
 import type { AppointmentsListFilter, AppointmentsViewMode } from '~/features/appointments/types'
 
 defineProps<{

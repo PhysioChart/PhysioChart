@@ -1,5 +1,5 @@
 <template>
-  <div class="flex overflow-y-auto" style="max-height: calc(100vh - 240px)">
+  <div ref="scrollContainer" class="flex overflow-y-auto" style="max-height: calc(100vh - 240px)">
     <!-- Time gutter -->
     <div class="bg-background sticky left-0 z-20 w-12 flex-shrink-0 border-r sm:w-16">
       <div
@@ -54,6 +54,8 @@
 </template>
 
 <script setup lang="ts">
+import { nextTick, onMounted, ref, watch } from 'vue'
+import CalendarAppointmentBlock from '~/components/appointments/CalendarAppointmentBlock.vue'
 import type { CalendarAppointment, TherapistColor } from '~/composables/useCalendar'
 import { toLocalDateKey } from '~/lib/date'
 
@@ -89,6 +91,24 @@ const positionedAppointments = computed(() =>
 )
 
 const todayStr = toLocalDateKey(new Date())
+const scrollContainer = ref<HTMLElement | null>(null)
+
+function scrollToRelevantArea() {
+  if (!scrollContainer.value) return
+  const targetTop =
+    props.dateStr === todayStr
+      ? getCurrentTimeTop() - 60
+      : dayAppointments.value.length > 0
+        ? positionedAppointments.value[0]!.position.top - 60
+        : 0
+  scrollContainer.value.scrollTop = Math.max(0, targetTop)
+}
+
+onMounted(() => nextTick(scrollToRelevantArea))
+watch(
+  () => props.dateStr,
+  () => nextTick(scrollToRelevantArea),
+)
 
 function handleSlotClick(hour: number, minute: number) {
   emit('clickSlot', props.dateStr, timeFromSlot(hour, minute))

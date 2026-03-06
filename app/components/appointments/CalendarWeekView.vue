@@ -24,7 +24,7 @@
     </div>
 
     <!-- Scrollable grid -->
-    <div class="flex overflow-y-auto" style="max-height: calc(100vh - 280px)">
+    <div ref="scrollContainer" class="flex overflow-y-auto" style="max-height: calc(100vh - 280px)">
       <!-- Time gutter -->
       <div class="bg-background sticky left-0 z-20 w-12 flex-shrink-0 border-r sm:w-16">
         <div
@@ -76,6 +76,8 @@
 </template>
 
 <script setup lang="ts">
+import { nextTick, onMounted, ref } from 'vue'
+import CalendarAppointmentBlock from '~/components/appointments/CalendarAppointmentBlock.vue'
 import type { CalendarAppointment, CalendarDay, TherapistColor } from '~/composables/useCalendar'
 
 const props = defineProps<{
@@ -95,8 +97,18 @@ const {
   getAppointmentPosition,
   appointmentsForDate,
   timeFromSlot,
+  getCurrentTimeTop,
   SLOT_HEIGHT_PX,
 } = useCalendar()
+
+const scrollContainer = ref<HTMLElement | null>(null)
+
+onMounted(() => {
+  nextTick(() => {
+    if (!scrollContainer.value) return
+    scrollContainer.value.scrollTop = Math.max(0, getCurrentTimeTop() - 60)
+  })
+})
 
 function positionedAppointments(dateStr: string) {
   return appointmentsForDate(props.appointments, dateStr).map((appt) => ({

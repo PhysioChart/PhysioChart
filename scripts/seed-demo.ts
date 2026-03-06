@@ -143,7 +143,7 @@ async function seedClinicAndUsers() {
 
   // Create admin auth user
   const { error: adminAuthErr } = await supabase.auth.admin.createUser({
-    user_metadata: { clinic_id: CLINIC_ID, full_name: 'Dr. Priya Sharma', role: 'admin' },
+    user_metadata: { clinic_id: CLINIC_ID, full_name: 'Priya Sharma', role: 'admin' },
     email: 'demo@medpractice.in',
     password: 'demo1234',
     email_confirm: true,
@@ -153,7 +153,7 @@ async function seedClinicAndUsers() {
 
   // Create staff auth user
   const { error: staffAuthErr } = await supabase.auth.admin.createUser({
-    user_metadata: { clinic_id: CLINIC_ID, full_name: 'Dr. Rahul Mehta', role: 'staff' },
+    user_metadata: { clinic_id: CLINIC_ID, full_name: 'Rahul Mehta', role: 'staff' },
     email: 'rahul@sunrisephysio.in',
     password: 'demo1234',
     email_confirm: true,
@@ -178,8 +178,8 @@ async function seedClinicAndUsers() {
   }
 
   console.log(`  Clinic: Sunrise Physiotherapy`)
-  console.log(`  Admin: Dr. Priya Sharma (demo@medpractice.in / demo1234)`)
-  console.log(`  Staff: Dr. Rahul Mehta (rahul@sunrisephysio.in / demo1234)`)
+  console.log(`  Admin: Priya Sharma (demo@medpractice.in / demo1234)`)
+  console.log(`  Staff: Rahul Mehta (rahul@sunrisephysio.in / demo1234)`)
 }
 
 // ── Seed patients ────────────────────────────────────────────────────

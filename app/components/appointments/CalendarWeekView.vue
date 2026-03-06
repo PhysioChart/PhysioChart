@@ -2,7 +2,7 @@
   <div>
     <!-- Week header -->
     <div class="flex border-b">
-      <div class="w-16 flex-shrink-0 border-r" />
+      <div class="w-12 flex-shrink-0 border-r sm:w-16" />
       <div
         v-for="day in weekDays"
         :key="day.dateStr"
@@ -24,9 +24,9 @@
     </div>
 
     <!-- Scrollable grid -->
-    <div class="flex overflow-y-auto" style="max-height: calc(100vh - 320px)">
+    <div class="flex overflow-y-auto" style="max-height: calc(100vh - 280px)">
       <!-- Time gutter -->
-      <div class="bg-background sticky left-0 z-20 w-16 flex-shrink-0 border-r">
+      <div class="bg-background sticky left-0 z-20 w-12 flex-shrink-0 border-r sm:w-16">
         <div
           v-for="slot in timeSlots"
           :key="`${slot.hour}-${slot.minute}`"

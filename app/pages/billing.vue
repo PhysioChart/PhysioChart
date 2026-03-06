@@ -69,37 +69,44 @@
           <div>
             <Label>Line Items</Label>
             <div class="mt-2 space-y-2">
-              <div v-for="(item, i) in newInvoice.items" :key="i" class="grid grid-cols-12 gap-2">
-                <Input v-model="item.description" placeholder="Description" class="col-span-5" />
-                <Input
-                  v-model.number="item.quantity"
-                  type="number"
-                  min="1"
-                  step="1"
-                  class="col-span-2"
-                  @input="updateLineItem(i)"
-                />
-                <Input
-                  v-model.number="item.unit_price"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  placeholder="Price"
-                  class="col-span-3"
-                  @input="updateLineItem(i)"
-                />
-                <div class="col-span-2 flex items-center justify-between">
-                  <span class="text-sm">{{ formatCurrency(item.total) }}</span>
-                  <Button
-                    v-if="newInvoice.items.length > 1"
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    class="h-8 w-8"
-                    @click="removeLineItem(i)"
-                  >
-                    &times;
-                  </Button>
+              <div
+                v-for="(item, i) in newInvoice.items"
+                :key="i"
+                class="space-y-2 sm:grid sm:grid-cols-12 sm:gap-2 sm:space-y-0"
+              >
+                <Input v-model="item.description" placeholder="Description" class="sm:col-span-5" />
+                <div class="grid grid-cols-3 gap-2 sm:contents">
+                  <Input
+                    v-model.number="item.quantity"
+                    type="number"
+                    min="1"
+                    step="1"
+                    placeholder="Qty"
+                    class="sm:col-span-2"
+                    @input="updateLineItem(i)"
+                  />
+                  <Input
+                    v-model.number="item.unit_price"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    placeholder="Price"
+                    class="sm:col-span-3"
+                    @input="updateLineItem(i)"
+                  />
+                  <div class="flex items-center justify-end gap-1 sm:col-span-2 sm:justify-between">
+                    <span class="text-sm">{{ formatCurrency(item.total) }}</span>
+                    <Button
+                      v-if="newInvoice.items.length > 1"
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      class="h-8 w-8"
+                      @click="removeLineItem(i)"
+                    >
+                      &times;
+                    </Button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -200,7 +207,7 @@
       </CardContent>
     </Card>
 
-    <div class="flex gap-2">
+    <div class="flex flex-wrap gap-2">
       <Button
         v-for="f in ['all', 'pending', 'paid', 'overdue'] as const"
         :key="f"
@@ -223,108 +230,120 @@
           class="flex flex-col items-center justify-center py-12 text-center"
         >
           <Receipt class="text-muted-foreground/50 mb-3 h-10 w-10" />
-          <p class="text-muted-foreground text-sm">No invoices yet</p>
-          <Button variant="outline" class="mt-3" @click="openDialog()">
+          <p class="text-muted-foreground text-sm">
+            {{
+              filter === 'all'
+                ? 'No invoices yet'
+                : filter === 'pending'
+                  ? 'No pending invoices'
+                  : filter === 'paid'
+                    ? 'No paid invoices'
+                    : 'No overdue invoices'
+            }}
+          </p>
+          <Button v-if="filter === 'all'" variant="outline" class="mt-3" @click="openDialog()">
             Create your first invoice
           </Button>
         </div>
-        <Table v-else>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Invoice #</TableHead>
-              <TableHead>Patient</TableHead>
-              <TableHead class="hidden md:table-cell">Date</TableHead>
-              <TableHead>Total</TableHead>
-              <TableHead>Paid</TableHead>
-              <TableHead>Status</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            <template v-for="inv in filteredInvoices" :key="inv.id">
-              <TableRow class="cursor-pointer" @click="toggleInvoiceExpanded(inv.id)">
-                <TableCell class="font-medium">{{ inv.invoice_number }}</TableCell>
-                <TableCell>{{ inv.patient?.full_name ?? '—' }}</TableCell>
-                <TableCell class="hidden md:table-cell">{{
-                  formatDateWithYear(inv.created_at)
-                }}</TableCell>
-                <TableCell>{{ formatCurrency(inv.total) }}</TableCell>
-                <TableCell>{{ formatCurrency(inv.amount_paid) }}</TableCell>
-                <TableCell>
-                  <Badge :class="getStatusColor(inv.status)" variant="secondary">
-                    {{ INVOICE_STATUS_LABELS[inv.status] }}
-                  </Badge>
-                </TableCell>
+        <div v-else class="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Invoice #</TableHead>
+                <TableHead>Patient</TableHead>
+                <TableHead class="hidden md:table-cell">Date</TableHead>
+                <TableHead>Total</TableHead>
+                <TableHead>Paid</TableHead>
+                <TableHead>Status</TableHead>
               </TableRow>
+            </TableHeader>
+            <TableBody>
+              <template v-for="inv in filteredInvoices" :key="inv.id">
+                <TableRow class="cursor-pointer" @click="toggleInvoiceExpanded(inv.id)">
+                  <TableCell class="font-medium">{{ inv.invoice_number }}</TableCell>
+                  <TableCell>{{ inv.patient?.full_name ?? '—' }}</TableCell>
+                  <TableCell class="hidden md:table-cell">{{
+                    formatDateWithYear(inv.created_at)
+                  }}</TableCell>
+                  <TableCell>{{ formatCurrency(inv.total) }}</TableCell>
+                  <TableCell>{{ formatCurrency(inv.amount_paid) }}</TableCell>
+                  <TableCell>
+                    <Badge :class="getStatusColor(inv.status)" variant="secondary">
+                      {{ INVOICE_STATUS_LABELS[inv.status] }}
+                    </Badge>
+                  </TableCell>
+                </TableRow>
 
-              <TableRow v-if="expandedInvoiceId === inv.id" :key="`${inv.id}-expanded`">
-                <TableCell :colspan="6">
-                  <div class="bg-muted/20 space-y-4 rounded-md border p-4">
-                    <div class="flex flex-wrap items-center justify-between gap-4">
-                      <div class="grid grid-cols-1 gap-3 text-sm sm:grid-cols-3">
-                        <div>
-                          <p class="text-muted-foreground">Total</p>
-                          <p class="font-semibold">{{ formatCurrency(inv.total) }}</p>
+                <TableRow v-if="expandedInvoiceId === inv.id" :key="`${inv.id}-expanded`">
+                  <TableCell :colspan="6">
+                    <div class="bg-muted/20 space-y-4 rounded-md border p-4">
+                      <div class="flex flex-wrap items-center justify-between gap-4">
+                        <div class="grid grid-cols-1 gap-3 text-sm sm:grid-cols-3">
+                          <div>
+                            <p class="text-muted-foreground">Total</p>
+                            <p class="font-semibold">{{ formatCurrency(inv.total) }}</p>
+                          </div>
+                          <div>
+                            <p class="text-muted-foreground">Paid</p>
+                            <p class="font-semibold">{{ formatCurrency(inv.amount_paid) }}</p>
+                          </div>
+                          <div>
+                            <p class="text-muted-foreground">Outstanding</p>
+                            <p class="font-semibold">
+                              {{ formatCurrency(inv.total - inv.amount_paid) }}
+                            </p>
+                          </div>
                         </div>
-                        <div>
-                          <p class="text-muted-foreground">Paid</p>
-                          <p class="font-semibold">{{ formatCurrency(inv.amount_paid) }}</p>
-                        </div>
-                        <div>
-                          <p class="text-muted-foreground">Outstanding</p>
-                          <p class="font-semibold">
-                            {{ formatCurrency(inv.total - inv.amount_paid) }}
-                          </p>
-                        </div>
+
+                        <Button size="sm" @click.stop="openRecordPaymentDialog(inv.id)">
+                          Record Payment
+                        </Button>
                       </div>
 
-                      <Button size="sm" @click.stop="openRecordPaymentDialog(inv.id)">
-                        Record Payment
-                      </Button>
-                    </div>
+                      <div class="space-y-2">
+                        <p class="text-sm font-medium">Payment History</p>
 
-                    <div class="space-y-2">
-                      <p class="text-sm font-medium">Payment History</p>
+                        <div v-if="isExpandedInvoicePaymentsLoading" class="space-y-2">
+                          <Skeleton v-for="i in 2" :key="i" class="h-12 w-full" />
+                        </div>
 
-                      <div v-if="isExpandedInvoicePaymentsLoading" class="space-y-2">
-                        <Skeleton v-for="i in 2" :key="i" class="h-12 w-full" />
-                      </div>
-
-                      <p
-                        v-else-if="expandedInvoicePayments.length === 0"
-                        class="text-muted-foreground text-sm"
-                      >
-                        No payments recorded yet.
-                      </p>
-
-                      <div v-else class="space-y-2">
-                        <div
-                          v-for="payment in expandedInvoicePayments"
-                          :key="payment.id"
-                          class="bg-background rounded-md border p-3"
+                        <p
+                          v-else-if="expandedInvoicePayments.length === 0"
+                          class="text-muted-foreground text-sm"
                         >
-                          <div class="flex items-start justify-between gap-3">
-                            <div>
-                              <p class="text-sm font-medium">
-                                {{ formatCurrency(payment.amount) }} ·
-                                {{ PAYMENT_METHOD_LABELS[payment.method] }}
-                              </p>
-                              <p class="text-muted-foreground text-xs">
-                                {{ formatDateTime(payment.paid_at) }}
-                              </p>
-                              <p v-if="payment.notes" class="text-muted-foreground mt-1 text-xs">
-                                Ref: {{ payment.notes }}
-                              </p>
+                          No payments recorded yet.
+                        </p>
+
+                        <div v-else class="space-y-2">
+                          <div
+                            v-for="payment in expandedInvoicePayments"
+                            :key="payment.id"
+                            class="bg-background rounded-md border p-3"
+                          >
+                            <div class="flex items-start justify-between gap-3">
+                              <div>
+                                <p class="text-sm font-medium">
+                                  {{ formatCurrency(payment.amount) }} ·
+                                  {{ PAYMENT_METHOD_LABELS[payment.method] }}
+                                </p>
+                                <p class="text-muted-foreground text-xs">
+                                  {{ formatDateTime(payment.paid_at) }}
+                                </p>
+                                <p v-if="payment.notes" class="text-muted-foreground mt-1 text-xs">
+                                  Ref: {{ payment.notes }}
+                                </p>
+                              </div>
                             </div>
                           </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                </TableCell>
-              </TableRow>
-            </template>
-          </TableBody>
-        </Table>
+                  </TableCell>
+                </TableRow>
+              </template>
+            </TableBody>
+          </Table>
+        </div>
       </CardContent>
     </Card>
   </div>

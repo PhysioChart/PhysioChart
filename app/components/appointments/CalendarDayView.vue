@@ -1,7 +1,7 @@
 <template>
-  <div class="flex overflow-y-auto" style="max-height: calc(100vh - 280px)">
+  <div class="flex overflow-y-auto" style="max-height: calc(100vh - 240px)">
     <!-- Time gutter -->
-    <div class="bg-background sticky left-0 z-20 w-16 flex-shrink-0 border-r">
+    <div class="bg-background sticky left-0 z-20 w-12 flex-shrink-0 border-r sm:w-16">
       <div
         v-for="slot in timeSlots"
         :key="`${slot.hour}-${slot.minute}`"

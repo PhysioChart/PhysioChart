@@ -6,7 +6,7 @@
     </div>
 
     <Tabs default-value="clinic">
-      <TabsList>
+      <TabsList class="w-full justify-start overflow-x-auto">
         <TabsTrigger value="clinic">
           <Building2 class="mr-2 h-4 w-4" />
           Clinic Profile
@@ -172,14 +172,21 @@
             <div v-if="isLoadingStaff" class="space-y-3 p-6">
               <Skeleton v-for="i in 3" :key="i" class="h-16 w-full" />
             </div>
+            <div
+              v-else-if="staffMembers.length === 0"
+              class="flex flex-col items-center justify-center py-12 text-center"
+            >
+              <Users class="text-muted-foreground/50 mb-3 h-10 w-10" />
+              <p class="text-muted-foreground text-sm">No staff members yet</p>
+            </div>
             <div v-else class="divide-y">
               <div
                 v-for="member in staffMembers"
                 :key="member.id"
-                class="flex items-center gap-4 p-4"
+                class="flex flex-wrap items-center gap-3 p-4 sm:flex-nowrap sm:gap-4"
                 :class="{ 'opacity-50': !member.is_active }"
               >
-                <Avatar class="h-10 w-10">
+                <Avatar class="h-10 w-10 shrink-0">
                   <AvatarFallback>
                     {{
                       member.full_name
@@ -191,31 +198,33 @@
                     }}
                   </AvatarFallback>
                 </Avatar>
-                <div class="flex-1">
-                  <p class="font-medium">
+                <div class="min-w-0 flex-1">
+                  <p class="truncate font-medium">
                     {{ member.full_name }}
                     <span v-if="member.id === profile?.id" class="text-muted-foreground text-xs"
                       >(You)</span
                     >
                   </p>
-                  <p class="text-muted-foreground text-sm">{{ member.email }}</p>
+                  <p class="text-muted-foreground truncate text-sm">{{ member.email }}</p>
                 </div>
-                <Badge variant="secondary">
-                  <Shield v-if="member.role === UserRole.ADMIN" class="mr-1 h-3 w-3" />
-                  {{ USER_ROLE_LABELS[member.role] }}
-                </Badge>
-                <Badge v-if="!member.is_active" variant="outline" class="text-destructive">
-                  Inactive
-                </Badge>
-                <Button
-                  v-if="isAdmin && member.id !== profile?.id && member.is_active"
-                  variant="ghost"
-                  size="icon"
-                  class="text-destructive"
-                  @click="deactivateStaff(member.id)"
-                >
-                  <Trash2 class="h-4 w-4" />
-                </Button>
+                <div class="flex items-center gap-2">
+                  <Badge variant="secondary">
+                    <Shield v-if="member.role === UserRole.ADMIN" class="mr-1 h-3 w-3" />
+                    {{ USER_ROLE_LABELS[member.role] }}
+                  </Badge>
+                  <Badge v-if="!member.is_active" variant="outline" class="text-destructive">
+                    Inactive
+                  </Badge>
+                  <Button
+                    v-if="isAdmin && member.id !== profile?.id && member.is_active"
+                    variant="ghost"
+                    size="icon"
+                    class="text-destructive"
+                    @click="deactivateStaff(member.id)"
+                  >
+                    <Trash2 class="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
             </div>
           </CardContent>

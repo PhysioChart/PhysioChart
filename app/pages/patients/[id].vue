@@ -24,7 +24,7 @@
       />
 
       <Tabs v-model="activeTab">
-        <TabsList>
+        <TabsList class="w-full justify-start overflow-x-auto">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="appointments">Appointments</TabsTrigger>
           <TabsTrigger value="treatments">Treatments</TabsTrigger>

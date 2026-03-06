@@ -718,8 +718,28 @@ export function useBillingPage() {
     resetInvoiceForm()
   })
 
+  async function initializeFromQueryParams() {
+    const expandInvoiceParam = toSingleQueryValue(route.query.expandInvoice)
+
+    if (expandInvoiceParam) {
+      void router.replace({ query: { ...route.query, expandInvoice: undefined } })
+
+      await loadInvoices()
+
+      const invoice = invoices.value.find((inv) => inv.id === expandInvoiceParam)
+      if (invoice) {
+        expandedInvoiceId.value = expandInvoiceParam
+        await loadPaymentHistory(expandInvoiceParam)
+        openRecordPaymentDialog(expandInvoiceParam)
+      }
+      return
+    }
+
+    await loadInvoices()
+  }
+
   onMounted(() => {
-    void loadInvoices()
+    void initializeFromQueryParams()
 
     if (showNewDialog.value) {
       void initializeCreateInvoiceDialog()

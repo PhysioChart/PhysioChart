@@ -767,11 +767,24 @@ export const useAppointmentsPageStore = defineStore('appointmentsPage', () => {
         noteToSend,
       )
 
+      const patientId = completeTargetAppointment.value.patient_id
+      const treatmentPlanId = completeTargetAppointment.value.treatment_plan_id
+
       if (result.message === AppointmentErrorCode.ALREADY_COMPLETED) {
         toast.info('Appointment already completed')
       } else {
+        const invoiceQuery = treatmentPlanId
+          ? `/billing?action=new&patientId=${patientId}&treatmentPlanId=${treatmentPlanId}`
+          : `/billing?action=new&patientId=${patientId}`
+
         toast.success(
           noteToSend ? 'Appointment completed. Session note saved.' : 'Appointment completed.',
+          {
+            action: {
+              label: 'Create Invoice',
+              onClick: () => navigateTo(invoiceQuery),
+            },
+          },
         )
       }
 

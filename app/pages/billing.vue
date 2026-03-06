@@ -268,9 +268,21 @@
                   <TableCell>{{ formatCurrency(inv.total) }}</TableCell>
                   <TableCell>{{ formatCurrency(inv.amount_paid) }}</TableCell>
                   <TableCell>
-                    <Badge :class="getStatusColor(inv.status)" variant="secondary">
-                      {{ INVOICE_STATUS_LABELS[inv.status] }}
-                    </Badge>
+                    <div class="flex items-center gap-2">
+                      <Badge :class="getStatusColor(inv.status)" variant="secondary">
+                        {{ INVOICE_STATUS_LABELS[inv.status] }}
+                      </Badge>
+                      <Button
+                        v-if="inv.status !== 'paid'"
+                        size="sm"
+                        variant="ghost"
+                        class="hidden h-7 px-2 text-xs sm:inline-flex"
+                        @click.stop="openRecordPaymentDialog(inv.id)"
+                      >
+                        <Banknote class="mr-1 h-3.5 w-3.5" />
+                        Pay
+                      </Button>
+                    </div>
                   </TableCell>
                 </TableRow>
 
@@ -350,7 +362,7 @@
 </template>
 
 <script setup lang="ts">
-import { AlertCircle, Plus, Receipt } from 'lucide-vue-next'
+import { AlertCircle, Banknote, Plus, Receipt } from 'lucide-vue-next'
 import { INVOICE_STATUS_LABELS } from '~/enums/invoice.enum'
 import { PAYMENT_METHOD_LABELS, PAYMENT_METHOD_VALUES } from '~/enums/payment.enum'
 import { useBillingPage } from '~/composables/useBillingPage'

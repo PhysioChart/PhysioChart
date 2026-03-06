@@ -1,12 +1,12 @@
 <template>
-  <div class="flex items-center gap-4 p-4">
-    <div class="flex flex-col items-center text-center">
+  <div class="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:gap-4">
+    <div class="flex shrink-0 flex-col items-center text-center">
       <span class="text-muted-foreground text-xs">{{ formatDate(appointment.start_time) }}</span>
       <span class="text-sm font-semibold">{{ formatTime(appointment.start_time) }}</span>
       <span class="text-muted-foreground text-xs">{{ formatTime(appointment.end_time) }}</span>
     </div>
 
-    <Separator orientation="vertical" class="h-12" />
+    <Separator orientation="vertical" class="hidden h-12 sm:block" />
 
     <div class="flex-1">
       <p class="font-medium">{{ appointment.patient?.full_name ?? 'Unknown patient' }}</p>
@@ -19,7 +19,7 @@
       </p>
     </div>
 
-    <div class="flex items-center gap-2">
+    <div class="flex items-center gap-2 sm:self-auto">
       <Badge :class="getStatusColor(appointment.status)" variant="secondary">
         {{ APPOINTMENT_STATUS_LABELS[appointment.status] }}
       </Badge>
@@ -28,17 +28,20 @@
       </Badge>
     </div>
 
-    <div class="flex gap-1">
-      <Tooltip v-if="appointment.patient">
+    <div class="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:justify-end">
+      <Button v-if="showProminentReminderCta && reminderHref" as-child size="sm">
+        <a :href="reminderHref" target="_blank" rel="noopener noreferrer">
+          <MessageCircle class="mr-2 h-4 w-4" />
+          Send Reminder
+        </a>
+      </Button>
+
+      <Tooltip v-else-if="reminderHref">
         <TooltipTrigger as-child>
-          <Button
-            variant="ghost"
-            size="icon"
-            as="a"
-            :href="getWhatsAppLink(appointment.patient, appointment.start_time)"
-            target="_blank"
-          >
-            <MessageCircle class="h-4 w-4" />
+          <Button as-child variant="ghost" size="icon" :aria-label="reminderAriaLabel">
+            <a :href="reminderHref" target="_blank" rel="noopener noreferrer">
+              <MessageCircle class="h-4 w-4" />
+            </a>
           </Button>
         </TooltipTrigger>
         <TooltipContent>Send WhatsApp reminder</TooltipContent>
@@ -97,14 +100,41 @@
 <script setup lang="ts">
 import { MessageCircle } from 'lucide-vue-next'
 import { APPOINTMENT_STATUS_LABELS, AppointmentStatus } from '~/enums/appointment.enum'
-import { formatDate, formatTime, getStatusColor, getWhatsAppLink } from '~/lib/formatters'
+import {
+  formatDate,
+  formatTime,
+  getAppointmentWhatsAppLink,
+  getStatusColor,
+} from '~/lib/formatters'
 import type { IAppointmentWithRelations } from '~/types/models/appointment.types'
 
-defineProps<{
+const props = defineProps<{
   appointment: IAppointmentWithRelations
   seriesTotal: number
   canReopen: boolean
+  clinicName: string | null
+  showProminentReminderCta: boolean
 }>()
+
+const reminderHref = computed(() => {
+  if (
+    props.appointment.status !== AppointmentStatus.SCHEDULED &&
+    props.appointment.status !== AppointmentStatus.CHECKED_IN
+  ) {
+    return null
+  }
+
+  return getAppointmentWhatsAppLink({
+    patient: props.appointment.patient,
+    startTime: props.appointment.start_time,
+    therapistName: props.appointment.therapist?.full_name ?? null,
+    clinicName: props.clinicName,
+  })
+})
+
+const reminderAriaLabel = computed(
+  () => `Send WhatsApp reminder to ${props.appointment.patient?.full_name ?? 'patient'}`,
+)
 
 const emit = defineEmits<{
   (e: 'request-complete', appointment: IAppointmentWithRelations): void

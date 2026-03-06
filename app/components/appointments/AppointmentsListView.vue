@@ -19,6 +19,8 @@
           v-for="appt in appointments"
           :key="appt.id"
           :appointment="appt"
+          :clinic-name="clinicName"
+          :show-prominent-reminder-cta="listFilter === 'today'"
           :series-total="appt.series_id ? getSeriesTotal(appt.series_id) : 0"
           :can-reopen="canReopenAppointment(appt)"
           @request-complete="emit('request-complete', $event)"
@@ -33,6 +35,7 @@
 
 <script setup lang="ts">
 import { CalendarDays } from 'lucide-vue-next'
+import AppointmentsListRow from '~/components/appointments/AppointmentsListRow.vue'
 import type { AppointmentsListFilter } from '~/features/appointments/types'
 import type { AppointmentStatus } from '~/enums/appointment.enum'
 import type { IAppointmentWithRelations } from '~/types/models/appointment.types'
@@ -40,6 +43,7 @@ import type { IAppointmentWithRelations } from '~/types/models/appointment.types
 defineProps<{
   appointments: IAppointmentWithRelations[]
   listFilter: AppointmentsListFilter
+  clinicName: string | null
   getSeriesTotal: (seriesId: string) => number
   canReopenAppointment: (appointment: IAppointmentWithRelations) => boolean
 }>()

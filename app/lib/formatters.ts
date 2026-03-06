@@ -121,18 +121,32 @@ export function getStatusColor(
 }
 
 /** WhatsApp reminder deep link */
-export function getWhatsAppLink(patient: Tables<'patients'> | null, startTime: string): string {
-  if (!patient) return ''
+export interface AppointmentWhatsAppLinkArgs {
+  patient: Tables<'patients'> | null
+  startTime: string
+  therapistName?: string | null
+  clinicName?: string | null
+}
+
+export function getAppointmentWhatsAppLink({
+  patient,
+  startTime,
+  therapistName,
+  clinicName,
+}: AppointmentWhatsAppLinkArgs): string | null {
+  if (!patient) return null
+
   const phone = patient.phone.replace(/\D/g, '')
-  const date = new Date(startTime)
-  const dateStr = date.toLocaleDateString('en-IN', { day: 'numeric', month: 'long' })
-  const timeStr = date.toLocaleTimeString('en-IN', {
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: true,
-  })
-  const msg = encodeURIComponent(
-    `Hi ${patient.full_name}, this is a reminder for your appointment on ${dateStr} at ${timeStr}. Please arrive 10 minutes early. Thank you!`,
-  )
-  return `https://wa.me/${phone}?text=${msg}`
+  if (phone.length < 10 || phone.length > 15) return null
+
+  const patientName = patient.full_name.trim() || 'there'
+  const clinicLabel = clinicName?.trim() || 'your clinic'
+  const therapistLabel = therapistName?.trim() || 'our therapist'
+  const dateStr = formatDate(startTime)
+  const timeStr = formatTime(startTime)
+  const rawMessage =
+    `Hi ${patientName}, this is a reminder from ${clinicLabel} for your appointment on ` +
+    `${dateStr} at ${timeStr} with ${therapistLabel}. Please arrive 10 minutes early.`
+
+  return `https://wa.me/${phone}?text=${encodeURIComponent(rawMessage)}`
 }

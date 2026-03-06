@@ -87,16 +87,11 @@
         <Separator />
 
         <div class="space-y-2">
-          <Button
-            v-if="appointment.patient"
-            variant="outline"
-            class="w-full justify-start"
-            as="a"
-            :href="getWhatsAppLink(appointment.patient, appointment.start_time)"
-            target="_blank"
-          >
-            <MessageCircle class="mr-2 h-4 w-4" />
-            Send WhatsApp Reminder
+          <Button v-if="reminderHref" as-child variant="outline" class="w-full justify-start">
+            <a :href="reminderHref" target="_blank" rel="noopener noreferrer">
+              <MessageCircle class="mr-2 h-4 w-4" />
+              Send WhatsApp Reminder
+            </a>
           </Button>
 
           <template
@@ -147,12 +142,35 @@ import { ClipboardList, Clock, MessageCircle, Stethoscope, User } from 'lucide-v
 import type { CalendarAppointment } from '~/composables/useCalendar'
 import { AppointmentStatus, APPOINTMENT_STATUS_LABELS } from '~/enums/appointment.enum'
 import { TREATMENT_STATUS_LABELS } from '~/enums/treatment.enum'
-import { formatDateTime, formatTime, getStatusColor, getWhatsAppLink } from '~/lib/formatters'
+import {
+  formatDateTime,
+  formatTime,
+  getAppointmentWhatsAppLink,
+  getStatusColor,
+} from '~/lib/formatters'
 
-defineProps<{
+const props = defineProps<{
   appointment: CalendarAppointment | null
+  clinicName: string | null
   canReopen: boolean
 }>()
+
+const reminderHref = computed(() => {
+  if (!props.appointment) return null
+  if (
+    props.appointment.status !== AppointmentStatus.SCHEDULED &&
+    props.appointment.status !== AppointmentStatus.CHECKED_IN
+  ) {
+    return null
+  }
+
+  return getAppointmentWhatsAppLink({
+    patient: props.appointment.patient,
+    startTime: props.appointment.start_time,
+    therapistName: props.appointment.therapist?.full_name ?? null,
+    clinicName: props.clinicName,
+  })
+})
 
 const open = defineModel<boolean>('open', { required: true })
 

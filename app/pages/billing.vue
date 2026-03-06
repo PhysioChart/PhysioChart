@@ -71,7 +71,7 @@
             <div class="mt-2 space-y-2">
               <div
                 v-for="(item, i) in newInvoice.items"
-                :key="i"
+                :key="item.id"
                 class="space-y-2 sm:grid sm:grid-cols-12 sm:gap-2 sm:space-y-0"
               >
                 <Input v-model="item.description" placeholder="Description" class="sm:col-span-5" />
@@ -259,7 +259,11 @@
             </TableHeader>
             <TableBody>
               <template v-for="inv in filteredInvoices" :key="inv.id">
-                <TableRow class="cursor-pointer" @click="toggleInvoiceExpanded(inv.id)">
+                <TableRow
+                  class="cursor-pointer"
+                  :aria-expanded="expandedInvoiceId === inv.id"
+                  @click="toggleInvoiceExpanded(inv.id)"
+                >
                   <TableCell class="font-medium">{{ inv.invoice_number }}</TableCell>
                   <TableCell>{{ inv.patient?.full_name ?? '—' }}</TableCell>
                   <TableCell class="hidden md:table-cell">{{
@@ -307,7 +311,11 @@
                           </div>
                         </div>
 
-                        <Button size="sm" @click.stop="openRecordPaymentDialog(inv.id)">
+                        <Button
+                          v-if="inv.status !== 'paid' && inv.status !== 'cancelled'"
+                          size="sm"
+                          @click.stop="openRecordPaymentDialog(inv.id)"
+                        >
                           Record Payment
                         </Button>
                       </div>

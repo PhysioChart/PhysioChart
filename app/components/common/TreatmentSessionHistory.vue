@@ -45,6 +45,7 @@
             variant="ghost"
             size="icon"
             class="h-6 w-6 p-0"
+            :aria-expanded="isExpanded(item.sessionId)"
             @click="toggleExpand(item.sessionId)"
           >
             <span class="sr-only">Toggle full note</span>

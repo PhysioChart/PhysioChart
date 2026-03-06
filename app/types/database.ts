@@ -681,6 +681,20 @@ export type Database = {
           completed_sessions: number
         }[]
       }
+      get_treatment_session_history_bulk: {
+        Args: {
+          p_clinic_id: string
+          p_plan_ids: string[]
+          p_limit_per_plan?: number
+        }
+        Returns: {
+          plan_id: string
+          session_id: string
+          appointment_id: string | null
+          finalized_at: string
+          note: string | null
+        }[]
+      }
       get_treatment_linked_appointments_bulk: {
         Args: {
           p_clinic_id: string

@@ -139,13 +139,7 @@ export function treatmentService(supabase: SupabaseClient<Database>) {
     if (error) throw error
 
     const map = new Map<string, ITreatmentSessionHistoryItem[]>()
-    for (const row of (data ?? []) as {
-      plan_id: string
-      session_id: string
-      appointment_id: string | null
-      finalized_at: string
-      note: string | null
-    }[]) {
+    for (const row of data ?? []) {
       if (!row.plan_id) continue
       const list = map.get(row.plan_id) ?? []
       list.push({

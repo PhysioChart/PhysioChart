@@ -447,6 +447,7 @@ export type Database = {
           status: 'draft' | 'sent' | 'paid' | 'partially_paid' | 'overdue' | 'cancelled'
           due_date: string | null
           notes: string | null
+          idempotency_key: string | null
           created_at: string
           updated_at: string
         }
@@ -464,6 +465,7 @@ export type Database = {
           status?: 'draft' | 'sent' | 'paid' | 'partially_paid' | 'overdue' | 'cancelled'
           due_date?: string | null
           notes?: string | null
+          idempotency_key?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -479,6 +481,7 @@ export type Database = {
           status?: 'draft' | 'sent' | 'paid' | 'partially_paid' | 'overdue' | 'cancelled'
           due_date?: string | null
           notes?: string | null
+          idempotency_key?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -636,6 +639,18 @@ export type Database = {
           p_therapist_id: string
           p_start_time: string
           p_end_time: string
+          p_notes?: string | null
+          p_idempotency_key?: string | null
+        }
+        Returns: Record<string, unknown>
+      }
+      create_invoice: {
+        Args: {
+          p_clinic_id: string
+          p_patient_id: string
+          p_treatment_plan_id?: string | null
+          p_line_items: Record<string, unknown>[]
+          p_due_date?: string | null
           p_notes?: string | null
           p_idempotency_key?: string | null
         }

@@ -20,7 +20,10 @@
         <form class="space-y-4" @submit.prevent="createInvoice">
           <div>
             <Label>Patient *</Label>
-            <Select v-model="newInvoice.patient_id">
+            <Select
+              :model-value="newInvoice.patient_id"
+              @update:model-value="handlePatientSelection"
+            >
               <SelectTrigger>
                 <SelectValue placeholder="Select patient" />
               </SelectTrigger>
@@ -32,6 +35,37 @@
             </Select>
           </div>
 
+          <div v-if="shouldShowTreatmentLoading" class="space-y-1">
+            <Label>Linked Treatment (Optional)</Label>
+            <p class="text-muted-foreground text-sm">Loading treatment plans...</p>
+          </div>
+
+          <div v-else-if="shouldShowTreatmentSelector" class="space-y-1">
+            <Label>Linked Treatment (Optional)</Label>
+            <Select
+              :model-value="newInvoice.treatment_plan_id"
+              @update:model-value="handleTreatmentSelection"
+            >
+              <SelectTrigger aria-describedby="treatment-select-help">
+                <SelectValue placeholder="No linked treatment" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem :value="NO_TREATMENT_PLAN_VALUE">No linked treatment</SelectItem>
+                <SelectItem v-for="plan in availableTreatmentPlans" :key="plan.id" :value="plan.id">
+                  {{ getTreatmentPlanOptionLabel(plan) }}
+                </SelectItem>
+              </SelectContent>
+            </Select>
+            <p id="treatment-select-help" class="text-muted-foreground text-xs">
+              {{ treatmentSelectionHelpText }}
+            </p>
+          </div>
+
+          <div v-else-if="shouldShowNoEligibleTreatments" class="space-y-1">
+            <Label>Linked Treatment (Optional)</Label>
+            <p class="text-muted-foreground text-sm">No eligible treatments available.</p>
+          </div>
+
           <div>
             <Label>Line Items</Label>
             <div class="mt-2 space-y-2">
@@ -41,12 +75,15 @@
                   v-model.number="item.quantity"
                   type="number"
                   min="1"
+                  step="1"
                   class="col-span-2"
                   @input="updateLineItem(i)"
                 />
                 <Input
                   v-model.number="item.unit_price"
                   type="number"
+                  min="0"
+                  step="0.01"
                   placeholder="Price"
                   class="col-span-3"
                   @input="updateLineItem(i)"
@@ -306,6 +343,7 @@ import {
 } from '~/lib/formatters'
 
 const {
+  NO_TREATMENT_PLAN_VALUE,
   isLoading,
   showNewDialog,
   filter,
@@ -315,6 +353,11 @@ const {
   newInvoice,
   isSubmitting,
   invoiceTotal,
+  availableTreatmentPlans,
+  shouldShowTreatmentLoading,
+  shouldShowTreatmentSelector,
+  shouldShowNoEligibleTreatments,
+  treatmentSelectionHelpText,
   expandedInvoiceId,
   expandedInvoicePayments,
   isExpandedInvoicePaymentsLoading,
@@ -325,11 +368,14 @@ const {
   isRecordingPayment,
   openDialog,
   createInvoice,
+  handlePatientSelection,
+  handleTreatmentSelection,
   updateLineItem,
   addLineItem,
   removeLineItem,
   toggleInvoiceExpanded,
   openRecordPaymentDialog,
   recordPayment,
+  getTreatmentPlanOptionLabel,
 } = useBillingPage()
 </script>

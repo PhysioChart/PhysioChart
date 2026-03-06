@@ -80,6 +80,7 @@ Run these in order against the production Supabase project.
 7. `supabase/migrations/007_dashboard_overview.sql`
 8. `supabase/migrations/008_treatment_progress_automation.sql`
 9. `supabase/migrations/009_treatment_linked_appointments.sql`
+10. `supabase/migrations/010_invoice_creation_from_treatment.sql`
 
 Important: run `003` and `004` as separate executions in SQL Editor (or via `supabase db push` in sequence). `003` must commit before `004` because `004` uses the new enum value.
 
@@ -144,6 +145,13 @@ Important: run `003` and `004` as separate executions in SQL Editor (or via `sup
    - Adds bulk linked appointments RPC `get_treatment_linked_appointments_bulk`.
    - Adds read-optimized index for clinic + treatment-linked appointment lookups.
 
+10. `010_invoice_creation_from_treatment.sql`
+
+- Adds invoice idempotency key + unique partial index on `(clinic_id, idempotency_key)`.
+- Adds invoice write guardrails (`NOT VALID` checks for money/line-items).
+- Adds trigger-based line-item normalization and invoice relationship validation.
+- Adds atomic idempotent RPC `create_invoice` for server-side invoice creation.
+
 ### 3) How to run in production (SQL Editor)
 
 1. Open Supabase Dashboard -> Project -> SQL Editor.
@@ -156,6 +164,7 @@ Important: run `003` and `004` as separate executions in SQL Editor (or via `sup
 8. Run file `007_dashboard_overview.sql`.
 9. Run file `008_treatment_progress_automation.sql`.
 10. Run file `009_treatment_linked_appointments.sql`.
+11. Run file `010_invoice_creation_from_treatment.sql`.
 
 ### 4) Post-migration verification
 
@@ -215,4 +224,36 @@ Important: run `003` and `004` as separate executions in SQL Editor (or via `sup
 select id, invoice_number, total, amount_paid
 from public.invoices
 where amount_paid > total;
+```
+
+11. Ensure invoice creation RPC exists:
+
+```sql
+select proname
+from pg_proc
+where pronamespace = 'public'::regnamespace
+  and proname = 'create_invoice';
+```
+
+12. Ensure invoice idempotency key column exists:
+
+```sql
+select column_name
+from information_schema.columns
+where table_schema = 'public'
+  and table_name = 'invoices'
+  and column_name = 'idempotency_key';
+```
+
+13. Validate newly added invoice constraints during an off-hours maintenance step:
+
+```sql
+alter table public.invoices validate constraint invoices_idempotency_key_non_blank_check;
+alter table public.invoices validate constraint invoices_subtotal_nonnegative_check;
+alter table public.invoices validate constraint invoices_tax_nonnegative_check;
+alter table public.invoices validate constraint invoices_total_nonnegative_check;
+alter table public.invoices validate constraint invoices_amount_paid_nonnegative_check;
+alter table public.invoices validate constraint invoices_amount_paid_lte_total_check;
+alter table public.invoices validate constraint invoices_total_matches_sum_check;
+alter table public.invoices validate constraint invoices_line_items_array_check;
 ```

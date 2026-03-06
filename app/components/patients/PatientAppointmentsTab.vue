@@ -10,7 +10,11 @@
       <CardContent class="flex flex-col items-center justify-center py-12 text-center">
         <Calendar class="text-muted-foreground/50 mb-3 h-10 w-10" />
         <p class="text-muted-foreground text-sm">No appointments for this patient yet</p>
-        <Button variant="outline" class="mt-3" @click="navigateTo('/appointments?action=new')">
+        <Button
+          variant="outline"
+          class="mt-3"
+          @click="navigateTo('/appointments?action=new&patientId=' + patientId)"
+        >
           Book an appointment
         </Button>
       </CardContent>

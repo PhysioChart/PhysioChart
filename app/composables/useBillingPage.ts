@@ -19,6 +19,7 @@ import { useTreatmentsStore } from '~/stores/treatments.store'
 export const NO_TREATMENT_PLAN_VALUE = '__NO_TREATMENT_PLAN__'
 
 interface IInvoiceDraftItem {
+  id: string
   description: string
   quantity: number
   unit_price: number
@@ -34,7 +35,7 @@ interface IInvoiceDraft {
 }
 
 function createDefaultLineItem(): IInvoiceDraftItem {
-  return { description: '', quantity: 1, unit_price: 0, total: 0 }
+  return { id: crypto.randomUUID(), description: '', quantity: 1, unit_price: 0, total: 0 }
 }
 
 function createDefaultInvoiceForm(): IInvoiceDraft {
@@ -394,6 +395,7 @@ export function useBillingPage() {
       const unitPrice = roundMoney(packagePrice)
       return [
         {
+          id: crypto.randomUUID(),
           description: `${plan.name} (Package)`,
           quantity: 1,
           unit_price: unitPrice,
@@ -407,6 +409,7 @@ export function useBillingPage() {
       const unitPrice = roundMoney(pricePerSession)
       return [
         {
+          id: crypto.randomUUID(),
           description: `${plan.name} (Session)`,
           quantity: 1,
           unit_price: unitPrice,
@@ -718,8 +721,28 @@ export function useBillingPage() {
     resetInvoiceForm()
   })
 
+  async function initializeFromQueryParams() {
+    const expandInvoiceParam = toSingleQueryValue(route.query.expandInvoice)
+
+    if (expandInvoiceParam) {
+      void router.replace({ query: { ...route.query, expandInvoice: undefined } })
+
+      await loadInvoices()
+
+      const invoice = invoices.value.find((inv) => inv.id === expandInvoiceParam)
+      if (invoice) {
+        expandedInvoiceId.value = expandInvoiceParam
+        await loadPaymentHistory(expandInvoiceParam)
+        openRecordPaymentDialog(expandInvoiceParam)
+      }
+      return
+    }
+
+    await loadInvoices()
+  }
+
   onMounted(() => {
-    void loadInvoices()
+    void initializeFromQueryParams()
 
     if (showNewDialog.value) {
       void initializeCreateInvoiceDialog()

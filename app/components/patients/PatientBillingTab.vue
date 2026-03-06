@@ -51,7 +51,17 @@
               </Badge>
             </div>
 
-            <p class="text-sm">Total: {{ formatCurrency(inv.total) }}</p>
+            <div class="flex items-center justify-between">
+              <p class="text-sm">Total: {{ formatCurrency(inv.total) }}</p>
+              <Button
+                size="sm"
+                variant="outline"
+                @click="navigateTo('/billing?expandInvoice=' + inv.id)"
+              >
+                <Banknote class="mr-1 h-3.5 w-3.5" />
+                Record Payment
+              </Button>
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -86,7 +96,7 @@
 </template>
 
 <script setup lang="ts">
-import { Receipt } from 'lucide-vue-next'
+import { Banknote, Receipt } from 'lucide-vue-next'
 import type { IInvoiceWithRelations } from '~/types/models/invoice.types'
 import type { InvoiceStatus } from '~/enums/invoice.enum'
 import { INVOICE_STATUS_LABELS } from '~/enums/invoice.enum'

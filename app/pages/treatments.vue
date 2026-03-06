@@ -39,7 +39,7 @@
             <Label>Diagnosis</Label>
             <Input v-model="newPlan.diagnosis" placeholder="e.g., ACL tear, post-operative" />
           </div>
-          <div class="grid grid-cols-2 gap-3">
+          <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
               <Label>Treatment Type</Label>
               <Input v-model="newPlan.treatment_type" placeholder="e.g., Physiotherapy" />
@@ -62,7 +62,7 @@
               </SelectContent>
             </Select>
           </div>
-          <div class="grid grid-cols-2 gap-3">
+          <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
               <Label>Price per Session (Rs)</Label>
               <Input v-model="newPlan.price_per_session" type="number" placeholder="e.g., 800" />
@@ -108,8 +108,16 @@
       class="flex flex-col items-center justify-center py-12 text-center"
     >
       <ClipboardList class="text-muted-foreground/50 mb-3 h-10 w-10" />
-      <p class="text-muted-foreground text-sm">No treatment plans yet</p>
-      <Button variant="outline" class="mt-3" @click="openDialog()">
+      <p class="text-muted-foreground text-sm">
+        {{
+          filter === 'all'
+            ? 'No treatment plans yet'
+            : filter === TreatmentStatus.ACTIVE
+              ? 'No active treatment plans'
+              : 'No completed treatment plans'
+        }}
+      </p>
+      <Button v-if="filter === 'all'" variant="outline" class="mt-3" @click="openDialog()">
         Create your first treatment plan
       </Button>
     </div>
@@ -121,9 +129,7 @@
               <CardTitle class="text-base">{{ plan.name }}</CardTitle>
               <CardDescription>
                 {{ plan.patient?.full_name ?? 'Unknown' }}
-                <template v-if="plan.therapist">
-                  &middot; Dr. {{ plan.therapist.full_name }}</template
-                >
+                <template v-if="plan.therapist"> &middot; {{ plan.therapist.full_name }}</template>
               </CardDescription>
             </div>
             <Badge :class="getStatusColor(plan.status)" variant="secondary">

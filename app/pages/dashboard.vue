@@ -8,14 +8,14 @@
         <p class="text-muted-foreground">Clinic snapshot for the next 7 days.</p>
       </div>
       <div class="flex flex-wrap items-center gap-2">
-        <Button size="lg" @click="navigateTo('/patients?action=new')">
-          <UserPlus class="mr-2 h-4 w-4" />New Patient
+        <Button size="default" @click="navigateTo('/patients?action=new')">
+          <UserPlus class="mr-1.5 h-4 w-4" />New Patient
         </Button>
-        <Button size="lg" @click="navigateTo('/appointments?action=new')">
-          <CalendarPlus class="mr-2 h-4 w-4" />Book Appointment
+        <Button size="default" @click="navigateTo('/appointments?action=new')">
+          <CalendarPlus class="mr-1.5 h-4 w-4" />Book Appointment
         </Button>
-        <Button variant="outline" size="lg" :disabled="isLoading" @click="load(true)">
-          <RefreshCw class="mr-2 h-4 w-4" />Refresh
+        <Button variant="outline" size="default" :disabled="isLoading" @click="load(true)">
+          <RefreshCw class="mr-1.5 h-4 w-4" />Refresh
         </Button>
       </div>
     </div>

@@ -137,6 +137,7 @@ export function useAuth() {
     })
 
     if (rpcError) throw rpcError
+    if (!rpcData) throw new Error('Registration failed — please try again')
 
     const clinicId = (rpcData as Record<string, unknown>).clinic_id as string
 

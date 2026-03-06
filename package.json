@@ -16,7 +16,8 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "typecheck": "nuxi typecheck",
-    "prepare": "husky"
+    "prepare": "husky",
+    "seed:demo": "npx tsx scripts/seed-demo.ts"
   },
   "lint-staged": {
     "*.{ts,vue,js,mjs}": [

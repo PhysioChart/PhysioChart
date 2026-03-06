@@ -6,7 +6,7 @@ export default defineNuxtRouteMiddleware(async (to) => {
   // Wait for auth state to resolve
   if (loading.value) return
 
-  const publicPages = ['/login', '/register']
+  const publicPages = ['/', '/login', '/register']
   const isPublicPage = publicPages.includes(to.path)
 
   if (!isAuthenticated.value && !isPublicPage) {

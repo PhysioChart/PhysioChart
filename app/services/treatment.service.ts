@@ -130,12 +130,7 @@ export function treatmentService(supabase: SupabaseClient<Database>) {
   ): Promise<Map<string, ITreatmentSessionHistoryItem[]>> {
     if (planIds.length === 0) return new Map<string, ITreatmentSessionHistoryItem[]>()
 
-    const rpc = supabase.rpc as unknown as (
-      fn: string,
-      params: Record<string, unknown>,
-    ) => Promise<{ data: unknown; error: Error | null }>
-
-    const { data, error } = await rpc('get_treatment_session_history_bulk', {
+    const { data, error } = await supabase.rpc('get_treatment_session_history_bulk', {
       p_clinic_id: clinicId,
       p_plan_ids: Array.from(new Set(planIds)),
       p_limit_per_plan: limit,
@@ -144,13 +139,7 @@ export function treatmentService(supabase: SupabaseClient<Database>) {
     if (error) throw error
 
     const map = new Map<string, ITreatmentSessionHistoryItem[]>()
-    for (const row of (data as unknown as {
-      plan_id: string
-      session_id: string
-      appointment_id: string | null
-      finalized_at: string
-      note: string | null
-    }[]) ?? []) {
+    for (const row of data ?? []) {
       if (!row.plan_id) continue
       const list = map.get(row.plan_id) ?? []
       list.push({

@@ -105,7 +105,7 @@
     </div>
 
     <!-- Search -->
-    <div class="relative max-w-sm">
+    <div class="relative w-full max-w-sm">
       <Search class="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
       <Input v-model="searchQuery" class="pl-9" placeholder="Search by name or phone..." />
     </div>
@@ -133,52 +133,54 @@
             Register your first patient
           </Button>
         </div>
-        <Table v-else>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Name</TableHead>
-              <TableHead>Phone</TableHead>
-              <TableHead class="hidden md:table-cell">Gender</TableHead>
-              <TableHead class="hidden md:table-cell">Registered</TableHead>
-              <TableHead class="text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            <TableRow
-              v-for="patient in filteredPatients"
-              :key="patient.id"
-              role="link"
-              tabindex="0"
-              :aria-label="`Open patient ${patient.full_name}`"
-              class="cursor-pointer"
-              @click="navigateTo(`/patients/${patient.id}`)"
-              @keydown.enter="navigateTo(`/patients/${patient.id}`)"
-            >
-              <TableCell class="font-medium">{{ patient.full_name }}</TableCell>
-              <TableCell>
-                <div class="flex items-center gap-1">
-                  <Phone class="text-muted-foreground h-3 w-3" />
-                  {{ patient.phone }}
-                </div>
-              </TableCell>
-              <TableCell class="hidden md:table-cell">
-                {{ patient.gender ? GENDER_LABELS[patient.gender] : '—' }}
-              </TableCell>
-              <TableCell class="hidden md:table-cell">
-                {{ formatDateWithYear(patient.created_at) }}
-              </TableCell>
-              <TableCell class="text-right">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  @click.stop="navigateTo(`/patients/${patient.id}`)"
-                >
-                  View
-                </Button>
-              </TableCell>
-            </TableRow>
-          </TableBody>
-        </Table>
+        <div v-else class="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Name</TableHead>
+                <TableHead>Phone</TableHead>
+                <TableHead class="hidden md:table-cell">Gender</TableHead>
+                <TableHead class="hidden md:table-cell">Registered</TableHead>
+                <TableHead class="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              <TableRow
+                v-for="patient in filteredPatients"
+                :key="patient.id"
+                role="link"
+                tabindex="0"
+                :aria-label="`Open patient ${patient.full_name}`"
+                class="cursor-pointer"
+                @click="navigateTo(`/patients/${patient.id}`)"
+                @keydown.enter="navigateTo(`/patients/${patient.id}`)"
+              >
+                <TableCell class="font-medium">{{ patient.full_name }}</TableCell>
+                <TableCell>
+                  <div class="flex items-center gap-1">
+                    <Phone class="text-muted-foreground h-3 w-3" />
+                    {{ patient.phone }}
+                  </div>
+                </TableCell>
+                <TableCell class="hidden md:table-cell">
+                  {{ patient.gender ? GENDER_LABELS[patient.gender] : '—' }}
+                </TableCell>
+                <TableCell class="hidden md:table-cell">
+                  {{ formatDateWithYear(patient.created_at) }}
+                </TableCell>
+                <TableCell class="text-right">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    @click.stop="navigateTo(`/patients/${patient.id}`)"
+                  >
+                    View
+                  </Button>
+                </TableCell>
+              </TableRow>
+            </TableBody>
+          </Table>
+        </div>
       </CardContent>
     </Card>
   </div>

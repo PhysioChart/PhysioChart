@@ -63,7 +63,7 @@ export function formatSeriesDate(dateStr: string): string {
 /** Progress percentage — clamped 0–100 */
 export function progressPercent(completed: number, total: number | null): number {
   if (!total || total <= 0) return 0
-  return Math.round((completed / total) * 100)
+  return Math.min(Math.round((completed / total) * 100), 100)
 }
 
 /** Format currency in INR — "₹1,200" */

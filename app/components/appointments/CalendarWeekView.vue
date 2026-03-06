@@ -2,7 +2,7 @@
   <div>
     <!-- Week header -->
     <div class="flex border-b">
-      <div class="w-16 flex-shrink-0 border-r" />
+      <div class="w-12 flex-shrink-0 border-r sm:w-16" />
       <div
         v-for="day in weekDays"
         :key="day.dateStr"
@@ -24,9 +24,9 @@
     </div>
 
     <!-- Scrollable grid -->
-    <div class="flex overflow-y-auto" style="max-height: calc(100vh - 320px)">
+    <div ref="scrollContainer" class="flex overflow-y-auto" style="max-height: calc(100vh - 280px)">
       <!-- Time gutter -->
-      <div class="bg-background sticky left-0 z-20 w-16 flex-shrink-0 border-r">
+      <div class="bg-background sticky left-0 z-20 w-12 flex-shrink-0 border-r sm:w-16">
         <div
           v-for="slot in timeSlots"
           :key="`${slot.hour}-${slot.minute}`"
@@ -76,6 +76,8 @@
 </template>
 
 <script setup lang="ts">
+import { nextTick, onMounted, ref } from 'vue'
+import CalendarAppointmentBlock from '~/components/appointments/CalendarAppointmentBlock.vue'
 import type { CalendarAppointment, CalendarDay, TherapistColor } from '~/composables/useCalendar'
 
 const props = defineProps<{
@@ -95,8 +97,18 @@ const {
   getAppointmentPosition,
   appointmentsForDate,
   timeFromSlot,
+  getCurrentTimeTop,
   SLOT_HEIGHT_PX,
 } = useCalendar()
+
+const scrollContainer = ref<HTMLElement | null>(null)
+
+onMounted(() => {
+  nextTick(() => {
+    if (!scrollContainer.value) return
+    scrollContainer.value.scrollTop = Math.max(0, getCurrentTimeTop() - 60)
+  })
+})
 
 function positionedAppointments(dateStr: string) {
   return appointmentsForDate(props.appointments, dateStr).map((appt) => ({

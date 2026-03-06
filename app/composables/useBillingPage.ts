@@ -70,7 +70,7 @@ function generateIdempotencyKey(prefix: string): string {
   return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`
 }
 
-function toSingleQueryValue(value: string | string[] | undefined): string | null {
+function toSingleQueryValue(value: string | null | (string | null)[] | undefined): string | null {
   if (Array.isArray(value)) return value[0] ?? null
   return typeof value === 'string' && value ? value : null
 }
@@ -418,7 +418,9 @@ export function useBillingPage() {
     return [createDefaultLineItem()]
   }
 
-  function handleTreatmentSelection(treatmentPlanId: string) {
+  function handleTreatmentSelection(value: unknown) {
+    const treatmentPlanId = typeof value === 'string' ? value : null
+
     if (!treatmentPlanId || treatmentPlanId === NO_TREATMENT_PLAN_VALUE) {
       newInvoice.value.treatment_plan_id = NO_TREATMENT_PLAN_VALUE
       return
@@ -434,7 +436,8 @@ export function useBillingPage() {
     newInvoice.value.items = buildPrefillItems(plan)
   }
 
-  function handlePatientSelection(patientId: string) {
+  function handlePatientSelection(value: unknown) {
+    const patientId = typeof value === 'string' ? value : ''
     void setPatientSelection(patientId)
   }
 

@@ -112,7 +112,7 @@ export function invoiceService(supabase: SupabaseClient<Database>) {
       p_clinic_id: payload.clinicId,
       p_patient_id: payload.patientId,
       p_treatment_plan_id: payload.treatmentPlanId ?? null,
-      p_line_items: payload.lineItems,
+      p_line_items: payload.lineItems as unknown as Record<string, unknown>[],
       p_due_date: payload.dueDate ?? null,
       p_notes: payload.notes ?? null,
       p_idempotency_key: payload.idempotencyKey,

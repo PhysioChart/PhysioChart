@@ -5,7 +5,7 @@
         :appointments="appointments"
         :date-str="currentDayDateStr"
         :color-map="colorMap"
-        @click-slot="(date, time) => emit('click-slot', date, time)"
+        @click-slot="handleClickSlot"
         @click-appointment="emit('click-appointment', $event)"
       />
     </CardContent>
@@ -17,7 +17,7 @@
         :appointments="appointments"
         :week-days="weekDays"
         :color-map="colorMap"
-        @click-slot="(date, time) => emit('click-slot', date, time)"
+        @click-slot="handleClickSlot"
         @click-appointment="emit('click-appointment', $event)"
       />
     </CardContent>
@@ -41,4 +41,8 @@ const emit = defineEmits<{
   (e: 'click-slot', date: string, time: string): void
   (e: 'click-appointment', appointment: IAppointmentWithRelations): void
 }>()
+
+function handleClickSlot(date: string, time: string) {
+  emit('click-slot', date, time)
+}
 </script>

@@ -23,7 +23,7 @@
           :can-reopen="canReopenAppointment(appt)"
           @request-complete="emit('request-complete', $event)"
           @request-reopen="emit('request-reopen', $event)"
-          @update-status="(id, status) => emit('update-status', id, status)"
+          @update-status="handleUpdateStatus"
           @cancel-series="emit('cancel-series', $event)"
         />
       </div>
@@ -50,4 +50,8 @@ const emit = defineEmits<{
   (e: 'request-reopen' | 'cancel-series', id: string): void
   (e: 'update-status', id: string, status: AppointmentStatus): void
 }>()
+
+function handleUpdateStatus(id: string, status: AppointmentStatus) {
+  emit('update-status', id, status)
+}
 </script>

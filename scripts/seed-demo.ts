@@ -289,7 +289,8 @@ async function seedTreatmentPlans() {
       diagnosis: 'Post ACL reconstruction rehabilitation',
       treatment_type: 'Orthopaedic Rehab',
       total_sessions: 8,
-      completed_sessions: 4,
+      // completed_sessions is derived from treatment_sessions, not a column
+      // completed_sessions: 4,
       price_per_session: 1200,
       package_price: 8000,
       status: 'active' as const,
@@ -304,7 +305,8 @@ async function seedTreatmentPlans() {
       diagnosis: 'Chronic lumbar disc degeneration',
       treatment_type: 'Pain Management',
       total_sessions: 6,
-      completed_sessions: 6,
+      // completed_sessions is derived from treatment_sessions, not a column
+      // completed_sessions: 6,
       price_per_session: 1000,
       package_price: 5000,
       status: 'completed' as const,
@@ -319,7 +321,8 @@ async function seedTreatmentPlans() {
       diagnosis: 'Adhesive capsulitis - left shoulder',
       treatment_type: 'Orthopaedic Rehab',
       total_sessions: 6,
-      completed_sessions: 2,
+      // completed_sessions is derived from treatment_sessions, not a column
+      // completed_sessions: 2,
       price_per_session: 1200,
       status: 'active' as const,
       notes: 'ROM improving. Pendulum + wall slide exercises prescribed.',
@@ -333,7 +336,8 @@ async function seedTreatmentPlans() {
       diagnosis: 'Post total knee replacement - right',
       treatment_type: 'Post-Surgical Rehab',
       total_sessions: 10,
-      completed_sessions: 1,
+      // completed_sessions is derived from treatment_sessions, not a column
+      // completed_sessions: 1,
       price_per_session: 1500,
       package_price: 12000,
       status: 'active' as const,

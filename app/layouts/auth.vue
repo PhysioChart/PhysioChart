@@ -11,6 +11,8 @@
 </template>
 
 <script setup lang="ts">
+import ThemeToggle from '~/components/layout/ThemeToggle.vue'
+
 const { isAuthenticated } = useAuth()
 
 watch(

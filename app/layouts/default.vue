@@ -140,6 +140,7 @@ import {
   ChevronsUpDown,
   Building2,
 } from 'lucide-vue-next'
+import ThemeToggle from '~/components/layout/ThemeToggle.vue'
 import { UserRole } from '~/enums/user-role.enum'
 
 const { profile, clinic, signOut, isAdmin } = useAuth()

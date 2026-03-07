@@ -79,8 +79,18 @@
 
 <script setup lang="ts">
 import { usePatientDetailPage } from '~/composables/usePatientDetailPage'
+import PatientAppointmentsTab from '~/components/patients/PatientAppointmentsTab.vue'
+import PatientBillingTab from '~/components/patients/PatientBillingTab.vue'
+import PatientDetailHeader from '~/components/patients/PatientDetailHeader.vue'
+import PatientEditDialog from '~/components/patients/PatientEditDialog.vue'
+import PatientOverviewTab from '~/components/patients/PatientOverviewTab.vue'
+import PatientTreatmentsTab from '~/components/patients/PatientTreatmentsTab.vue'
 
 definePageMeta({ layout: 'protected' })
+
+const patientDetailPage = usePatientDetailPage()
+
+await patientDetailPage.initialize()
 
 const {
   patient,
@@ -113,5 +123,5 @@ const {
   buildEditForm,
   saveEdit,
   archivePatient,
-} = usePatientDetailPage()
+} = patientDetailPage
 </script>

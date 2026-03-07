@@ -190,7 +190,7 @@ import {
 } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import { dashboardService, type DashboardOverview } from '~/services/dashboard.service'
-import { toLocalDateKey } from '~/lib/date'
+import { formatAppDate, toLocalDateKey } from '~/lib/date'
 import {
   formatDateTime,
   formatCurrency,
@@ -209,7 +209,15 @@ const overview = ref<DashboardOverview | null>(null)
 const lastLoadedAt = ref<number | null>(null)
 
 const greeting = computed(() => {
-  const hour = new Date().getHours()
+  const hour = Number.parseInt(
+    formatAppDate(new Date(), {
+      hour: 'numeric',
+      hourCycle: 'h23',
+    }),
+    10,
+  )
+
+  if (Number.isNaN(hour)) return 'morning'
   if (hour < 12) return 'morning'
   if (hour < 17) return 'afternoon'
   return 'evening'

@@ -18,7 +18,7 @@ import { toLocalDateKey } from '~/lib/date'
 export function usePatientDetailPage() {
   const route = useRoute()
   const supabase = useSupabaseClient()
-  const { activeMembership } = useAuth()
+  const { activeMembership, ensureBootstrapped } = useAuth()
   const patientsStore = usePatientsStore()
   const appointmentsStore = useAppointmentsStore()
   const treatmentsStore = useTreatmentsStore()
@@ -44,44 +44,54 @@ export function usePatientDetailPage() {
   const isSaving = ref(false)
   const isArchiving = ref(false)
 
-  async function loadPatient() {
+  function getPatientId(): string {
+    const { id } = route.params
+
+    if (Array.isArray(id)) {
+      return id[0] ?? ''
+    }
+
+    return typeof id === 'string' ? id : ''
+  }
+
+  function getRouteContext() {
+    const clinicId = activeMembership.value?.clinic_id
+    const patientId = getPatientId()
+
+    if (!clinicId || !patientId) {
+      return null
+    }
+
+    return { clinicId, patientId }
+  }
+
+  async function loadPatient(clinicId: string, patientId: string) {
     isLoading.value = true
 
     try {
-      if (!activeMembership.value?.clinic_id) return
-      const data = await patientService(supabase).getById(
-        activeMembership.value.clinic_id,
-        route.params.id as string,
-      )
+      const data = await patientService(supabase).getById(clinicId, patientId)
       if (!data) {
         toast.error('Patient not found')
-        navigateTo('/patients')
+        await navigateTo('/patients')
         return
       }
       patient.value = data
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to load patient'
       toast.error(message)
-      navigateTo('/patients')
+      await navigateTo('/patients')
     } finally {
       isLoading.value = false
     }
   }
 
-  async function loadAppointments() {
+  async function loadAppointments(clinicId: string, patientId: string) {
     isLoadingAppointments.value = true
     showAllPast.value = false
 
     try {
-      if (!activeMembership.value?.clinic_id) return
-      await appointmentsStore.fetchByPatient(
-        activeMembership.value.clinic_id,
-        route.params.id as string,
-      )
-      appointments.value =
-        appointmentsByPatientByClinic.value[activeMembership.value.clinic_id]?.[
-          route.params.id as string
-        ] ?? []
+      await appointmentsStore.fetchByPatient(clinicId, patientId)
+      appointments.value = appointmentsByPatientByClinic.value[clinicId]?.[patientId] ?? []
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to load appointments'
       toast.error(message)
@@ -90,19 +100,12 @@ export function usePatientDetailPage() {
     }
   }
 
-  async function loadTreatments() {
+  async function loadTreatments(clinicId: string, patientId: string) {
     isLoadingTreatments.value = true
 
     try {
-      if (!activeMembership.value?.clinic_id) return
-      await treatmentsStore.fetchByPatient(
-        activeMembership.value.clinic_id,
-        route.params.id as string,
-      )
-      treatments.value =
-        treatmentsByPatientByClinic.value[activeMembership.value.clinic_id]?.[
-          route.params.id as string
-        ] ?? []
+      await treatmentsStore.fetchByPatient(clinicId, patientId)
+      treatments.value = treatmentsByPatientByClinic.value[clinicId]?.[patientId] ?? []
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to load treatment plans'
       toast.error(message)
@@ -111,20 +114,12 @@ export function usePatientDetailPage() {
     }
   }
 
-  async function loadInvoices() {
-    if (!activeMembership.value?.clinic_id) return
-
+  async function loadInvoices(clinicId: string, patientId: string) {
     isLoadingInvoices.value = true
 
     try {
-      await invoicesStore.fetchByPatient(
-        activeMembership.value.clinic_id,
-        route.params.id as string,
-      )
-      invoices.value =
-        invoicesByPatientByClinic.value[activeMembership.value.clinic_id]?.[
-          route.params.id as string
-        ] ?? []
+      await invoicesStore.fetchByPatient(clinicId, patientId)
+      invoices.value = invoicesByPatientByClinic.value[clinicId]?.[patientId] ?? []
       hasLoadedInvoices.value = true
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to load invoices'
@@ -132,6 +127,27 @@ export function usePatientDetailPage() {
     } finally {
       isLoadingInvoices.value = false
     }
+  }
+
+  async function loadCoreData(clinicId: string, patientId: string) {
+    await Promise.all([
+      loadPatient(clinicId, patientId),
+      loadAppointments(clinicId, patientId),
+      loadTreatments(clinicId, patientId),
+    ])
+  }
+
+  async function initialize() {
+    await ensureBootstrapped()
+
+    const context = getRouteContext()
+
+    if (!context) {
+      isLoading.value = false
+      return
+    }
+
+    await loadCoreData(context.clinicId, context.patientId)
   }
 
   const todayDateKey = computed(() => toLocalDateKey(new Date()))
@@ -328,24 +344,30 @@ export function usePatientDetailPage() {
   })
 
   watch(
-    [activeTab, () => activeMembership.value?.clinic_id],
-    ([tab, clinicId]) => {
-      if (tab === 'billing' && clinicId && !hasLoadedInvoices.value) {
-        void loadInvoices()
+    [activeTab, () => activeMembership.value?.clinic_id, () => getPatientId()],
+    ([tab, clinicId, patientId]) => {
+      if (tab === 'billing' && clinicId && patientId && !hasLoadedInvoices.value) {
+        void loadInvoices(clinicId, patientId)
       }
     },
     { immediate: true },
   )
 
   watch(
-    () => activeMembership.value?.clinic_id,
-    (clinicId) => {
-      if (!clinicId) return
-      void loadPatient()
-      void loadAppointments()
-      void loadTreatments()
+    [() => activeMembership.value?.clinic_id, () => getPatientId()],
+    ([clinicId, patientId], [prevClinicId, prevPatientId]) => {
+      if (!clinicId || !patientId) return
+      if (clinicId === prevClinicId && patientId === prevPatientId) return
+
+      patient.value = null
+      appointments.value = []
+      treatments.value = []
+      invoices.value = []
+      hasLoadedInvoices.value = false
+      activeTab.value = 'overview'
+
+      void loadCoreData(clinicId, patientId)
     },
-    { immediate: true },
   )
 
   return {
@@ -379,5 +401,6 @@ export function usePatientDetailPage() {
     buildEditForm,
     saveEdit,
     archivePatient,
+    initialize,
   }
 }

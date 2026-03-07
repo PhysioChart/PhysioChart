@@ -307,7 +307,10 @@ export function usePatientDetailPage() {
       }
 
       toast.success('Patient updated')
-      await loadPatient()
+      const context = getRouteContext()
+      if (context) {
+        await loadPatient(context.clinicId, context.patientId)
+      }
       isEditing.value = false
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to update patient'

@@ -2,10 +2,11 @@ import type { Tables } from '~/types/database'
 import { AppointmentStatus } from '~/enums/appointment.enum'
 import { TreatmentStatus } from '~/enums/treatment.enum'
 import { InvoiceStatus } from '~/enums/invoice.enum'
+import { formatAppDate } from '~/lib/date'
 
 /** "2:30 pm" */
 export function formatTime(dateStr: string): string {
-  return new Date(dateStr).toLocaleTimeString('en-IN', {
+  return formatAppDate(dateStr, {
     hour: '2-digit',
     minute: '2-digit',
     hour12: true,
@@ -14,7 +15,7 @@ export function formatTime(dateStr: string): string {
 
 /** "22 Feb" */
 export function formatDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString('en-IN', {
+  return formatAppDate(dateStr, {
     day: 'numeric',
     month: 'short',
   })
@@ -22,7 +23,7 @@ export function formatDate(dateStr: string): string {
 
 /** "22 Feb 2026" */
 export function formatDateWithYear(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString('en-IN', {
+  return formatAppDate(dateStr, {
     day: 'numeric',
     month: 'short',
     year: 'numeric',
@@ -32,7 +33,7 @@ export function formatDateWithYear(dateStr: string): string {
 /** "22 February 2026" — accepts null, returns "—" */
 export function formatDateLong(dateStr: string | null): string {
   if (!dateStr) return '—'
-  return new Date(dateStr).toLocaleDateString('en-IN', {
+  return formatAppDate(dateStr, {
     day: 'numeric',
     month: 'long',
     year: 'numeric',
@@ -41,10 +42,11 @@ export function formatDateLong(dateStr: string | null): string {
 
 /** "Sat, 22 Feb 2026, 2:30 pm" */
 export function formatDateTime(dateStr: string): string {
-  return new Date(dateStr).toLocaleString('en-IN', {
+  return formatAppDate(dateStr, {
     weekday: 'short',
     day: 'numeric',
     month: 'short',
+    year: 'numeric',
     hour: '2-digit',
     minute: '2-digit',
     hour12: true,
@@ -53,7 +55,7 @@ export function formatDateTime(dateStr: string): string {
 
 /** "Sat, 22 Feb" — for series date preview */
 export function formatSeriesDate(dateStr: string): string {
-  return new Date(dateStr + 'T00:00:00').toLocaleDateString('en-IN', {
+  return formatAppDate(dateStr, {
     weekday: 'short',
     day: 'numeric',
     month: 'short',

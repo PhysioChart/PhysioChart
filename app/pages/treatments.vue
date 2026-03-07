@@ -257,6 +257,8 @@ import type {
   ITreatmentPlanWithRelations,
 } from '~/types/models/treatment.types'
 
+definePageMeta({ layout: 'protected' })
+
 const {
   isLoading,
   showNewDialog,
@@ -270,8 +272,8 @@ const {
   createPlan,
 } = useTreatmentsPage()
 
-const { profile } = useAuth()
-const supabase = useSupabase()
+const { activeMembership } = useAuth()
+const supabase = useSupabaseClient()
 const { historyByPlan, loadingByPlan, errorByPlan, loadHistory } = useTreatmentSessionHistory()
 const linkedByPlan = ref<Record<string, ITreatmentLinkedAppointmentItem[]>>({})
 const linkedLoadingByPlan = ref<Record<string, boolean>>({})
@@ -323,10 +325,10 @@ function openLinkedAppointment(plan: ITreatmentPlanWithRelations) {
 watch(
   filteredPlanIds,
   async (ids) => {
-    if (!profile.value || ids.length === 0) return
+    if (!activeMembership.value?.clinic_id || ids.length === 0) return
     await Promise.all([
-      loadHistory(profile.value.clinic_id, ids),
-      loadLinkedAppointments(profile.value.clinic_id, ids),
+      loadHistory(activeMembership.value.clinic_id, ids),
+      loadLinkedAppointments(activeMembership.value.clinic_id, ids),
     ])
   },
   { immediate: true },

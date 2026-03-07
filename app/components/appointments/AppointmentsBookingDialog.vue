@@ -218,6 +218,7 @@
 
 <script setup lang="ts">
 import type { Tables } from '~/types/database'
+import type { IClinicStaffMember } from '~/services/staff.service'
 import type { ITreatmentPlanWithRelations } from '~/types/models/treatment.types'
 import type {
   AppointmentBookingMode,
@@ -232,7 +233,7 @@ withDefaults(
   defineProps<{
     isSubmitting: boolean
     patients: Tables<'patients'>[]
-    therapists: Tables<'profiles'>[]
+    therapists: IClinicStaffMember[]
     activeTreatmentPlans: ITreatmentPlanWithRelations[]
     canSelectTreatment?: boolean
     lockPatient?: boolean

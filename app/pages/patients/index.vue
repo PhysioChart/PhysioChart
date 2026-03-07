@@ -192,6 +192,8 @@ import { Gender, GENDER_LABELS } from '~/enums/gender.enum'
 import { usePatientsIndexPage } from '~/composables/usePatientsIndexPage'
 import { formatDateWithYear } from '~/lib/formatters'
 
+definePageMeta({ layout: 'protected' })
+
 const {
   searchQuery,
   isLoading,

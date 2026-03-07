@@ -381,6 +381,8 @@ import {
   getStatusColor,
 } from '~/lib/formatters'
 
+definePageMeta({ layout: 'protected' })
+
 const {
   NO_TREATMENT_PLAN_VALUE,
   isLoading,

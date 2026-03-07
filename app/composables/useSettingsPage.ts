@@ -6,8 +6,8 @@ import { staffService } from '~/services/staff.service'
 import { useStaffStore } from '~/stores/staff.store'
 
 export function useSettingsPage() {
-  const supabase = useSupabase()
-  const { clinic, profile, isAdmin, fetchProfile } = useAuth()
+  const supabase = useSupabaseClient()
+  const { clinic, profile, activeMembership, isAdmin, refreshAuthContext } = useAuth()
   const staffStore = useStaffStore()
   const { byClinic } = storeToRefs(staffStore)
 
@@ -24,16 +24,14 @@ export function useSettingsPage() {
   const showInviteDialog = ref(false)
   const inviteForm = ref({
     email: '',
-    full_name: '',
     role: UserRole.STAFF as UserRole,
-    password: '',
   })
   const isInviting = ref(false)
   const isDeactivating = ref(false)
 
   const staffMembers = computed(() => {
-    if (!profile.value) return []
-    return byClinic.value[profile.value.clinic_id] ?? []
+    if (!activeMembership.value?.clinic_id) return []
+    return byClinic.value[activeMembership.value.clinic_id] ?? []
   })
 
   function loadClinicForm() {
@@ -61,7 +59,7 @@ export function useSettingsPage() {
       })
 
       toast.success('Clinic profile updated')
-      await fetchProfile()
+      await refreshAuthContext()
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to update clinic profile'
       toast.error(message)
@@ -71,11 +69,11 @@ export function useSettingsPage() {
   }
 
   async function loadStaff() {
-    if (!profile.value) return
+    if (!activeMembership.value?.clinic_id) return
     isLoadingStaff.value = true
 
     try {
-      await staffStore.fetchList(profile.value.clinic_id)
+      await staffStore.fetchList(activeMembership.value.clinic_id)
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to load staff'
       toast.error(message)
@@ -85,29 +83,18 @@ export function useSettingsPage() {
   }
 
   async function inviteStaffMember() {
-    if (
-      !profile.value ||
-      !inviteForm.value.email ||
-      !inviteForm.value.full_name ||
-      !inviteForm.value.password
-    )
-      return
+    if (!inviteForm.value.email) return
     isInviting.value = true
 
     try {
-      await staffService(supabase).invite(
-        profile.value.clinic_id,
+      const inviteUrl = await staffService(supabase).createInvite(
         inviteForm.value.email,
-        inviteForm.value.password,
-        inviteForm.value.full_name,
         inviteForm.value.role,
       )
-
-      staffStore.invalidate(profile.value.clinic_id)
-      toast.success('Staff member added')
-      await loadStaff()
+      await navigator.clipboard.writeText(new URL(inviteUrl, window.location.origin).toString())
+      toast.success('Invite link copied to clipboard')
       showInviteDialog.value = false
-      inviteForm.value = { email: '', full_name: '', role: UserRole.STAFF, password: '' }
+      inviteForm.value = { email: '', role: UserRole.STAFF }
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to add staff member'
       toast.error(message)
@@ -121,11 +108,10 @@ export function useSettingsPage() {
     isDeactivating.value = true
 
     try {
-      if (!profile.value) return
-      await staffService(supabase).deactivate(profile.value.clinic_id, staffId)
-      if (profile.value) {
-        staffStore.invalidate(profile.value.clinic_id)
-      }
+      const target = staffMembers.value.find((member) => member.id === staffId)
+      if (!target || !activeMembership.value?.clinic_id) return
+      await staffService(supabase).deactivate(target.membership_id)
+      staffStore.invalidate(activeMembership.value.clinic_id)
       toast.success('Staff member deactivated')
       await loadStaff()
     } catch (err: unknown) {

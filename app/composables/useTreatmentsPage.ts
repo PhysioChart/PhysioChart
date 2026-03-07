@@ -8,8 +8,8 @@ import { useStaffStore } from '~/stores/staff.store'
 import { useTreatmentsStore } from '~/stores/treatments.store'
 
 export function useTreatmentsPage() {
-  const supabase = useSupabase()
-  const { profile } = useAuth()
+  const supabase = useSupabaseClient()
+  const { activeMembership } = useAuth()
   const route = useRoute()
   const patientsStore = usePatientsStore()
   const staffStore = useStaffStore()
@@ -24,18 +24,18 @@ export function useTreatmentsPage() {
   const filter = ref<TreatmentStatus | 'all'>(TreatmentStatus.ACTIVE)
 
   const patients = computed(() => {
-    if (!profile.value) return []
-    return dropdownByClinic.value[profile.value.clinic_id] ?? []
+    if (!activeMembership.value?.clinic_id) return []
+    return dropdownByClinic.value[activeMembership.value.clinic_id] ?? []
   })
 
   const therapists = computed(() => {
-    if (!profile.value) return []
-    return activeByClinic.value[profile.value.clinic_id] ?? []
+    if (!activeMembership.value?.clinic_id) return []
+    return activeByClinic.value[activeMembership.value.clinic_id] ?? []
   })
 
   const plans = computed<ITreatmentPlanWithRelations[]>(() => {
-    if (!profile.value) return []
-    return byClinic.value[profile.value.clinic_id] ?? []
+    if (!activeMembership.value?.clinic_id) return []
+    return byClinic.value[activeMembership.value.clinic_id] ?? []
   })
 
   const newPlan = ref({
@@ -58,11 +58,11 @@ export function useTreatmentsPage() {
   })
 
   async function loadPlans(): Promise<void> {
-    if (!profile.value) return
+    if (!activeMembership.value?.clinic_id) return
     isLoading.value = true
 
     try {
-      await treatmentsStore.fetchList(profile.value.clinic_id)
+      await treatmentsStore.fetchList(activeMembership.value.clinic_id)
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to load treatment plans'
       toast.error(message)
@@ -72,11 +72,11 @@ export function useTreatmentsPage() {
   }
 
   async function loadDropdowns(): Promise<void> {
-    if (dropdownsLoaded || !profile.value) return
+    if (dropdownsLoaded || !activeMembership.value?.clinic_id) return
     dropdownsLoaded = true
 
     try {
-      const clinicId = profile.value.clinic_id
+      const clinicId = activeMembership.value.clinic_id
 
       await Promise.all([
         patientsStore.fetchDropdown(clinicId),
@@ -93,12 +93,13 @@ export function useTreatmentsPage() {
   }
 
   async function createPlan(): Promise<void> {
-    if (!profile.value || !newPlan.value.patient_id || !newPlan.value.name) return
+    if (!activeMembership.value?.clinic_id || !newPlan.value.patient_id || !newPlan.value.name)
+      return
     isSubmitting.value = true
 
     try {
       await treatmentService(supabase).create({
-        clinic_id: profile.value.clinic_id,
+        clinic_id: activeMembership.value.clinic_id,
         patient_id: newPlan.value.patient_id,
         therapist_id: newPlan.value.therapist_id || null,
         name: newPlan.value.name,
@@ -113,7 +114,7 @@ export function useTreatmentsPage() {
       })
 
       toast.success('Treatment plan created')
-      treatmentsStore.invalidate(profile.value.clinic_id)
+      treatmentsStore.invalidate(activeMembership.value.clinic_id)
       await loadPlans()
       showNewDialog.value = false
       newPlan.value = {

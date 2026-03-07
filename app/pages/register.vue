@@ -96,9 +96,9 @@ import { useForm } from 'vee-validate'
 import { z } from 'zod'
 import { Building2 } from 'lucide-vue-next'
 
-definePageMeta({ layout: 'auth' })
+definePageMeta({ layout: 'auth', middleware: 'guest' })
 
-const { signUp } = useAuth()
+const { signUpOwner } = useAuth()
 const error = ref('')
 const isLoading = ref(false)
 
@@ -117,7 +117,12 @@ const onSubmit = handleSubmit(async (values) => {
   error.value = ''
   isLoading.value = true
   try {
-    await signUp(values.clinicName, values.fullName, values.email, values.password)
+    await signUpOwner({
+      clinicName: values.clinicName,
+      fullName: values.fullName,
+      email: values.email,
+      password: values.password,
+    })
   } catch (e: unknown) {
     error.value = e instanceof Error ? e.message : 'Registration failed'
   } finally {

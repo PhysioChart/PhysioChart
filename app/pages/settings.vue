@@ -107,30 +107,18 @@
                 </DialogTrigger>
                 <DialogContent class="sm:max-w-md">
                   <DialogHeader>
-                    <DialogTitle>Add Staff Member</DialogTitle>
+                    <DialogTitle>Invite Staff Member</DialogTitle>
                     <DialogDescription>
-                      Create an account for a new staff member.
+                      Send a secure invite link for a new staff member.
                     </DialogDescription>
                   </DialogHeader>
                   <form class="space-y-4" @submit.prevent="inviteStaffMember">
-                    <div>
-                      <Label>Full Name *</Label>
-                      <Input v-model="inviteForm.full_name" placeholder="Staff member name" />
-                    </div>
                     <div>
                       <Label>Email *</Label>
                       <Input
                         v-model="inviteForm.email"
                         type="email"
                         placeholder="staff@clinic.com"
-                      />
-                    </div>
-                    <div>
-                      <Label>Password *</Label>
-                      <Input
-                        v-model="inviteForm.password"
-                        type="password"
-                        placeholder="Temporary password"
                       />
                     </div>
                     <div>
@@ -151,16 +139,8 @@
                       <Button type="button" variant="outline" @click="showInviteDialog = false">
                         Cancel
                       </Button>
-                      <Button
-                        type="submit"
-                        :disabled="
-                          isInviting ||
-                          !inviteForm.email ||
-                          !inviteForm.full_name ||
-                          !inviteForm.password
-                        "
-                      >
-                        {{ isInviting ? 'Adding...' : 'Add Member' }}
+                      <Button type="submit" :disabled="isInviting || !inviteForm.email">
+                        {{ isInviting ? 'Creating...' : 'Create Invite Link' }}
                       </Button>
                     </DialogFooter>
                   </form>
@@ -238,6 +218,8 @@
 import { Building2, Users, UserPlus, Trash2, Shield } from 'lucide-vue-next'
 import { UserRole, USER_ROLE_LABELS } from '~/enums/user-role.enum'
 import { useSettingsPage } from '~/composables/useSettingsPage'
+
+definePageMeta({ layout: 'protected' })
 
 const {
   profile,

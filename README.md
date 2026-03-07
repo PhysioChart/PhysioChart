@@ -29,7 +29,7 @@ npm install
 
 # Copy environment variables
 cp .env.example .env
-# Edit .env with your Supabase project URL and anon key
+# Edit .env with SUPABASE_URL and SUPABASE_KEY
 
 # Start development server
 npm run dev
@@ -81,6 +81,8 @@ Run these in order against the production Supabase project.
 8. `supabase/migrations/008_treatment_progress_automation.sql`
 9. `supabase/migrations/009_treatment_linked_appointments.sql`
 10. `supabase/migrations/010_invoice_creation_from_treatment.sql`
+11. `supabase/migrations/011_auth_membership_compat.sql`
+12. `supabase/migrations/012_auth_membership_cleanup.sql`
 
 Important: run `003` and `004` as separate executions in SQL Editor (or via `supabase db push` in sequence). `003` must commit before `004` because `004` uses the new enum value.
 

@@ -5,8 +5,8 @@
  * invoices, and payments for demo storytelling.
  *
  * Prerequisites:
- *   - SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY env vars set
- *   - OR pass them as arguments: npx tsx scripts/seed-demo.ts <url> <service_role_key>
+ *   - SUPABASE_URL and SUPABASE_SECRET_KEY env vars set
+ *   - OR pass them as arguments: npx tsx scripts/seed-demo.ts <url> <secret_key>
  *
  * Usage:
  *   npx tsx scripts/seed-demo.ts
@@ -20,11 +20,12 @@ import { createClient } from '@supabase/supabase-js'
 
 const SUPABASE_URL =
   process.argv[2] || process.env.SUPABASE_URL || process.env.NUXT_PUBLIC_SUPABASE_URL
-const SERVICE_ROLE_KEY = process.argv[3] || process.env.SUPABASE_SERVICE_ROLE_KEY
+const SERVICE_ROLE_KEY =
+  process.argv[3] || process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY
 
 if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {
-  console.error('Usage: npx tsx scripts/seed-demo.ts <supabase_url> <service_role_key>')
-  console.error('  Or set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY env vars')
+  console.error('Usage: npx tsx scripts/seed-demo.ts <supabase_url> <secret_key>')
+  console.error('  Or set SUPABASE_URL and SUPABASE_SECRET_KEY env vars')
   process.exit(1)
 }
 
@@ -117,7 +118,10 @@ async function cleanup() {
   await supabase.from('treatment_plans').delete().eq('clinic_id', CLINIC_ID)
   await supabase.from('expenses').delete().eq('clinic_id', CLINIC_ID)
   await supabase.from('patients').delete().eq('clinic_id', CLINIC_ID)
-  await supabase.from('profiles').delete().eq('clinic_id', CLINIC_ID)
+  await supabase.from('clinic_invites').delete().eq('clinic_id', CLINIC_ID)
+  await supabase.from('owner_onboardings').delete().eq('clinic_id', CLINIC_ID)
+  await supabase.from('clinic_memberships').delete().eq('clinic_id', CLINIC_ID)
+  await supabase.from('profiles').delete().in('id', [ADMIN_USER_ID, STAFF_USER_ID])
 
   // Delete auth users (may not exist on first run)
   await supabase.auth.admin.deleteUser(ADMIN_USER_ID).catch(() => {})
@@ -143,7 +147,7 @@ async function seedClinicAndUsers() {
 
   // Create admin auth user
   const { error: adminAuthErr } = await supabase.auth.admin.createUser({
-    user_metadata: { clinic_id: CLINIC_ID, full_name: 'Priya Sharma', role: 'admin' },
+    user_metadata: { full_name: 'Priya Sharma' },
     email: 'demo@medpractice.in',
     password: 'demo1234',
     email_confirm: true,
@@ -153,7 +157,7 @@ async function seedClinicAndUsers() {
 
   // Create staff auth user
   const { error: staffAuthErr } = await supabase.auth.admin.createUser({
-    user_metadata: { clinic_id: CLINIC_ID, full_name: 'Rahul Mehta', role: 'staff' },
+    user_metadata: { full_name: 'Rahul Mehta' },
     email: 'rahul@sunrisephysio.in',
     password: 'demo1234',
     email_confirm: true,
@@ -161,21 +165,72 @@ async function seedClinicAndUsers() {
   })
   if (staffAuthErr) throw new Error(`Staff auth failed: ${staffAuthErr.message}`)
 
-  // The handle_new_user trigger should create profiles automatically.
-  // Wait briefly for trigger to fire.
-  await new Promise((r) => setTimeout(r, 1000))
+  const { error: profileErr } = await supabase.from('profiles').upsert([
+    {
+      id: ADMIN_USER_ID,
+      full_name: 'Priya Sharma',
+      email: 'demo@medpractice.in',
+      is_active: true,
+    },
+    {
+      id: STAFF_USER_ID,
+      full_name: 'Rahul Mehta',
+      email: 'rahul@sunrisephysio.in',
+      is_active: true,
+    },
+  ])
 
-  // Verify profiles exist
-  const { data: profiles } = await supabase
-    .from('profiles')
-    .select('id, full_name, role')
-    .eq('clinic_id', CLINIC_ID)
+  if (profileErr) throw new Error(`Profile seed failed: ${profileErr.message}`)
 
-  if (!profiles || profiles.length < 2) {
-    throw new Error(
-      `Expected 2 profiles, got ${profiles?.length ?? 0}. Trigger may not have fired.`,
-    )
+  const { data: seededMemberships, error: membershipErr } = await supabase
+    .from('clinic_memberships')
+    .upsert([
+      {
+        clinic_id: CLINIC_ID,
+        user_id: ADMIN_USER_ID,
+        role: 'admin',
+      },
+      {
+        clinic_id: CLINIC_ID,
+        user_id: STAFF_USER_ID,
+        role: 'staff',
+      },
+    ])
+    .select('id, user_id, role')
+
+  if (membershipErr || !seededMemberships) {
+    throw new Error(`Membership seed failed: ${membershipErr?.message ?? 'unknown error'}`)
   }
+
+  const adminMembershipId = seededMemberships.find(
+    (membership) => membership.user_id === ADMIN_USER_ID,
+  )?.id
+  if (!adminMembershipId) {
+    throw new Error('Admin membership was not created')
+  }
+
+  await supabase
+    .from('profiles')
+    .update({ default_membership_id: adminMembershipId })
+    .eq('id', ADMIN_USER_ID)
+
+  const staffMembershipId = seededMemberships.find(
+    (membership) => membership.user_id === STAFF_USER_ID,
+  )?.id
+  if (!staffMembershipId) {
+    throw new Error('Staff membership was not created')
+  }
+
+  await supabase
+    .from('profiles')
+    .update({ default_membership_id: staffMembershipId })
+    .eq('id', STAFF_USER_ID)
+
+  await supabase.from('owner_onboardings').upsert({
+    user_id: ADMIN_USER_ID,
+    clinic_id: CLINIC_ID,
+    membership_id: adminMembershipId,
+  })
 
   console.log(`  Clinic: Sunrise Physiotherapy`)
   console.log(`  Admin: Priya Sharma (demo@medpractice.in / demo1234)`)

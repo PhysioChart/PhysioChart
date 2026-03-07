@@ -110,6 +110,8 @@ import AppointmentsTherapistLegend from '~/components/appointments/AppointmentsT
 import AppointmentsViewControls from '~/components/appointments/AppointmentsViewControls.vue'
 import { useAppointmentsPageStore } from '~/features/appointments/store/appointmentsPage.store'
 
+definePageMeta({ layout: 'protected' })
+
 const route = useRoute()
 const { clinic } = useAuth()
 const appointmentsPageStore = useAppointmentsPageStore()

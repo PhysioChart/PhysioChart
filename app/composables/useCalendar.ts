@@ -1,4 +1,3 @@
-import type { Tables } from '~/types/database'
 import type { IAppointmentWithRelations } from '~/types/models/appointment.types'
 import { toLocalDateKey } from '~/lib/date'
 
@@ -157,7 +156,7 @@ export function useCalendar() {
     return `${fmt(start)} – ${fmt(end)} ${end.getFullYear()}`
   })
 
-  function buildTherapistColorMap(therapists: Tables<'profiles'>[]): Map<string, TherapistColor> {
+  function buildTherapistColorMap(therapists: Array<{ id: string }>): Map<string, TherapistColor> {
     const sorted = [...therapists].sort((a, b) => a.id.localeCompare(b.id))
     const map = new Map<string, TherapistColor>()
     sorted.forEach((t, i) => {

@@ -5,8 +5,8 @@ import { patientService } from '~/services/patient.service'
 import { usePatientsStore } from '~/stores/patients.store'
 
 export function usePatientsIndexPage() {
-  const supabase = useSupabase()
-  const { profile } = useAuth()
+  const supabase = useSupabaseClient()
+  const { activeMembership } = useAuth()
   const route = useRoute()
   const patientsStore = usePatientsStore()
   const { byClinic } = storeToRefs(patientsStore)
@@ -17,8 +17,8 @@ export function usePatientsIndexPage() {
   const isSubmitting = ref(false)
 
   const patients = computed(() => {
-    if (!profile.value) return []
-    return byClinic.value[profile.value.clinic_id] ?? []
+    if (!activeMembership.value?.clinic_id) return []
+    return byClinic.value[activeMembership.value.clinic_id] ?? []
   })
 
   const newPatient = ref({
@@ -49,11 +49,11 @@ export function usePatientsIndexPage() {
   })
 
   async function loadPatients() {
-    if (!profile.value) return
+    if (!activeMembership.value?.clinic_id) return
     isLoading.value = true
 
     try {
-      await patientsStore.fetchList(profile.value.clinic_id)
+      await patientsStore.fetchList(activeMembership.value.clinic_id)
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to load patients'
       toast.error(message)
@@ -63,12 +63,17 @@ export function usePatientsIndexPage() {
   }
 
   async function createPatient() {
-    if (!profile.value || !newPatient.value.full_name || !newPatient.value.phone) return
+    if (
+      !activeMembership.value?.clinic_id ||
+      !newPatient.value.full_name ||
+      !newPatient.value.phone
+    )
+      return
     isSubmitting.value = true
 
     try {
       const created = await patientService(supabase).create({
-        clinic_id: profile.value.clinic_id,
+        clinic_id: activeMembership.value.clinic_id,
         full_name: newPatient.value.full_name,
         phone: newPatient.value.phone,
         email: newPatient.value.email || null,
@@ -81,8 +86,8 @@ export function usePatientsIndexPage() {
         medical_history: newPatient.value.medical_history,
       })
 
-      patientsStore.upsertPatient(profile.value.clinic_id, created)
-      patientsStore.invalidate(profile.value.clinic_id)
+      patientsStore.upsertPatient(activeMembership.value.clinic_id, created)
+      patientsStore.invalidate(activeMembership.value.clinic_id)
       toast.success('Patient registered successfully')
       await loadPatients()
       showNewPatientDialog.value = false

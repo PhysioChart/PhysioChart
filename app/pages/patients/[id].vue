@@ -80,6 +80,8 @@
 <script setup lang="ts">
 import { usePatientDetailPage } from '~/composables/usePatientDetailPage'
 
+definePageMeta({ layout: 'protected' })
+
 const {
   patient,
   appointments,

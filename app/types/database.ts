@@ -39,41 +39,198 @@ export type Database = {
       profiles: {
         Row: {
           id: string
-          clinic_id: string
           full_name: string
           email: string
           phone: string | null
-          role: 'admin' | 'staff'
           is_active: boolean
+          default_membership_id: string | null
           created_at: string
           updated_at: string
         }
         Insert: {
           id: string
-          clinic_id: string
           full_name: string
           email: string
           phone?: string | null
-          role?: 'admin' | 'staff'
           is_active?: boolean
+          default_membership_id?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          full_name?: string
+          email?: string
+          phone?: string | null
+          is_active?: boolean
+          default_membership_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'profiles_default_membership_same_user_fkey'
+            columns: ['default_membership_id']
+            isOneToOne: false
+            referencedRelation: 'clinic_memberships'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      clinic_memberships: {
+        Row: {
+          id: string
+          clinic_id: string
+          user_id: string
+          role: 'admin' | 'staff'
+          created_by_user_id: string | null
+          created_at: string
+          ended_at: string | null
+        }
+        Insert: {
+          id?: string
+          clinic_id: string
+          user_id: string
+          role?: 'admin' | 'staff'
+          created_by_user_id?: string | null
+          created_at?: string
+          ended_at?: string | null
+        }
+        Update: {
+          clinic_id?: string
+          user_id?: string
+          role?: 'admin' | 'staff'
+          created_by_user_id?: string | null
+          created_at?: string
+          ended_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'clinic_memberships_clinic_id_fkey'
+            columns: ['clinic_id']
+            isOneToOne: false
+            referencedRelation: 'clinics'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'clinic_memberships_created_by_user_id_fkey'
+            columns: ['created_by_user_id']
+            isOneToOne: false
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'clinic_memberships_user_id_fkey'
+            columns: ['user_id']
+            isOneToOne: false
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      clinic_invites: {
+        Row: {
+          id: string
+          clinic_id: string
+          email_normalized: string
+          role: 'admin' | 'staff'
+          token_hash: string
+          expires_at: string
+          accepted_at: string | null
+          revoked_at: string | null
+          invited_by_user_id: string
+          accepted_by_user_id: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          clinic_id: string
+          email_normalized: string
+          role?: 'admin' | 'staff'
+          token_hash: string
+          expires_at: string
+          accepted_at?: string | null
+          revoked_at?: string | null
+          invited_by_user_id: string
+          accepted_by_user_id?: string | null
           created_at?: string
           updated_at?: string
         }
         Update: {
           clinic_id?: string
-          full_name?: string
-          email?: string
-          phone?: string | null
+          email_normalized?: string
           role?: 'admin' | 'staff'
-          is_active?: boolean
+          token_hash?: string
+          expires_at?: string
+          accepted_at?: string | null
+          revoked_at?: string | null
+          invited_by_user_id?: string
+          accepted_by_user_id?: string | null
+          created_at?: string
           updated_at?: string
         }
         Relationships: [
           {
-            foreignKeyName: 'profiles_clinic_id_fkey'
+            foreignKeyName: 'clinic_invites_accepted_by_user_id_fkey'
+            columns: ['accepted_by_user_id']
+            isOneToOne: false
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'clinic_invites_clinic_id_fkey'
             columns: ['clinic_id']
             isOneToOne: false
             referencedRelation: 'clinics'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'clinic_invites_invited_by_user_id_fkey'
+            columns: ['invited_by_user_id']
+            isOneToOne: false
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      owner_onboardings: {
+        Row: {
+          user_id: string
+          clinic_id: string
+          membership_id: string
+          created_at: string
+        }
+        Insert: {
+          user_id: string
+          clinic_id: string
+          membership_id: string
+          created_at?: string
+        }
+        Update: {
+          user_id?: string
+          clinic_id?: string
+          membership_id?: string
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'owner_onboardings_clinic_id_fkey'
+            columns: ['clinic_id']
+            isOneToOne: false
+            referencedRelation: 'clinics'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'owner_onboardings_membership_id_fkey'
+            columns: ['membership_id']
+            isOneToOne: false
+            referencedRelation: 'clinic_memberships'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'owner_onboardings_user_id_fkey'
+            columns: ['user_id']
+            isOneToOne: true
+            referencedRelation: 'profiles'
             referencedColumns: ['id']
           },
         ]
@@ -606,18 +763,60 @@ export type Database = {
     Functions: {
       get_user_clinic_id: {
         Args: Record<string, never>
-        Returns: string
+        Returns: string | null
       }
       is_clinic_admin: {
         Args: Record<string, never>
         Returns: boolean
       }
-      create_clinic_and_admin: {
+      is_member_of_clinic: {
+        Args: {
+          target_clinic_id: string
+        }
+        Returns: boolean
+      }
+      is_admin_of_clinic: {
+        Args: {
+          target_clinic_id: string
+        }
+        Returns: boolean
+      }
+      complete_registration: {
         Args: {
           clinic_name: string
-          admin_email: string
-          admin_password: string
-          admin_full_name: string
+          full_name: string
+        }
+        Returns: Record<string, unknown>
+      }
+      create_staff_invite: {
+        Args: {
+          p_email: string
+          p_role: 'admin' | 'staff'
+        }
+        Returns: Record<string, unknown>
+      }
+      get_invite_preview: {
+        Args: {
+          p_invite_token: string
+        }
+        Returns: Record<string, unknown>
+      }
+      accept_invite: {
+        Args: {
+          p_invite_token: string
+          p_full_name: string
+        }
+        Returns: Record<string, unknown>
+      }
+      set_default_membership: {
+        Args: {
+          p_membership_id: string
+        }
+        Returns: Record<string, unknown>
+      }
+      deactivate_membership: {
+        Args: {
+          p_membership_id: string
         }
         Returns: Record<string, unknown>
       }

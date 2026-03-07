@@ -3,7 +3,7 @@ import { treatmentService } from '~/services/treatment.service'
 import type { ITreatmentSessionHistoryItem } from '~/types/models/treatment.types'
 
 export function useTreatmentSessionHistory() {
-  const supabase = useSupabase()
+  const supabase = useSupabaseClient()
 
   const historyByPlan = reactive<Record<string, ITreatmentSessionHistoryItem[]>>({})
   const loadingByPlan = reactive<Record<string, boolean>>({})

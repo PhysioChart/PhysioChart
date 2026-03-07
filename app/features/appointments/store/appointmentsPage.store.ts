@@ -122,8 +122,8 @@ function generateIdempotencyKey(prefix: string): string {
 export const useAppointmentsPageStore = defineStore('appointmentsPage', () => {
   const NO_TREATMENT_PLAN_VALUE = '__none__'
 
-  const supabase = useSupabase()
-  const { profile } = useAuth()
+  const supabase = useSupabaseClient()
+  const { activeMembership, isAdmin } = useAuth()
 
   const patientsStore = usePatientsStore()
   const staffStore = useStaffStore()
@@ -188,18 +188,18 @@ export const useAppointmentsPageStore = defineStore('appointmentsPage', () => {
   let treatmentFetchToken = 0
 
   const patients = computed(() => {
-    if (!profile.value) return []
-    return dropdownByClinic.value[profile.value.clinic_id] ?? []
+    if (!activeMembership.value?.clinic_id) return []
+    return dropdownByClinic.value[activeMembership.value.clinic_id] ?? []
   })
 
   const therapists = computed(() => {
-    if (!profile.value) return []
-    return activeByClinic.value[profile.value.clinic_id] ?? []
+    if (!activeMembership.value?.clinic_id) return []
+    return activeByClinic.value[activeMembership.value.clinic_id] ?? []
   })
 
   const appointments = computed<IAppointmentWithRelations[]>(() => {
-    if (!profile.value) return []
-    return byClinic.value[profile.value.clinic_id] ?? []
+    if (!activeMembership.value?.clinic_id) return []
+    return byClinic.value[activeMembership.value.clinic_id] ?? []
   })
 
   const therapistColorMap = computed(() => buildTherapistColorMap(therapists.value))
@@ -251,9 +251,9 @@ export const useAppointmentsPageStore = defineStore('appointmentsPage', () => {
   })
 
   const selectedPatientTreatmentPlans = computed<ITreatmentPlanWithRelations[]>(() => {
-    if (!profile.value || !newAppointment.value.patient_id) return []
+    if (!activeMembership.value?.clinic_id || !newAppointment.value.patient_id) return []
     return (
-      treatmentsByPatientByClinic.value[profile.value.clinic_id]?.[
+      treatmentsByPatientByClinic.value[activeMembership.value.clinic_id]?.[
         newAppointment.value.patient_id
       ] ?? []
     )
@@ -367,7 +367,11 @@ export const useAppointmentsPageStore = defineStore('appointmentsPage', () => {
   watchDebounced(
     [() => newAppointment.value.therapist_id, () => newAppointment.value.date],
     async () => {
-      if (!profile.value || !newAppointment.value.therapist_id || !newAppointment.value.date) {
+      if (
+        !activeMembership.value?.clinic_id ||
+        !newAppointment.value.therapist_id ||
+        !newAppointment.value.date
+      ) {
         blockedIntervals.value = []
         return
       }
@@ -375,7 +379,7 @@ export const useAppointmentsPageStore = defineStore('appointmentsPage', () => {
       isLoadingAvailability.value = true
       try {
         blockedIntervals.value = await appointmentService(supabase).listDoctorBlockedIntervals(
-          profile.value.clinic_id,
+          activeMembership.value.clinic_id,
           newAppointment.value.therapist_id,
           newAppointment.value.date,
         )
@@ -396,7 +400,11 @@ export const useAppointmentsPageStore = defineStore('appointmentsPage', () => {
       () => newAppointment.value.duration,
     ],
     async () => {
-      if (seriesDates.value.length === 0 || !newAppointment.value.therapist_id || !profile.value) {
+      if (
+        seriesDates.value.length === 0 ||
+        !newAppointment.value.therapist_id ||
+        !activeMembership.value?.clinic_id
+      ) {
         conflicts.value = new Set()
         return
       }
@@ -415,7 +423,7 @@ export const useAppointmentsPageStore = defineStore('appointmentsPage', () => {
       const lastDate = seriesDates.value[seriesDates.value.length - 1]!
       try {
         const data = await appointmentService(supabase).findConflicts(
-          profile.value.clinic_id,
+          activeMembership.value.clinic_id,
           newAppointment.value.therapist_id,
           firstDate,
           lastDate,
@@ -458,7 +466,7 @@ export const useAppointmentsPageStore = defineStore('appointmentsPage', () => {
         newAppointment.value.treatment_plan_id = NO_TREATMENT_PLAN_VALUE
       }
 
-      if (!profile.value || !patientId) {
+      if (!activeMembership.value?.clinic_id || !patientId) {
         isLoadingTreatmentPlans.value = false
         return
       }
@@ -466,7 +474,7 @@ export const useAppointmentsPageStore = defineStore('appointmentsPage', () => {
       const token = ++treatmentFetchToken
       isLoadingTreatmentPlans.value = true
       try {
-        await treatmentsStore.fetchByPatient(profile.value.clinic_id, patientId)
+        await treatmentsStore.fetchByPatient(activeMembership.value.clinic_id, patientId)
       } catch {
         if (token === treatmentFetchToken) {
           toast.error('Failed to load treatment plans')
@@ -480,11 +488,11 @@ export const useAppointmentsPageStore = defineStore('appointmentsPage', () => {
   )
 
   async function loadAppointments() {
-    if (!profile.value) return
+    if (!activeMembership.value?.clinic_id) return
     isLoading.value = true
 
     try {
-      await appointmentsStore.fetchList(profile.value.clinic_id)
+      await appointmentsStore.fetchList(activeMembership.value.clinic_id)
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to load appointments'
       toast.error(message)
@@ -494,8 +502,8 @@ export const useAppointmentsPageStore = defineStore('appointmentsPage', () => {
   }
 
   async function loadDropdowns() {
-    if (!profile.value) return
-    const clinicId = profile.value.clinic_id
+    if (!activeMembership.value?.clinic_id) return
+    const clinicId = activeMembership.value.clinic_id
     if (dropdownsLoadedByClinic.has(clinicId)) return
 
     dropdownsLoadedByClinic.add(clinicId)
@@ -544,7 +552,7 @@ export const useAppointmentsPageStore = defineStore('appointmentsPage', () => {
   }
 
   function canReopenAppointment(appt: IAppointmentWithRelations): boolean {
-    if (profile.value?.role === 'admin') return true
+    if (isAdmin.value) return true
     if (!appt.completed_at) return false
     return Date.now() - new Date(appt.completed_at).getTime() <= 24 * 60 * 60 * 1000
   }
@@ -574,7 +582,7 @@ export const useAppointmentsPageStore = defineStore('appointmentsPage', () => {
   }
 
   async function createAppointment() {
-    if (!profile.value || !newAppointment.value.patient_id) return
+    if (!activeMembership.value?.clinic_id || !newAppointment.value.patient_id) return
     if (!newAppointment.value.therapist_id) {
       toast.error('Select a doctor before booking an appointment')
       return
@@ -634,7 +642,7 @@ export const useAppointmentsPageStore = defineStore('appointmentsPage', () => {
         const startIso = new Date(startDateTime).toISOString()
         const endIso = endDate.toISOString()
         const overlap = await service.findDoctorConflicts(
-          profile.value.clinic_id,
+          activeMembership.value.clinic_id,
           newAppointment.value.therapist_id,
           startIso,
           endIso,
@@ -650,7 +658,7 @@ export const useAppointmentsPageStore = defineStore('appointmentsPage', () => {
 
         if (treatmentPlanId) {
           const result = await service.createTreatmentLinkedAppointment({
-            clinicId: profile.value.clinic_id,
+            clinicId: activeMembership.value.clinic_id,
             treatmentPlanId,
             therapistId: newAppointment.value.therapist_id,
             startTime: startIso,
@@ -666,7 +674,7 @@ export const useAppointmentsPageStore = defineStore('appointmentsPage', () => {
           }
         } else {
           await service.create({
-            clinic_id: profile.value.clinic_id,
+            clinic_id: activeMembership.value.clinic_id,
             patient_id: newAppointment.value.patient_id,
             therapist_id: newAppointment.value.therapist_id,
             treatment_plan_id: null,
@@ -700,7 +708,7 @@ export const useAppointmentsPageStore = defineStore('appointmentsPage', () => {
         })
 
         await service.createSeries({
-          clinicId: profile.value.clinic_id,
+          clinicId: activeMembership.value.clinic_id,
           patientId: newAppointment.value.patient_id,
           therapistId: newAppointment.value.therapist_id,
           treatmentPlanId,
@@ -753,7 +761,7 @@ export const useAppointmentsPageStore = defineStore('appointmentsPage', () => {
   }
 
   async function completeAppointment(noteOverride?: string) {
-    if (!profile.value || !completeTargetAppointment.value) return
+    if (!activeMembership.value?.clinic_id || !completeTargetAppointment.value) return
     isCompletingAppointment.value = true
 
     const rawNote = noteOverride ?? completeSessionNote.value
@@ -762,7 +770,7 @@ export const useAppointmentsPageStore = defineStore('appointmentsPage', () => {
 
     try {
       const result = await appointmentService(supabase).completeWithSessionNote(
-        profile.value.clinic_id,
+        activeMembership.value.clinic_id,
         completeTargetAppointment.value.id,
         noteToSend,
       )
@@ -793,7 +801,7 @@ export const useAppointmentsPageStore = defineStore('appointmentsPage', () => {
       }
 
       if (completeTargetAppointment.value.treatment_plan?.id) {
-        treatmentsStore.invalidate(profile.value.clinic_id)
+        treatmentsStore.invalidate(activeMembership.value.clinic_id)
       }
 
       await loadAppointments()
@@ -808,12 +816,12 @@ export const useAppointmentsPageStore = defineStore('appointmentsPage', () => {
   }
 
   async function reopenAppointment(appointmentId: string) {
-    if (!profile.value) return
+    if (!activeMembership.value?.clinic_id) return
     isReopeningAppointment.value = true
 
     try {
       const result = await appointmentService(supabase).reopenCompletedAppointment(
-        profile.value.clinic_id,
+        activeMembership.value.clinic_id,
         appointmentId,
       )
       toast.success(
@@ -835,8 +843,8 @@ export const useAppointmentsPageStore = defineStore('appointmentsPage', () => {
     isUpdatingStatus.value = true
 
     try {
-      if (!profile.value) return
-      await appointmentService(supabase).updateStatus(profile.value.clinic_id, id, status)
+      if (!activeMembership.value?.clinic_id) return
+      await appointmentService(supabase).updateStatus(activeMembership.value.clinic_id, id, status)
       toast.success(`Appointment marked as ${APPOINTMENT_STATUS_LABELS[status]}`)
       showDetailSheet.value = false
       await loadAppointments()
@@ -852,8 +860,8 @@ export const useAppointmentsPageStore = defineStore('appointmentsPage', () => {
     isCancellingSeries.value = true
 
     try {
-      if (!profile.value) return
-      await appointmentService(supabase).cancelSeries(profile.value.clinic_id, seriesId)
+      if (!activeMembership.value?.clinic_id) return
+      await appointmentService(supabase).cancelSeries(activeMembership.value.clinic_id, seriesId)
       toast.success('Remaining appointments in series cancelled')
       await loadAppointments()
     } catch (err: unknown) {
@@ -881,16 +889,16 @@ export const useAppointmentsPageStore = defineStore('appointmentsPage', () => {
       : treatmentPlanIdParam
 
     if (
-      profile.value &&
+      activeMembership.value?.clinic_id &&
       typeof patientId === 'string' &&
       patientId &&
       typeof treatmentPlanId === 'string' &&
       treatmentPlanId
     ) {
       try {
-        await treatmentsStore.fetchByPatient(profile.value.clinic_id, patientId)
+        await treatmentsStore.fetchByPatient(activeMembership.value.clinic_id, patientId)
         const linkedPlan =
-          treatmentsByPatientByClinic.value[profile.value.clinic_id]?.[patientId]?.find(
+          treatmentsByPatientByClinic.value[activeMembership.value.clinic_id]?.[patientId]?.find(
             (plan) => plan.id === treatmentPlanId && plan.status === TreatmentStatus.ACTIVE,
           ) ?? null
 

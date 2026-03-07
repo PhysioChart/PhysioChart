@@ -23,7 +23,7 @@ export const usePatientsStore = defineStore('patients', () => {
   }
 
   async function refreshList(clinicId: string): Promise<Tables<'patients'>[]> {
-    const supabase = useSupabase()
+    const supabase = useSupabaseClient()
     const meta = getListMeta(clinicId)
     meta.isLoading = true
     meta.error = null
@@ -42,7 +42,7 @@ export const usePatientsStore = defineStore('patients', () => {
   }
 
   async function refreshDropdown(clinicId: string): Promise<Tables<'patients'>[]> {
-    const supabase = useSupabase()
+    const supabase = useSupabaseClient()
     const meta = getDropdownMeta(clinicId)
     meta.isLoading = true
     meta.error = null

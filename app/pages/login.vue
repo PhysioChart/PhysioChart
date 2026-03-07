@@ -68,9 +68,10 @@ import { useForm } from 'vee-validate'
 import { z } from 'zod'
 import { LogIn } from 'lucide-vue-next'
 
-definePageMeta({ layout: 'auth' })
+definePageMeta({ layout: 'auth', middleware: 'guest' })
 
 const { signIn } = useAuth()
+const route = useRoute()
 const error = ref('')
 const isLoading = ref(false)
 
@@ -81,13 +82,23 @@ const schema = toTypedSchema(
   }),
 )
 
-const { handleSubmit } = useForm({ validationSchema: schema })
+const { handleSubmit, setFieldValue } = useForm({ validationSchema: schema })
+
+onMounted(() => {
+  if (typeof route.query.email === 'string') {
+    setFieldValue('email', route.query.email)
+  }
+})
 
 const onSubmit = handleSubmit(async (values) => {
   error.value = ''
   isLoading.value = true
   try {
-    await signIn(values.email, values.password)
+    await signIn({
+      email: values.email,
+      password: values.password,
+      resumeInviteToken: typeof route.query.invite === 'string' ? route.query.invite : undefined,
+    })
   } catch (e: unknown) {
     error.value = e instanceof Error ? e.message : 'Login failed'
   } finally {

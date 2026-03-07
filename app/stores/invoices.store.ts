@@ -32,7 +32,7 @@ export const useInvoicesStore = defineStore('invoices', () => {
   }
 
   async function refreshList(clinicId: string): Promise<IInvoiceWithRelations[]> {
-    const supabase = useSupabase()
+    const supabase = useSupabaseClient()
     const meta = getListMeta(clinicId)
     meta.isLoading = true
     meta.error = null
@@ -54,7 +54,7 @@ export const useInvoicesStore = defineStore('invoices', () => {
     clinicId: string,
     patientId: string,
   ): Promise<IInvoiceWithRelations[]> {
-    const supabase = useSupabase()
+    const supabase = useSupabaseClient()
     const meta = getByPatientMeta(clinicId, patientId)
     meta.isLoading = true
     meta.error = null

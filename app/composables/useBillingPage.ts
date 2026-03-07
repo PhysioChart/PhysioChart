@@ -160,8 +160,8 @@ function getInvoiceErrorMessage(err: unknown): string {
 }
 
 export function useBillingPage() {
-  const supabase = useSupabase()
-  const { profile } = useAuth()
+  const supabase = useSupabaseClient()
+  const { activeMembership } = useAuth()
   const route = useRoute()
   const router = useRouter()
 
@@ -213,23 +213,24 @@ export function useBillingPage() {
   ]
 
   const patients = computed(() => {
-    if (!profile.value) return []
-    return dropdownByClinic.value[profile.value.clinic_id] ?? []
+    if (!activeMembership.value?.clinic_id) return []
+    return dropdownByClinic.value[activeMembership.value.clinic_id] ?? []
   })
 
   const invoices = computed<IInvoiceWithRelations[]>(() => {
-    if (!profile.value) return []
-    return byClinic.value[profile.value.clinic_id] ?? []
+    if (!activeMembership.value?.clinic_id) return []
+    return byClinic.value[activeMembership.value.clinic_id] ?? []
   })
 
   const hasSelectedPatient = computed(() => !!newInvoice.value.patient_id)
 
   const availableTreatmentPlans = computed<ITreatmentPlanWithRelations[]>(() => {
-    if (!profile.value || !newInvoice.value.patient_id) return []
+    if (!activeMembership.value?.clinic_id || !newInvoice.value.patient_id) return []
 
     const plans =
-      treatmentsByPatientByClinic.value[profile.value.clinic_id]?.[newInvoice.value.patient_id] ??
-      []
+      treatmentsByPatientByClinic.value[activeMembership.value.clinic_id]?.[
+        newInvoice.value.patient_id
+      ] ?? []
 
     return plans.filter(
       (plan) => plan.status === TreatmentStatus.ACTIVE || plan.status === TreatmentStatus.COMPLETED,
@@ -328,11 +329,11 @@ export function useBillingPage() {
   })
 
   async function loadInvoices() {
-    if (!profile.value) return
+    if (!activeMembership.value?.clinic_id) return
     isLoading.value = true
 
     try {
-      await invoicesStore.fetchList(profile.value.clinic_id)
+      await invoicesStore.fetchList(activeMembership.value.clinic_id)
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to load invoices'
       toast.error(message)
@@ -342,19 +343,19 @@ export function useBillingPage() {
   }
 
   async function loadPatients() {
-    if (!profile.value || dropdownsLoaded) return
-    await patientsStore.fetchDropdown(profile.value.clinic_id)
+    if (!activeMembership.value?.clinic_id || dropdownsLoaded) return
+    await patientsStore.fetchDropdown(activeMembership.value.clinic_id)
     dropdownsLoaded = true
   }
 
   async function loadTreatmentsForPatient(patientId: string) {
-    if (!profile.value || !patientId) return
+    if (!activeMembership.value?.clinic_id || !patientId) return
 
     const token = ++treatmentLoadToken.value
     isLoadingTreatments.value = true
 
     try {
-      await treatmentsStore.fetchByPatient(profile.value.clinic_id, patientId)
+      await treatmentsStore.fetchByPatient(activeMembership.value.clinic_id, patientId)
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to load treatment plans'
       toast.error(message)
@@ -478,7 +479,7 @@ export function useBillingPage() {
   }
 
   async function initializeCreateInvoiceDialog() {
-    if (!showNewDialog.value || !profile.value) return
+    if (!showNewDialog.value || !activeMembership.value?.clinic_id) return
 
     try {
       const action = toSingleQueryValue(route.query.action)
@@ -514,7 +515,7 @@ export function useBillingPage() {
   }
 
   async function createInvoice() {
-    if (!profile.value || !newInvoice.value.patient_id) return
+    if (!activeMembership.value?.clinic_id || !newInvoice.value.patient_id) return
     if (!validateInvoiceItems(newInvoice.value.items)) return
 
     isSubmitting.value = true
@@ -532,7 +533,7 @@ export function useBillingPage() {
       })
 
       const result: ICreateInvoiceResult = await invoiceService(supabase).createInvoice({
-        clinicId: profile.value.clinic_id,
+        clinicId: activeMembership.value.clinic_id,
         patientId: newInvoice.value.patient_id,
         treatmentPlanId:
           newInvoice.value.treatment_plan_id === NO_TREATMENT_PLAN_VALUE
@@ -544,7 +545,7 @@ export function useBillingPage() {
         idempotencyKey: createInvoiceIdempotencyKey.value,
       })
 
-      invoicesStore.upsertInvoice(profile.value.clinic_id, result.invoice)
+      invoicesStore.upsertInvoice(activeMembership.value.clinic_id, result.invoice)
       toast.success(result.alreadyCreated ? 'Invoice already created.' : 'Invoice created')
       showNewDialog.value = false
     } catch (err: unknown) {
@@ -555,11 +556,14 @@ export function useBillingPage() {
   }
 
   async function loadPaymentHistory(invoiceId: string) {
-    if (!profile.value) return
+    if (!activeMembership.value?.clinic_id) return
 
     paymentHistoryLoadingByInvoice.value[invoiceId] = true
     try {
-      const rows = await paymentService(supabase).listForInvoice(profile.value.clinic_id, invoiceId)
+      const rows = await paymentService(supabase).listForInvoice(
+        activeMembership.value.clinic_id,
+        invoiceId,
+      )
       paymentHistoryByInvoice.value[invoiceId] = rows
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to load payment history'
@@ -608,7 +612,12 @@ export function useBillingPage() {
   }
 
   async function recordPayment() {
-    if (!profile.value || !recordPaymentInvoiceId.value || !selectedInvoiceForPayment.value) return
+    if (
+      !activeMembership.value?.clinic_id ||
+      !recordPaymentInvoiceId.value ||
+      !selectedInvoiceForPayment.value
+    )
+      return
 
     const amount = Number(paymentForm.value.amount)
     const outstanding = selectedInvoiceOutstanding.value
@@ -643,7 +652,7 @@ export function useBillingPage() {
 
     try {
       const result = await paymentService(supabase).recordForInvoice({
-        clinicId: profile.value.clinic_id,
+        clinicId: activeMembership.value.clinic_id,
         invoiceId: recordPaymentInvoiceId.value,
         amount,
         method: paymentForm.value.method,
@@ -654,7 +663,7 @@ export function useBillingPage() {
 
       appendPaymentToHistory(recordPaymentInvoiceId.value, {
         id: result.payment.id,
-        clinic_id: profile.value.clinic_id,
+        clinic_id: activeMembership.value.clinic_id,
         invoice_id: result.payment.invoiceId,
         amount: result.payment.amount,
         method: result.payment.method,

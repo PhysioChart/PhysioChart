@@ -263,19 +263,7 @@ import {
   Users,
 } from 'lucide-vue-next'
 
-definePageMeta({ layout: false })
-
-const { isAuthenticated } = useAuth()
-
-watch(
-  isAuthenticated,
-  (authenticated) => {
-    if (authenticated) {
-      void navigateTo('/home', { replace: true })
-    }
-  },
-  { immediate: true },
-)
+definePageMeta({ layout: false, middleware: 'guest' })
 
 useScrollReveal()
 

@@ -185,7 +185,7 @@ const {
   treatmentProgress,
 } = toRefs(props)
 
-const { profile } = useAuth()
+const { activeMembership } = useAuth()
 const { historyByPlan, loadingByPlan, errorByPlan, loadHistory } = useTreatmentSessionHistory()
 
 const planIds = computed(() => {
@@ -195,8 +195,8 @@ const planIds = computed(() => {
 watch(
   planIds,
   async (ids) => {
-    if (!profile.value || ids.length === 0) return
-    await loadHistory(profile.value.clinic_id, ids)
+    if (!activeMembership.value?.clinic_id || ids.length === 0) return
+    await loadHistory(activeMembership.value.clinic_id, ids)
   },
   { immediate: true },
 )

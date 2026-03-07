@@ -26,7 +26,7 @@ export const useAppointmentsStore = defineStore('appointments', () => {
   }
 
   async function refreshList(clinicId: string): Promise<IAppointmentWithRelations[]> {
-    const supabase = useSupabase()
+    const supabase = useSupabaseClient()
     const meta = getListMeta(clinicId)
     meta.isLoading = true
     meta.error = null
@@ -48,7 +48,7 @@ export const useAppointmentsStore = defineStore('appointments', () => {
     clinicId: string,
     patientId: string,
   ): Promise<IAppointmentWithRelations[]> {
-    const supabase = useSupabase()
+    const supabase = useSupabaseClient()
     const meta = getByPatientMeta(clinicId, patientId)
     meta.isLoading = true
     meta.error = null

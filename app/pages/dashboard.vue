@@ -198,8 +198,10 @@ import {
   getStatusColor,
 } from '~/lib/formatters'
 
-const { profile } = useAuth()
-const supabase = useSupabase()
+definePageMeta({ layout: 'protected' })
+
+const { profile, activeClinic } = useAuth()
+const supabase = useSupabaseClient()
 
 const isLoading = ref(true)
 const errorMessage = ref<string | null>(null)
@@ -261,7 +263,7 @@ const upcoming = computed(() => overview.value?.upcomingAppointments ?? [])
 const recent = computed(() => overview.value?.recentActivity ?? [])
 
 async function load(force = false) {
-  if (!profile.value?.clinic_id) {
+  if (!activeClinic.value?.id) {
     errorMessage.value = 'Clinic not found for your profile.'
     isLoading.value = false
     return
@@ -277,7 +279,7 @@ async function load(force = false) {
     rangeEnd.setDate(rangeEnd.getDate() + 7)
 
     overview.value = await dashboardService(supabase).getOverview({
-      clinicId: profile.value.clinic_id,
+      clinicId: activeClinic.value.id,
       nowIso: now.toISOString(),
       rangeEndIso: rangeEnd.toISOString(),
       todayLocal: toLocalDateKey(now),
@@ -303,4 +305,8 @@ async function load(force = false) {
 }
 
 onMounted(() => load())
+
+watch(activeClinic, () => {
+  void load(true)
+})
 </script>

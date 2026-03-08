@@ -1,0 +1,2 @@
+export const CALENDAR_DAY_START_HOUR = 0
+export const CALENDAR_DAY_END_HOUR = 24

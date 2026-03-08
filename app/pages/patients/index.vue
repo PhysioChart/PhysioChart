@@ -28,7 +28,7 @@
               </div>
               <div>
                 <Label for="phone">Phone *</Label>
-                <Input id="phone" v-model="newPatient.phone" placeholder="+91 98765 43210" />
+                <IndianPhoneField id="phone" v-model="newPatient.phone" />
               </div>
               <div>
                 <Label for="email">Email</Label>
@@ -36,7 +36,7 @@
               </div>
               <div>
                 <Label for="dob">Date of Birth</Label>
-                <Input id="dob" v-model="newPatient.date_of_birth" type="date" />
+                <Input id="dob" v-model="newPatient.date_of_birth" type="date" :max="todayDate" />
               </div>
               <div>
                 <Label for="gender">Gender</Label>
@@ -72,11 +72,7 @@
               </div>
               <div>
                 <Label for="ec-phone">Emergency Contact Phone</Label>
-                <Input
-                  id="ec-phone"
-                  v-model="newPatient.emergency_contact_phone"
-                  placeholder="Optional"
-                />
+                <IndianPhoneField id="ec-phone" v-model="newPatient.emergency_contact_phone" />
               </div>
               <div class="sm:col-span-2">
                 <Label for="notes">Notes</Label>
@@ -92,10 +88,7 @@
               <Button type="button" variant="outline" @click="showNewPatientDialog = false">
                 Cancel
               </Button>
-              <Button
-                type="submit"
-                :disabled="isSubmitting || !newPatient.full_name || !newPatient.phone"
-              >
+              <Button type="submit" :disabled="isSubmitting || !canSubmitNewPatient">
                 {{ isSubmitting ? 'Registering...' : 'Register Patient' }}
               </Button>
             </DialogFooter>
@@ -141,7 +134,6 @@
                 <TableHead>Phone</TableHead>
                 <TableHead class="hidden md:table-cell">Gender</TableHead>
                 <TableHead class="hidden md:table-cell">Registered</TableHead>
-                <TableHead class="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -159,7 +151,7 @@
                 <TableCell>
                   <div class="flex items-center gap-1">
                     <Phone class="text-muted-foreground h-3 w-3" />
-                    {{ patient.phone }}
+                    {{ formatIndianPhoneDisplay(patient.phone) }}
                   </div>
                 </TableCell>
                 <TableCell class="hidden md:table-cell">
@@ -167,15 +159,6 @@
                 </TableCell>
                 <TableCell class="hidden md:table-cell">
                   {{ formatDateWithYear(patient.created_at) }}
-                </TableCell>
-                <TableCell class="text-right">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    @click.stop="navigateTo(`/patients/${patient.id}`)"
-                  >
-                    View
-                  </Button>
                 </TableCell>
               </TableRow>
             </TableBody>
@@ -190,7 +173,9 @@
 import { Users, UserPlus, Search, Phone } from 'lucide-vue-next'
 import { Gender, GENDER_LABELS } from '~/enums/gender.enum'
 import { usePatientsIndexPage } from '~/composables/usePatientsIndexPage'
+import { toLocalDateKey } from '~/lib/date'
 import { formatDateWithYear } from '~/lib/formatters'
+import { formatIndianPhoneDisplay } from '~/lib/phone'
 
 definePageMeta({ layout: 'protected' })
 
@@ -200,7 +185,10 @@ const {
   showNewPatientDialog,
   newPatient,
   isSubmitting,
+  canSubmitNewPatient,
   filteredPatients,
   createPatient,
 } = usePatientsIndexPage()
+
+const todayDate = toLocalDateKey(new Date())
 </script>

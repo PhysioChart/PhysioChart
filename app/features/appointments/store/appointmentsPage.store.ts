@@ -4,7 +4,8 @@ import { toast } from 'vue-sonner'
 import { APPOINTMENT_STATUS_LABELS, type AppointmentStatus } from '~/enums/appointment.enum'
 import { AppointmentErrorCode } from '~/enums/appointment-error.enum'
 import { TreatmentStatus } from '~/enums/treatment.enum'
-import { toLocalDateKey } from '~/lib/date'
+import { CALENDAR_DAY_END_HOUR, CALENDAR_DAY_START_HOUR } from '~/lib/calendar'
+import { isPastLocalDate, isPastLocalDateTime, toLocalDateKey } from '~/lib/date'
 import {
   AppointmentConflictError,
   appointmentService,
@@ -28,8 +29,8 @@ import type {
 
 const SLOT_STEP_MINUTES = 15
 const MAX_APPOINTMENT_DURATION_MINUTES = 12 * 60
-const START_HOUR = 6
-const END_HOUR = 22
+const START_HOUR = CALENDAR_DAY_START_HOUR
+const END_HOUR = CALENDAR_DAY_END_HOUR
 
 function getAppointmentErrorMessage(codeOrMessage: string): string {
   switch (codeOrMessage) {
@@ -267,6 +268,15 @@ export const useAppointmentsPageStore = defineStore('appointmentsPage', () => {
   const lockPatientSelection = computed(() => Boolean(linkedBookingContext.value))
   const lockTreatmentPlanSelection = computed(() => Boolean(linkedBookingContext.value))
   const linkedTreatmentName = computed(() => linkedBookingContext.value?.treatmentName ?? null)
+  const minBookingDate = computed(() => toLocalDateKey(new Date()))
+
+  const bookingAnchorDate = computed(() => {
+    if (bookingMode.value === 'series') {
+      return seriesDates.value[0] ?? newAppointment.value.date
+    }
+
+    return newAppointment.value.date
+  })
 
   const treatmentSelectPlaceholder = computed(() => {
     if (!newAppointment.value.patient_id) return 'Select patient first'
@@ -279,6 +289,7 @@ export const useAppointmentsPageStore = defineStore('appointmentsPage', () => {
   const isDoctorSelected = computed(() => Boolean(newAppointment.value.therapist_id))
 
   const selectedDateTimeRange = computed(() => {
+    if (bookingMode.value !== 'single') return null
     if (!newAppointment.value.date || !newAppointment.value.start_time) return null
 
     const durationMin = Number.parseInt(newAppointment.value.duration, 10)
@@ -313,6 +324,18 @@ export const useAppointmentsPageStore = defineStore('appointmentsPage', () => {
   })
 
   const hasSelectedSlotConflict = computed(() => Boolean(selectedSlotConflict.value))
+  const hasPastBookingSelection = computed(() => {
+    if (!newAppointment.value.date || !newAppointment.value.start_time) return false
+
+    if (bookingMode.value === 'series') {
+      const firstOccurrenceDate = seriesDates.value[0]
+      if (!firstOccurrenceDate) return false
+
+      return isPastLocalDateTime(firstOccurrenceDate, newAppointment.value.start_time)
+    }
+
+    return isPastLocalDateTime(newAppointment.value.date, newAppointment.value.start_time)
+  })
 
   const timeOptions = computed<AppointmentTimeOption[]>(() => {
     const options: AppointmentTimeOption[] = []
@@ -340,6 +363,9 @@ export const useAppointmentsPageStore = defineStore('appointmentsPage', () => {
         } else if (!hasValidDuration) {
           option.disabled = true
           option.disabledReason = 'Select a valid duration'
+        } else if (bookingAnchorDate.value && isPastLocalDate(bookingAnchorDate.value)) {
+          option.disabled = true
+          option.disabledReason = 'Past date'
         } else {
           const startDateTime = `${newAppointment.value.date}T${value}:00`
           const start = new Date(startDateTime)
@@ -348,12 +374,19 @@ export const useAppointmentsPageStore = defineStore('appointmentsPage', () => {
           const startIso = start.toISOString()
           const endIso = end.toISOString()
 
-          const hasConflict = blockedIntervals.value.some((interval) =>
-            overlapsInterval(startIso, endIso, interval),
-          )
-          if (hasConflict) {
+          if (bookingAnchorDate.value && isPastLocalDateTime(bookingAnchorDate.value, value)) {
             option.disabled = true
-            option.disabledReason = 'Already booked'
+            option.disabledReason = 'Past time'
+          }
+
+          if (!option.disabled && bookingMode.value === 'single') {
+            const hasConflict = blockedIntervals.value.some((interval) =>
+              overlapsInterval(startIso, endIso, interval),
+            )
+            if (hasConflict) {
+              option.disabled = true
+              option.disabledReason = 'Already booked'
+            }
           }
         }
 
@@ -564,6 +597,8 @@ export const useAppointmentsPageStore = defineStore('appointmentsPage', () => {
   }
 
   function handleSlotClick(date: string, time: string) {
+    if (isPastLocalDateTime(date, time)) return
+
     newAppointment.value.date = date
     newAppointment.value.start_time = time
     bookingMode.value = 'single'
@@ -587,6 +622,10 @@ export const useAppointmentsPageStore = defineStore('appointmentsPage', () => {
       toast.error('Select a doctor before booking an appointment')
       return
     }
+    if (isPastLocalDate(newAppointment.value.date)) {
+      toast.error('Past dates cannot be booked')
+      return
+    }
 
     if (
       newAppointment.value.treatment_plan_id !== NO_TREATMENT_PLAN_VALUE &&
@@ -608,6 +647,11 @@ export const useAppointmentsPageStore = defineStore('appointmentsPage', () => {
           : newAppointment.value.treatment_plan_id
 
       if (bookingMode.value === 'single') {
+        if (isPastLocalDateTime(newAppointment.value.date, newAppointment.value.start_time)) {
+          toast.error('Past time slots cannot be booked')
+          return
+        }
+
         const startDateTime = `${newAppointment.value.date}T${newAppointment.value.start_time}:00`
         const endDate = new Date(startDateTime)
         const durationMin = Number.parseInt(newAppointment.value.duration, 10)
@@ -685,6 +729,16 @@ export const useAppointmentsPageStore = defineStore('appointmentsPage', () => {
           toast.success('Appointment booked')
         }
       } else {
+        const firstOccurrenceDate = seriesDates.value[0]
+        if (!firstOccurrenceDate) {
+          toast.error('Select at least one day to create a series')
+          return
+        }
+        if (isPastLocalDateTime(firstOccurrenceDate, newAppointment.value.start_time)) {
+          toast.error('Past time slots cannot be booked')
+          return
+        }
+
         const durationMin = Number.parseInt(newAppointment.value.duration, 10)
         if (!Number.isFinite(durationMin) || durationMin <= 0) {
           toast.error('Appointment duration must be greater than 0 minutes')
@@ -950,6 +1004,7 @@ export const useAppointmentsPageStore = defineStore('appointmentsPage', () => {
     isDoctorSelected,
     selectedSlotConflict,
     hasSelectedSlotConflict,
+    hasPastBookingSelection,
     timeOptions,
     isUpdatingStatus,
     isCancellingSeries,
@@ -971,6 +1026,7 @@ export const useAppointmentsPageStore = defineStore('appointmentsPage', () => {
     lockPatientSelection,
     lockTreatmentPlanSelection,
     linkedTreatmentName,
+    minBookingDate,
     treatmentSelectPlaceholder,
     goToToday,
     goToPrevDay,

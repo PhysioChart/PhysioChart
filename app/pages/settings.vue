@@ -44,10 +44,9 @@
                 </div>
                 <div>
                   <Label for="clinic-phone">Phone</Label>
-                  <Input
+                  <IndianPhoneField
                     id="clinic-phone"
                     v-model="clinicForm.phone"
-                    placeholder="+91 98765 43210"
                     :disabled="!isAdmin"
                   />
                 </div>

@@ -1,4 +1,5 @@
 import type { IAppointmentWithRelations } from '~/types/models/appointment.types'
+import { CALENDAR_DAY_END_HOUR, CALENDAR_DAY_START_HOUR } from '~/lib/calendar'
 import { toLocalDateKey } from '~/lib/date'
 
 export type CalendarAppointment = IAppointmentWithRelations
@@ -53,8 +54,8 @@ export interface CalendarDay {
 }
 
 export function useCalendar() {
-  const DAY_START_HOUR = 8
-  const DAY_END_HOUR = 20
+  const DAY_START_HOUR = CALENDAR_DAY_START_HOUR
+  const DAY_END_HOUR = CALENDAR_DAY_END_HOUR
   const SLOT_MINUTES = 30
   const SLOT_HEIGHT_PX = 48
 

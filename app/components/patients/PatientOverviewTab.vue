@@ -10,7 +10,7 @@
             <Phone class="text-muted-foreground h-4 w-4" />
             <div>
               <dt class="text-muted-foreground text-xs">Phone</dt>
-              <dd class="text-sm font-medium">{{ patient.phone }}</dd>
+              <dd class="text-sm font-medium">{{ formatIndianPhoneDisplay(patient.phone) }}</dd>
             </div>
           </div>
           <div class="flex items-center gap-2">
@@ -62,7 +62,9 @@
           </div>
           <div>
             <dt class="text-muted-foreground text-xs">Phone</dt>
-            <dd class="text-sm font-medium">{{ patient.emergency_contact_phone ?? '—' }}</dd>
+            <dd class="text-sm font-medium">
+              {{ formatIndianPhoneDisplay(patient.emergency_contact_phone) }}
+            </dd>
           </div>
         </dl>
       </CardContent>
@@ -142,6 +144,7 @@ import { Phone, Mail, MapPin, Calendar, AlertCircle, User } from 'lucide-vue-nex
 import type { Tables, MedicalHistory } from '~/types/database'
 import { GENDER_LABELS } from '~/enums/gender.enum'
 import { formatDateLong } from '~/lib/formatters'
+import { formatIndianPhoneDisplay } from '~/lib/phone'
 
 defineProps<{
   patient: Tables<'patients'>

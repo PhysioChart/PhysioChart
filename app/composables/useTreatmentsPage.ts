@@ -38,19 +38,23 @@ export function useTreatmentsPage() {
     return byClinic.value[activeMembership.value.clinic_id] ?? []
   })
 
-  const newPlan = ref({
-    patient_id: '',
-    therapist_id: '',
-    name: '',
-    diagnosis: '',
-    treatment_type: '',
-    total_sessions: 10,
-    price_per_session: '',
-    package_price: '',
-    notes: '',
-  })
+  const newPlan = ref(createEmptyPlan())
   const isSubmitting = ref(false)
   let dropdownsLoaded = false
+
+  function createEmptyPlan() {
+    return {
+      patient_id: '',
+      therapist_id: '',
+      name: '',
+      diagnosis: '',
+      treatment_type: '',
+      total_sessions: 10,
+      price_per_session: '',
+      package_price: '',
+      notes: '',
+    }
+  }
 
   const filteredPlans = computed(() => {
     if (filter.value === 'all') return plans.value
@@ -92,6 +96,10 @@ export function useTreatmentsPage() {
     showNewDialog.value = true
   }
 
+  function resetNewPlan(): void {
+    newPlan.value = createEmptyPlan()
+  }
+
   async function createPlan(): Promise<void> {
     if (!activeMembership.value?.clinic_id || !newPlan.value.patient_id || !newPlan.value.name)
       return
@@ -117,17 +125,7 @@ export function useTreatmentsPage() {
       treatmentsStore.invalidate(activeMembership.value.clinic_id)
       await loadPlans()
       showNewDialog.value = false
-      newPlan.value = {
-        patient_id: '',
-        therapist_id: '',
-        name: '',
-        diagnosis: '',
-        treatment_type: '',
-        total_sessions: 10,
-        price_per_session: '',
-        package_price: '',
-        notes: '',
-      }
+      resetNewPlan()
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to create treatment plan'
       toast.error(message)
@@ -137,6 +135,10 @@ export function useTreatmentsPage() {
   }
 
   onMounted(loadPlans)
+
+  watch(showNewDialog, (open) => {
+    if (!open) resetNewPlan()
+  })
 
   return {
     isLoading,

@@ -3,6 +3,7 @@ import { AppointmentStatus } from '~/enums/appointment.enum'
 import { TreatmentStatus } from '~/enums/treatment.enum'
 import { InvoiceStatus } from '~/enums/invoice.enum'
 import { formatAppDate } from '~/lib/date'
+import { toWhatsAppPhone } from '~/lib/phone'
 
 /** "2:30 pm" */
 export function formatTime(dateStr: string): string {
@@ -138,8 +139,8 @@ export function getAppointmentWhatsAppLink({
 }: AppointmentWhatsAppLinkArgs): string | null {
   if (!patient) return null
 
-  const phone = patient.phone.replace(/\D/g, '')
-  if (phone.length < 10 || phone.length > 15) return null
+  const phone = toWhatsAppPhone(patient.phone)
+  if (!phone) return null
 
   const patientName = patient.full_name.trim() || 'there'
   const clinicLabel = clinicName?.trim() || 'your clinic'

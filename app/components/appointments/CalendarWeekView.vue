@@ -48,15 +48,18 @@
           v-for="slot in timeSlots"
           :key="`${day.dateStr}-${slot.hour}-${slot.minute}`"
           role="button"
-          tabindex="0"
+          :tabindex="isSlotDisabled(day.dateStr, slot.hour, slot.minute) ? -1 : 0"
           :aria-label="slotLabel(day, slot)"
+          :aria-disabled="isSlotDisabled(day.dateStr, slot.hour, slot.minute) || undefined"
           :class="[
-            'hover:bg-muted/50 cursor-pointer border-b transition-colors',
+            isSlotDisabled(day.dateStr, slot.hour, slot.minute)
+              ? 'bg-muted/20 cursor-not-allowed border-b'
+              : 'hover:bg-muted/50 cursor-pointer border-b transition-colors',
             slot.minute === 0 ? 'border-border' : 'border-border/30',
           ]"
           :style="{ height: `${SLOT_HEIGHT_PX}px` }"
-          @click="emit('clickSlot', day.dateStr, timeFromSlot(slot.hour, slot.minute))"
-          @keydown.enter="emit('clickSlot', day.dateStr, timeFromSlot(slot.hour, slot.minute))"
+          @click="handleSlotClick(day.dateStr, slot.hour, slot.minute)"
+          @keydown.enter="handleSlotClick(day.dateStr, slot.hour, slot.minute)"
         />
 
         <!-- Appointment blocks -->
@@ -79,6 +82,7 @@
 import { nextTick, onMounted, ref } from 'vue'
 import CalendarAppointmentBlock from '~/components/appointments/CalendarAppointmentBlock.vue'
 import type { CalendarAppointment, CalendarDay, TherapistColor } from '~/composables/useCalendar'
+import { isPastLocalDateTime } from '~/lib/date'
 
 const props = defineProps<{
   appointments: CalendarAppointment[]
@@ -120,5 +124,15 @@ function positionedAppointments(dateStr: string) {
 
 function slotLabel(day: CalendarDay, slot: { label: string }) {
   return `Book appointment on ${day.dayLabel} at ${slot.label}`
+}
+
+function isSlotDisabled(dateStr: string, hour: number, minute: number) {
+  return isPastLocalDateTime(dateStr, timeFromSlot(hour, minute))
+}
+
+function handleSlotClick(dateStr: string, hour: number, minute: number) {
+  if (isSlotDisabled(dateStr, hour, minute)) return
+
+  emit('clickSlot', dateStr, timeFromSlot(hour, minute))
 }
 </script>

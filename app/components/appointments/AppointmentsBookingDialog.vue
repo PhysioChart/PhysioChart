@@ -41,7 +41,7 @@
             </SelectTrigger>
             <SelectContent>
               <SelectItem v-for="p in patients" :key="p.id" :value="p.id">
-                {{ p.full_name }} ({{ p.phone }})
+                {{ p.full_name }} ({{ formatIndianPhoneDisplay(p.phone) }})
               </SelectItem>
             </SelectContent>
           </Select>
@@ -85,7 +85,7 @@
         <div class="grid grid-cols-3 gap-3">
           <div>
             <Label>{{ bookingMode === 'series' ? 'Start Date *' : 'Date *' }}</Label>
-            <Input v-model="form.date" type="date" />
+            <Input v-model="form.date" type="date" :min="minBookingDate" />
           </div>
           <div>
             <Label>Time *</Label>
@@ -183,6 +183,9 @@
           {{ formatTime(selectedSlotConflict.start_time) }} to
           {{ formatTime(selectedSlotConflict.end_time) }}.
         </p>
+        <p v-else-if="hasPastBookingSelection" class="text-sm text-red-600">
+          Past time slots cannot be booked.
+        </p>
 
         <div>
           <Label>Notes</Label>
@@ -197,6 +200,7 @@
               isSubmitting ||
               !form.patient_id ||
               !form.therapist_id ||
+              hasPastBookingSelection ||
               hasSelectedSlotConflict ||
               (bookingMode === 'series' && conflicts.size > 0) ||
               (bookingMode === 'series' && seriesConfig.days.length === 0)
@@ -227,6 +231,7 @@ import type {
   SeriesConfigState,
 } from '~/features/appointments/types'
 import { formatSeriesDate, formatTime } from '~/lib/formatters'
+import { formatIndianPhoneDisplay } from '~/lib/phone'
 import type { IAppointmentBlockingInterval } from '~/services/appointment.service'
 
 withDefaults(
@@ -241,12 +246,14 @@ withDefaults(
     linkedTreatmentName?: string | null
     treatmentSelectPlaceholder: string
     noTreatmentPlanValue: string
+    minBookingDate: string
     dayNames: string[]
     seriesDates: string[]
     conflicts: Set<string>
     timeOptions: AppointmentTimeOption[]
     isDoctorSelected: boolean
     hasSelectedSlotConflict: boolean
+    hasPastBookingSelection: boolean
     selectedSlotConflict: IAppointmentBlockingInterval | null
   }>(),
   {

@@ -54,3 +54,25 @@ export function toLocalDateKey(dateInput: Date | string): string {
   const { year, month, day } = getDateParts(date, timeZone)
   return `${year}-${month}-${day}`
 }
+
+export function fromLocalDateTime(dateKey: string, time: string): Date {
+  const [year, month, day] = dateKey.split('-').map(Number)
+  const [hour, minute] = time.split(':').map(Number)
+
+  return new Date(year ?? 0, (month ?? 1) - 1, day ?? 1, hour ?? 0, minute ?? 0, 0, 0)
+}
+
+export function isPastLocalDate(dateKey: string, now: Date = new Date()): boolean {
+  return dateKey < toLocalDateKey(now)
+}
+
+export function isPastLocalDateTime(
+  dateKey: string,
+  time: string,
+  now: Date = new Date(),
+): boolean {
+  if (isPastLocalDate(dateKey, now)) return true
+  if (dateKey !== toLocalDateKey(now)) return false
+
+  return fromLocalDateTime(dateKey, time).getTime() < now.getTime()
+}

@@ -19,10 +19,13 @@
         v-for="slot in timeSlots"
         :key="`row-${slot.hour}-${slot.minute}`"
         role="button"
-        tabindex="0"
+        :tabindex="isSlotDisabled(slot) ? -1 : 0"
         :aria-label="slotLabel(slot)"
+        :aria-disabled="isSlotDisabled(slot) || undefined"
         :class="[
-          'hover:bg-muted/50 cursor-pointer border-b transition-colors',
+          isSlotDisabled(slot)
+            ? 'bg-muted/20 cursor-not-allowed border-b'
+            : 'hover:bg-muted/50 cursor-pointer border-b transition-colors',
           slot.minute === 0 ? 'border-border' : 'border-border/30',
         ]"
         :style="{ height: `${SLOT_HEIGHT_PX}px` }"
@@ -57,7 +60,7 @@
 import { nextTick, onMounted, ref, watch } from 'vue'
 import CalendarAppointmentBlock from '~/components/appointments/CalendarAppointmentBlock.vue'
 import type { CalendarAppointment, TherapistColor } from '~/composables/useCalendar'
-import { toLocalDateKey } from '~/lib/date'
+import { isPastLocalDateTime, toLocalDateKey } from '~/lib/date'
 
 const props = defineProps<{
   appointments: CalendarAppointment[]
@@ -111,10 +114,17 @@ watch(
 )
 
 function handleSlotClick(hour: number, minute: number) {
-  emit('clickSlot', props.dateStr, timeFromSlot(hour, minute))
+  const time = timeFromSlot(hour, minute)
+  if (isPastLocalDateTime(props.dateStr, time)) return
+
+  emit('clickSlot', props.dateStr, time)
 }
 
 function slotLabel(slot: { hour: number; minute: number; label: string }) {
   return `Book appointment at ${slot.label}`
+}
+
+function isSlotDisabled(slot: { hour: number; minute: number }) {
+  return isPastLocalDateTime(props.dateStr, timeFromSlot(slot.hour, slot.minute))
 }
 </script>

@@ -12,7 +12,7 @@
           </div>
           <div>
             <Label>Phone</Label>
-            <Input v-model="form.phone" />
+            <IndianPhoneField v-model="form.phone" />
           </div>
           <div>
             <Label>Email</Label>
@@ -20,7 +20,7 @@
           </div>
           <div>
             <Label>Date of Birth</Label>
-            <Input v-model="form.date_of_birth" type="date" />
+            <Input v-model="form.date_of_birth" type="date" :max="todayDate" />
           </div>
           <div>
             <Label>Gender</Label>
@@ -45,7 +45,7 @@
           </div>
           <div>
             <Label>Emergency Contact Phone</Label>
-            <Input v-model="form.emergency_contact_phone" />
+            <IndianPhoneField v-model="form.emergency_contact_phone" />
           </div>
           <div class="sm:col-span-2">
             <Label>Notes</Label>
@@ -67,6 +67,7 @@
 import type { Tables } from '~/types/database'
 import type { IPatientEditForm } from '~/types/models/patient.types'
 import { Gender, GENDER_LABELS } from '~/enums/gender.enum'
+import { toLocalDateKey } from '~/lib/date'
 
 const props = defineProps<{
   open: boolean
@@ -96,6 +97,8 @@ const dialogOpen = computed({
   get: () => props.open,
   set: (value: boolean) => emit('update:open', value),
 })
+
+const todayDate = toLocalDateKey(new Date())
 
 watch(
   [() => props.open, () => props.patient],

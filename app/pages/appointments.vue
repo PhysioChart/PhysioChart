@@ -17,12 +17,14 @@
       :linked-treatment-name="linkedTreatmentName"
       :treatment-select-placeholder="treatmentSelectPlaceholder"
       :no-treatment-plan-value="NO_TREATMENT_PLAN_VALUE"
+      :min-booking-date="minBookingDate"
       :day-names="DAY_NAMES"
       :series-dates="seriesDates"
       :conflicts="conflicts"
       :time-options="timeOptions"
       :is-doctor-selected="isDoctorSelected"
       :has-selected-slot-conflict="hasSelectedSlotConflict"
+      :has-past-booking-selection="hasPastBookingSelection"
       :selected-slot-conflict="selectedSlotConflict"
       @submit="createAppointment"
       @cancel="closeBookingDialog"
@@ -137,6 +139,7 @@ const {
   timeOptions,
   isDoctorSelected,
   hasSelectedSlotConflict,
+  hasPastBookingSelection,
   selectedSlotConflict,
   weekDays,
   currentDay,
@@ -154,6 +157,7 @@ const {
   lockPatientSelection,
   lockTreatmentPlanSelection,
   linkedTreatmentName,
+  minBookingDate,
   treatmentSelectPlaceholder,
 } = storeToRefs(appointmentsPageStore)
 

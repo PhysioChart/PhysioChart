@@ -1,6 +1,7 @@
 import { storeToRefs } from 'pinia'
 import { toast } from 'vue-sonner'
 import { UserRole } from '~/enums/user-role.enum'
+import { isValidIndianPhone, normalizeIndianPhone } from '~/lib/phone'
 import { clinicService } from '~/services/clinic.service'
 import { staffService } from '~/services/staff.service'
 import { useStaffStore } from '~/stores/staff.store'
@@ -39,7 +40,7 @@ export function useSettingsPage() {
     clinicForm.value = {
       name: clinic.value.name,
       address: clinic.value.address ?? '',
-      phone: clinic.value.phone ?? '',
+      phone: normalizeIndianPhone(clinic.value.phone),
       email: clinic.value.email ?? '',
       logo_url: clinic.value.logo_url ?? '',
     }
@@ -47,13 +48,17 @@ export function useSettingsPage() {
 
   async function saveClinicProfile() {
     if (!clinic.value || !isAdmin.value) return
+    if (clinicForm.value.phone && !isValidIndianPhone(clinicForm.value.phone)) {
+      toast.error('Enter a valid 10-digit Indian mobile number')
+      return
+    }
     isSavingClinic.value = true
 
     try {
       await clinicService(supabase).update(clinic.value.id, {
         name: clinicForm.value.name,
         address: clinicForm.value.address || null,
-        phone: clinicForm.value.phone || null,
+        phone: normalizeIndianPhone(clinicForm.value.phone) || null,
         email: clinicForm.value.email || null,
         logo_url: clinicForm.value.logo_url || null,
       })

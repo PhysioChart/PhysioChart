@@ -14,6 +14,7 @@ import { useAppointmentsStore } from '~/stores/appointments.store'
 import { useTreatmentsStore } from '~/stores/treatments.store'
 import { useInvoicesStore } from '~/stores/invoices.store'
 import { toLocalDateKey } from '~/lib/date'
+import { isValidIndianPhone, normalizeIndianPhone } from '~/lib/phone'
 
 export function usePatientDetailPage() {
   const route = useRoute()
@@ -115,6 +116,7 @@ export function usePatientDetailPage() {
   }
 
   async function loadInvoices(clinicId: string, patientId: string) {
+    if (isLoadingInvoices.value) return
     isLoadingInvoices.value = true
 
     try {
@@ -134,6 +136,7 @@ export function usePatientDetailPage() {
       loadPatient(clinicId, patientId),
       loadAppointments(clinicId, patientId),
       loadTreatments(clinicId, patientId),
+      loadInvoices(clinicId, patientId),
     ])
   }
 
@@ -258,32 +261,43 @@ export function usePatientDetailPage() {
   function buildEditForm(patientData: Tables<'patients'>): IPatientEditForm {
     return {
       full_name: patientData.full_name,
-      phone: patientData.phone,
+      phone: normalizeIndianPhone(patientData.phone),
       email: patientData.email ?? '',
       date_of_birth: patientData.date_of_birth ?? '',
       gender: patientData.gender ?? '',
       address: patientData.address ?? '',
       emergency_contact_name: patientData.emergency_contact_name ?? '',
-      emergency_contact_phone: patientData.emergency_contact_phone ?? '',
+      emergency_contact_phone: normalizeIndianPhone(patientData.emergency_contact_phone),
       notes: patientData.notes ?? '',
     }
   }
 
   async function saveEdit(form: IPatientEditForm) {
+    const phone = normalizeIndianPhone(form.phone)
+    const emergencyContactPhone = normalizeIndianPhone(form.emergency_contact_phone)
+
     if (!patient.value || !form.full_name) return
+    if (!isValidIndianPhone(form.phone)) {
+      toast.error('Enter a valid 10-digit Indian mobile number')
+      return
+    }
+    if (form.emergency_contact_phone && !isValidIndianPhone(form.emergency_contact_phone)) {
+      toast.error('Enter a valid emergency contact mobile number')
+      return
+    }
     isSaving.value = true
 
     try {
       if (!activeMembership.value?.clinic_id) return
       await patientService(supabase).update(activeMembership.value.clinic_id, patient.value.id, {
         full_name: form.full_name,
-        phone: form.phone,
+        phone,
         email: form.email || null,
         date_of_birth: form.date_of_birth || null,
         gender: (form.gender || null) as Tables<'patients'>['gender'],
         address: form.address || null,
         emergency_contact_name: form.emergency_contact_name || null,
-        emergency_contact_phone: form.emergency_contact_phone || null,
+        emergency_contact_phone: emergencyContactPhone || null,
         notes: form.notes || null,
       })
 
@@ -291,13 +305,13 @@ export function usePatientDetailPage() {
         patientsStore.upsertPatient(activeMembership.value.clinic_id, {
           ...patient.value,
           full_name: form.full_name,
-          phone: form.phone,
+          phone,
           email: form.email || null,
           date_of_birth: form.date_of_birth || null,
           gender: (form.gender || null) as Tables<'patients'>['gender'],
           address: form.address || null,
           emergency_contact_name: form.emergency_contact_name || null,
-          emergency_contact_phone: form.emergency_contact_phone || null,
+          emergency_contact_phone: emergencyContactPhone || null,
           notes: form.notes || null,
         })
         patientsStore.invalidate(activeMembership.value.clinic_id)
@@ -349,7 +363,13 @@ export function usePatientDetailPage() {
   watch(
     [activeTab, () => activeMembership.value?.clinic_id, () => getPatientId()],
     ([tab, clinicId, patientId]) => {
-      if (tab === 'billing' && clinicId && patientId && !hasLoadedInvoices.value) {
+      if (
+        tab === 'billing' &&
+        clinicId &&
+        patientId &&
+        !hasLoadedInvoices.value &&
+        !isLoadingInvoices.value
+      ) {
         void loadInvoices(clinicId, patientId)
       }
     },

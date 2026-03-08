@@ -86,7 +86,7 @@ function createDefaultAppointmentForm(noTreatmentPlanValue: string): Appointment
     therapist_id: '',
     treatment_plan_id: noTreatmentPlanValue,
     date: new Date().toISOString().split('T')[0] ?? '',
-    start_time: '09:00',
+    start_time: '',
     duration: '30',
     notes: '',
   }
@@ -279,6 +279,7 @@ export const useAppointmentsPageStore = defineStore('appointmentsPage', () => {
   const isDoctorSelected = computed(() => Boolean(newAppointment.value.therapist_id))
 
   const selectedDateTimeRange = computed(() => {
+    if (bookingMode.value !== 'single') return null
     if (!newAppointment.value.date || !newAppointment.value.start_time) return null
 
     const durationMin = Number.parseInt(newAppointment.value.duration, 10)
@@ -487,6 +488,26 @@ export const useAppointmentsPageStore = defineStore('appointmentsPage', () => {
     },
   )
 
+  watch(
+    () => newAppointment.value.therapist_id,
+    (therapistId, previousTherapistId) => {
+      if (!therapistId) {
+        newAppointment.value.start_time = ''
+        return
+      }
+
+      if (!previousTherapistId) return
+
+      const stillAvailable = timeOptions.value.some(
+        (option) => option.value === newAppointment.value.start_time && !option.disabled,
+      )
+
+      if (!stillAvailable) {
+        newAppointment.value.start_time = ''
+      }
+    },
+  )
+
   async function loadAppointments() {
     if (!activeMembership.value?.clinic_id) return
     isLoading.value = true
@@ -527,12 +548,14 @@ export const useAppointmentsPageStore = defineStore('appointmentsPage', () => {
   }
 
   function toggleDay(day: number) {
-    const idx = seriesConfig.value.days.indexOf(day)
-    if (idx === -1) {
-      seriesConfig.value.days.push(day)
-      seriesConfig.value.days.sort()
-    } else {
-      seriesConfig.value.days.splice(idx, 1)
+    const currentDays = seriesConfig.value.days
+    const nextDays = currentDays.includes(day)
+      ? currentDays.filter((value) => value !== day)
+      : [...currentDays, day].sort((a, b) => a - b)
+
+    seriesConfig.value = {
+      ...seriesConfig.value,
+      days: nextDays,
     }
   }
 
@@ -685,6 +708,11 @@ export const useAppointmentsPageStore = defineStore('appointmentsPage', () => {
           toast.success('Appointment booked')
         }
       } else {
+        if (seriesConfig.value.days.length === 0) {
+          toast.error('Select at least one day for a series booking')
+          return
+        }
+
         const durationMin = Number.parseInt(newAppointment.value.duration, 10)
         if (!Number.isFinite(durationMin) || durationMin <= 0) {
           toast.error('Appointment duration must be greater than 0 minutes')
@@ -706,6 +734,11 @@ export const useAppointmentsPageStore = defineStore('appointmentsPage', () => {
             series_index: index + 1,
           }
         })
+
+        if (occurrences.length === 0) {
+          toast.error('No valid series sessions were generated')
+          return
+        }
 
         await service.createSeries({
           clinicId: activeMembership.value.clinic_id,

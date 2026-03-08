@@ -74,27 +74,29 @@
       @click-appointment="handleAppointmentClick"
     />
 
-    <AppointmentDetailSheet
-      v-model:open="showDetailSheet"
-      :appointment="selectedAppointment"
-      :clinic-name="clinic?.name ?? null"
-      :can-reopen="selectedAppointment ? canReopenAppointment(selectedAppointment) : false"
-      @request-complete="openCompleteDialog"
-      @request-reopen="reopenAppointment"
-      @update-status="updateStatus"
-    />
+    <ClientOnly>
+      <AppointmentDetailSheet
+        v-model:open="showDetailSheet"
+        :appointment="selectedAppointment"
+        :clinic-name="clinic?.name ?? null"
+        :can-reopen="selectedAppointment ? canReopenAppointment(selectedAppointment) : false"
+        @request-complete="openCompleteDialog"
+        @request-reopen="reopenAppointment"
+        @update-status="updateStatus"
+      />
 
-    <AppointmentCompleteDialog
-      v-if="completeTargetAppointment"
-      v-model:open="showCompleteDialog"
-      v-model:note="completeSessionNote"
-      :appointment="completeTargetAppointment"
-      :variant="completeTargetAppointment.treatment_plan_id ? 'withPlan' : 'withoutPlan'"
-      :is-submitting="isCompletingAppointment"
-      :max-length="1000"
-      @submit="completeAppointment()"
-      @cancel="closeCompleteDialog"
-    />
+      <AppointmentCompleteDialog
+        v-if="completeTargetAppointment"
+        v-model:open="showCompleteDialog"
+        v-model:note="completeSessionNote"
+        :appointment="completeTargetAppointment"
+        :variant="completeTargetAppointment.treatment_plan_id ? 'withPlan' : 'withoutPlan'"
+        :is-submitting="isCompletingAppointment"
+        :max-length="1000"
+        @submit="completeAppointment()"
+        @cancel="closeCompleteDialog"
+      />
+    </ClientOnly>
   </div>
 </template>
 
@@ -115,10 +117,18 @@ definePageMeta({ layout: 'protected' })
 const route = useRoute()
 const { clinic } = useAuth()
 const appointmentsPageStore = useAppointmentsPageStore()
+const DAY_NAMES = appointmentsPageStore.DAY_NAMES ?? [
+  'Sun',
+  'Mon',
+  'Tue',
+  'Wed',
+  'Thu',
+  'Fri',
+  'Sat',
+]
+const NO_TREATMENT_PLAN_VALUE = appointmentsPageStore.NO_TREATMENT_PLAN_VALUE ?? '__none__'
 
 const {
-  NO_TREATMENT_PLAN_VALUE,
-  DAY_NAMES,
   isLoading,
   showBookingDialog,
   viewMode,

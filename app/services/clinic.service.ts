@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import type { Database, Tables, UpdateDto } from '~/types/database'
+import type { Database, Tables, TablesUpdate } from '~/types/database'
 
 export function clinicService(supabase: SupabaseClient<Database>) {
   async function get(id: string): Promise<Tables<'clinics'> | null> {
@@ -9,7 +9,7 @@ export function clinicService(supabase: SupabaseClient<Database>) {
     return data
   }
 
-  async function update(id: string, updates: UpdateDto<'clinics'>): Promise<void> {
+  async function update(id: string, updates: TablesUpdate<'clinics'>): Promise<void> {
     const { error } = await supabase.from('clinics').update(updates).eq('id', id)
 
     if (error) throw error

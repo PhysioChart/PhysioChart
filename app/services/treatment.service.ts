@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import type { Database, InsertDto, UpdateDto } from '~/types/database'
+import type { Database, TablesInsert, TablesUpdate } from '~/types/database'
 import type {
   ITreatmentLinkedAppointmentItem,
   ITreatmentPlanWithRelations,
@@ -103,7 +103,7 @@ export function treatmentService(supabase: SupabaseClient<Database>) {
     return attachDerivedProgress(plans, progressMap)
   }
 
-  async function create(plan: InsertDto<'treatment_plans'>): Promise<void> {
+  async function create(plan: TablesInsert<'treatment_plans'>): Promise<void> {
     const { error } = await supabase.from('treatment_plans').insert(plan).select().single()
 
     if (error) throw error
@@ -112,7 +112,7 @@ export function treatmentService(supabase: SupabaseClient<Database>) {
   async function update(
     clinicId: string,
     id: string,
-    updates: UpdateDto<'treatment_plans'>,
+    updates: TablesUpdate<'treatment_plans'>,
   ): Promise<void> {
     const { error } = await supabase
       .from('treatment_plans')

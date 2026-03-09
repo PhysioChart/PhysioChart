@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import type { Database, Tables } from '~/types/database'
+import type { Database, Json, Tables } from '~/types/database'
 import type { IInvoiceLineItem, IInvoiceWithRelations } from '~/types/models/invoice.types'
 
 export interface ICreateInvoiceInput {
@@ -111,10 +111,10 @@ export function invoiceService(supabase: SupabaseClient<Database>) {
     const { data, error } = await supabase.rpc('create_invoice', {
       p_clinic_id: payload.clinicId,
       p_patient_id: payload.patientId,
-      p_treatment_plan_id: payload.treatmentPlanId ?? null,
-      p_line_items: payload.lineItems as unknown as Record<string, unknown>[],
-      p_due_date: payload.dueDate ?? null,
-      p_notes: payload.notes ?? null,
+      p_treatment_plan_id: payload.treatmentPlanId ?? undefined,
+      p_line_items: payload.lineItems as unknown as Json,
+      p_due_date: payload.dueDate ?? undefined,
+      p_notes: payload.notes ?? undefined,
       p_idempotency_key: payload.idempotencyKey,
     })
 

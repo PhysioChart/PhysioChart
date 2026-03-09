@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import type { Database, Tables, InsertDto, UpdateDto } from '~/types/database'
+import type { Database, Tables, TablesInsert, TablesUpdate } from '~/types/database'
 
 export function patientService(supabase: SupabaseClient<Database>) {
   async function list(clinicId: string): Promise<Tables<'patients'>[]> {
@@ -26,7 +26,7 @@ export function patientService(supabase: SupabaseClient<Database>) {
     return data
   }
 
-  async function create(patient: InsertDto<'patients'>): Promise<Tables<'patients'>> {
+  async function create(patient: TablesInsert<'patients'>): Promise<Tables<'patients'>> {
     const { data, error } = await supabase.from('patients').insert(patient).select().single()
 
     if (error) throw error
@@ -36,7 +36,7 @@ export function patientService(supabase: SupabaseClient<Database>) {
   async function update(
     clinicId: string,
     id: string,
-    updates: UpdateDto<'patients'>,
+    updates: TablesUpdate<'patients'>,
   ): Promise<void> {
     const { error } = await supabase
       .from('patients')
@@ -63,7 +63,9 @@ export function patientService(supabase: SupabaseClient<Database>) {
       .select('*')
       .eq('clinic_id', clinicId)
       .eq('is_archived', false)
-      .or(`full_name.ilike.%${query}%,phone.ilike.%${query}%`)
+      .or(
+        `full_name.ilike.%${query.replace(/[,%().*]/g, '')}%,phone.ilike.%${query.replace(/[,%().*]/g, '')}%`,
+      )
       .order('full_name')
       .limit(20)
 

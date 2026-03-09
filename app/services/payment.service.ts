@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import type { Database, Tables, InsertDto } from '~/types/database'
+import type { Database, Tables, TablesInsert } from '~/types/database'
 
 export interface IRecordInvoicePaymentInput {
   clinicId: string
@@ -84,7 +84,7 @@ export function paymentService(supabase: SupabaseClient<Database>) {
     return data ?? []
   }
 
-  async function create(payment: InsertDto<'payments'>): Promise<void> {
+  async function create(payment: TablesInsert<'payments'>): Promise<void> {
     const { error } = await supabase.from('payments').insert(payment)
 
     if (error) throw error
@@ -99,8 +99,8 @@ export function paymentService(supabase: SupabaseClient<Database>) {
       p_amount: payload.amount,
       p_method: payload.method,
       p_paid_at: payload.paidAt,
-      p_reference_note: payload.referenceNote ?? null,
-      p_idempotency_key: payload.idempotencyKey ?? null,
+      p_reference_note: payload.referenceNote ?? undefined,
+      p_idempotency_key: payload.idempotencyKey ?? undefined,
     })
 
     if (error) throw error

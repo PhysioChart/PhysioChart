@@ -24,6 +24,8 @@
 <script setup lang="ts">
 definePageMeta({ layout: 'auth' })
 
+useHead({ title: 'Confirming...' })
+
 const { ensureBootstrapped, bootstrapStatus } = useAuth()
 const session = useSupabaseSession()
 const redirect = useSupabaseCookieRedirect()

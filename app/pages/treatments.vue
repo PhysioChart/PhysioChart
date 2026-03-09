@@ -72,6 +72,8 @@ import TreatmentCreateDialog from '~/features/treatments/components/TreatmentCre
 
 definePageMeta({ layout: 'protected' })
 
+useHead({ title: 'Treatments' })
+
 const supabase = useSupabaseClient()
 const { activeMembership } = useAuth()
 const route = useRoute()

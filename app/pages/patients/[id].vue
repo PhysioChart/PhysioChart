@@ -88,6 +88,8 @@ import PatientTreatmentsTab from '~/components/patients/PatientTreatmentsTab.vue
 
 definePageMeta({ layout: 'protected' })
 
+useHead({ title: 'Patient Details' })
+
 const patientDetailPage = usePatientDetailPage()
 
 await patientDetailPage.initialize()

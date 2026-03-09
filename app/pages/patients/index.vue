@@ -41,6 +41,8 @@ import type { PatientCreatePayload } from '~/features/patients/components/Patien
 
 definePageMeta({ layout: 'protected' })
 
+useHead({ title: 'Patients' })
+
 const supabase = useSupabaseClient()
 const { activeMembership } = useAuth()
 const route = useRoute()

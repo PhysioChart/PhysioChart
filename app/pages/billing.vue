@@ -54,6 +54,8 @@ import BillingRecordPaymentDialog from '~/features/billing/components/BillingRec
 
 definePageMeta({ layout: 'protected' })
 
+useHead({ title: 'Billing' })
+
 const supabase = useSupabaseClient()
 const { activeMembership } = useAuth()
 const route = useRoute()

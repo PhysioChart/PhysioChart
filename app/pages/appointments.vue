@@ -112,6 +112,8 @@ import { useAppointmentsPageStore } from '~/features/appointments/store/appointm
 
 definePageMeta({ layout: 'protected' })
 
+useHead({ title: 'Appointments' })
+
 const route = useRoute()
 const router = useRouter()
 const supabase = useSupabaseClient()

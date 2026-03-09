@@ -98,6 +98,11 @@ import { Building2 } from 'lucide-vue-next'
 
 definePageMeta({ layout: 'auth', middleware: 'guest' })
 
+useHead({
+  title: 'Register',
+  meta: [{ name: 'description', content: 'Create your PhysioChart clinic account' }],
+})
+
 const { signUpOwner } = useAuth()
 const error = ref('')
 const isLoading = ref(false)

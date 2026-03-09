@@ -139,7 +139,8 @@
 
 <script setup lang="ts">
 import { Phone, Mail, MapPin, Calendar, AlertCircle, User } from 'lucide-vue-next'
-import type { Tables, MedicalHistory } from '~/types/database'
+import type { Tables } from '~/types/database'
+import type { MedicalHistory } from '~/types/models/patient.types'
 import { GENDER_LABELS } from '~/enums/gender.enum'
 import { formatDateLong } from '~/lib/formatters'
 

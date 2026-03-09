@@ -7,17 +7,7 @@
         </h1>
         <p class="text-muted-foreground">Clinic snapshot for the next 7 days.</p>
       </div>
-      <div class="flex flex-wrap items-center gap-2">
-        <Button size="default" @click="navigateTo('/patients?action=new')">
-          <UserPlus class="mr-1.5 h-4 w-4" />New Patient
-        </Button>
-        <Button size="default" @click="navigateTo('/appointments?action=new')">
-          <CalendarPlus class="mr-1.5 h-4 w-4" />Book Appointment
-        </Button>
-        <Button variant="outline" size="default" :disabled="isLoading" @click="load(true)">
-          <RefreshCw class="mr-1.5 h-4 w-4" />Refresh
-        </Button>
-      </div>
+      <DashboardQuickActions :is-refreshing="isLoading" @refresh="load(true)" />
     </div>
 
     <div
@@ -30,173 +20,26 @@
       </Button>
     </div>
 
-    <div class="grid gap-4 sm:grid-cols-2 md:grid-cols-3">
-      <Card v-for="stat in statCards" :key="stat.title">
-        <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle class="text-sm font-medium">{{ stat.title }}</CardTitle>
-          <component :is="stat.icon" class="text-muted-foreground h-4 w-4" />
-        </CardHeader>
-        <CardContent>
-          <div class="text-2xl font-bold">
-            <Skeleton v-if="isLoading" class="h-6 w-16" />
-            <span v-else>{{ stat.value }}</span>
-          </div>
-          <p class="text-muted-foreground flex items-center gap-2 text-xs">
-            <span>{{ stat.description }}</span>
-            <Badge v-if="stat.overdueBadge" variant="destructive" size="sm">{{
-              stat.overdueBadge
-            }}</Badge>
-          </p>
-        </CardContent>
-      </Card>
-    </div>
+    <DashboardStatCards :stats="statCards" :is-loading="isLoading" />
 
     <div class="grid gap-4 lg:grid-cols-3">
-      <Card class="lg:col-span-2">
-        <CardHeader class="flex items-center justify-between">
-          <div>
-            <CardTitle class="flex items-center gap-2">
-              <CalendarDays class="h-5 w-5" />Upcoming (7 days)
-            </CardTitle>
-            <CardDescription>Scheduled and checked-in, including ongoing visits.</CardDescription>
-          </div>
-          <Button variant="ghost" size="sm" @click="navigateTo('/appointments')">View all</Button>
-        </CardHeader>
-        <CardContent>
-          <div v-if="isLoading" class="space-y-3">
-            <Skeleton v-for="i in 4" :key="i" class="h-12 w-full" />
-          </div>
-          <div
-            v-else-if="upcoming.length === 0"
-            class="flex flex-col items-center justify-center py-8 text-center"
-          >
-            <CalendarPlus class="text-muted-foreground/60 mb-3 h-10 w-10" />
-            <p class="text-muted-foreground text-sm">No upcoming appointments scheduled.</p>
-            <Button variant="outline" class="mt-3" @click="navigateTo('/appointments?action=new')">
-              Book an appointment
-            </Button>
-          </div>
-          <ul v-else class="divide-border divide-y">
-            <li
-              v-for="appt in upcoming"
-              :key="appt.id"
-              class="hover:bg-muted/40 flex cursor-pointer items-center justify-between rounded-md px-2 py-3"
-              @click="navigateTo({ path: '/appointments', query: { focus: appt.id } })"
-            >
-              <div>
-                <p class="font-medium">{{ appt.patientName ?? 'Unknown patient' }}</p>
-                <p class="text-muted-foreground text-sm">
-                  {{ formatDateTime(appt.startTime) }} · {{ appt.therapistName ?? 'Unassigned' }}
-                </p>
-              </div>
-              <Badge :class="getStatusColor(appt.status)" variant="outline" class="capitalize">
-                {{ appt.status.replace('_', ' ') }}
-              </Badge>
-            </li>
-          </ul>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader class="flex items-center justify-between">
-          <div>
-            <CardTitle class="flex items-center gap-2">
-              <Clock class="h-5 w-5" />Recent Activity
-            </CardTitle>
-            <CardDescription>Latest appointments and invoices.</CardDescription>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div v-if="isLoading" class="space-y-3">
-            <Skeleton v-for="i in 5" :key="i" class="h-10 w-full" />
-          </div>
-          <div v-else-if="recent.length === 0" class="text-muted-foreground text-sm">
-            Nothing new yet. Booking and billing updates will appear here.
-          </div>
-          <ul v-else class="space-y-3">
-            <li
-              v-for="item in recent"
-              :key="`${item.kind}-${item.id}`"
-              class="hover:bg-muted/40 flex cursor-pointer items-center justify-between rounded-lg border p-3"
-              @click="
-                navigateTo(
-                  item.kind === 'invoice'
-                    ? { path: '/billing', query: { focus: item.id } }
-                    : { path: '/appointments', query: { focus: item.id } },
-                )
-              "
-            >
-              <div class="flex items-center gap-3">
-                <div class="bg-muted rounded-full p-2">
-                  <component
-                    :is="item.kind === 'invoice' ? IndianRupee : CalendarDays"
-                    class="h-4 w-4"
-                  />
-                </div>
-                <div>
-                  <p class="font-medium">
-                    {{
-                      item.kind === 'invoice'
-                        ? `Invoice ${item.invoiceNumber ?? ''}`.trim()
-                        : 'Appointment'
-                    }}
-                  </p>
-                  <p class="text-muted-foreground text-xs">
-                    {{ item.patientName ?? 'Unknown patient' }} ·
-                    {{ formatRelativeTime(item.occurredAt) }}
-                  </p>
-                </div>
-              </div>
-              <div class="text-right text-sm">
-                <Badge
-                  :class="getStatusColor(item.status)"
-                  variant="outline"
-                  class="mb-1 capitalize"
-                >
-                  {{ item.status.replace('_', ' ') }}
-                </Badge>
-                <p v-if="item.kind === 'invoice'">
-                  {{ formatCurrency(item.total ?? 0) }}
-                  <span
-                    v-if="item.outstanding && item.outstanding > 0"
-                    class="text-muted-foreground text-xs"
-                  >
-                    · Due {{ formatCurrency(item.outstanding) }}
-                  </span>
-                </p>
-                <p v-else-if="item.startTime" class="text-muted-foreground text-xs">
-                  Starts {{ formatDateTime(item.startTime) }}
-                </p>
-              </div>
-            </li>
-          </ul>
-        </CardContent>
-      </Card>
+      <DashboardUpcomingList :appointments="upcoming" :is-loading="isLoading" />
+      <DashboardRecentActivity :activities="recent" :is-loading="isLoading" />
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import {
-  Users,
-  CalendarDays,
-  ClipboardList,
-  UserPlus,
-  CalendarPlus,
-  Clock,
-  IndianRupee,
-  RefreshCw,
-  Receipt,
-} from 'lucide-vue-next'
+import { Users, CalendarDays, ClipboardList, Clock, IndianRupee, Receipt } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import { dashboardService, type DashboardOverview } from '~/services/dashboard.service'
 import { formatAppDate, toLocalDateKey } from '~/lib/date'
-import {
-  formatDateTime,
-  formatCurrency,
-  formatRelativeTime,
-  getStatusColor,
-} from '~/lib/formatters'
+import { formatCurrency } from '~/lib/formatters'
+import type { StatCard } from '~/features/dashboard/components/DashboardStatCards.vue'
+import DashboardStatCards from '~/features/dashboard/components/DashboardStatCards.vue'
+import DashboardUpcomingList from '~/features/dashboard/components/DashboardUpcomingList.vue'
+import DashboardRecentActivity from '~/features/dashboard/components/DashboardRecentActivity.vue'
+import DashboardQuickActions from '~/features/dashboard/components/DashboardQuickActions.vue'
 
 definePageMeta({ layout: 'protected' })
 
@@ -209,38 +52,31 @@ const overview = ref<DashboardOverview | null>(null)
 const lastLoadedAt = ref<number | null>(null)
 
 const greeting = computed(() => {
-  const hour = Number.parseInt(
-    formatAppDate(new Date(), {
-      hour: 'numeric',
-      hourCycle: 'h23',
-    }),
-    10,
-  )
-
+  const hour = Number.parseInt(formatAppDate(new Date(), { hour: 'numeric', hourCycle: 'h23' }), 10)
   if (Number.isNaN(hour)) return 'morning'
   if (hour < 12) return 'morning'
   if (hour < 17) return 'afternoon'
   return 'evening'
 })
 
-const statCards = computed(() => {
+const statCards = computed<StatCard[]>(() => {
   const counts = overview.value?.counts
   return [
     {
       title: 'Upcoming (7d)',
-      value: counts ? counts.upcomingAppointments7d : '—',
+      value: counts ? counts.upcomingAppointments7d : '\u2014',
       icon: CalendarDays,
       description: 'Scheduled & checked-in',
     },
     {
       title: "Today's Appointments",
-      value: counts ? counts.todayAppointments : '—',
+      value: counts ? counts.todayAppointments : '\u2014',
       icon: Clock,
       description: 'Local day',
     },
     {
       title: 'Pending Invoices',
-      value: counts ? counts.pendingInvoices : '—',
+      value: counts ? counts.pendingInvoices : '\u2014',
       icon: Receipt,
       description: 'Includes sent/partial/overdue',
       overdueBadge:
@@ -248,19 +84,19 @@ const statCards = computed(() => {
     },
     {
       title: 'Outstanding Amount',
-      value: counts ? formatCurrency(counts.outstandingAmount) : '—',
+      value: counts ? formatCurrency(counts.outstandingAmount) : '\u2014',
       icon: IndianRupee,
       description: 'Pending invoices sum',
     },
     {
       title: 'Total Patients',
-      value: counts ? counts.totalPatients : '—',
+      value: counts ? counts.totalPatients : '\u2014',
       icon: Users,
       description: 'All patients',
     },
     {
       title: 'Active Treatments',
-      value: counts ? counts.activeTreatments : '—',
+      value: counts ? counts.activeTreatments : '\u2014',
       icon: ClipboardList,
       description: 'Plans in progress',
     },

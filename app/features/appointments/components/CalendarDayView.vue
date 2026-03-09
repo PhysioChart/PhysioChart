@@ -55,7 +55,7 @@
 
 <script setup lang="ts">
 import { nextTick, onMounted, ref, watch } from 'vue'
-import CalendarAppointmentBlock from '~/components/appointments/CalendarAppointmentBlock.vue'
+import CalendarAppointmentBlock from '~/features/appointments/components/CalendarAppointmentBlock.vue'
 import type { CalendarAppointment, TherapistColor } from '~/composables/useCalendar'
 import { toLocalDateKey } from '~/lib/date'
 

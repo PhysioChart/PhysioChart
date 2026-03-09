@@ -1,8 +1,8 @@
-import type { Tables } from '~/types/database'
+import type { AppointmentRow, PatientRow, ProfileRow, TreatmentPlanRow } from '~/types/database'
 
-export interface ITreatmentPlanWithRelations extends Tables<'treatment_plans'> {
-  patient: Tables<'patients'> | null
-  therapist: Tables<'profiles'> | null
+export interface ITreatmentPlanWithRelations extends TreatmentPlanRow {
+  patient: PatientRow | null
+  therapist: ProfileRow | null
   derived_completed_sessions: number
 }
 
@@ -17,5 +17,5 @@ export interface ITreatmentLinkedAppointmentItem {
   id: string
   startTime: string
   endTime: string
-  status: Tables<'appointments'>['status']
+  status: AppointmentRow['status']
 }

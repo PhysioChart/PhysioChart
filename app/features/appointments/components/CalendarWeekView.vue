@@ -77,7 +77,7 @@
 
 <script setup lang="ts">
 import { nextTick, onMounted, ref } from 'vue'
-import CalendarAppointmentBlock from '~/components/appointments/CalendarAppointmentBlock.vue'
+import CalendarAppointmentBlock from '~/features/appointments/components/CalendarAppointmentBlock.vue'
 import type { CalendarAppointment, CalendarDay, TherapistColor } from '~/composables/useCalendar'
 
 const props = defineProps<{

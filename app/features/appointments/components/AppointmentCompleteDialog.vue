@@ -1,5 +1,5 @@
 <template>
-  <Dialog v-model:open="open">
+  <Dialog :open="open" @update:open="emit('update:open', $event)">
     <DialogContent class="sm:max-w-lg">
       <DialogHeader>
         <DialogTitle>Complete Appointment</DialogTitle>
@@ -8,7 +8,7 @@
         </DialogDescription>
       </DialogHeader>
 
-      <div v-if="appointment" class="space-y-4">
+      <div class="space-y-4">
         <div class="bg-muted/50 rounded-md border p-3">
           <p class="text-sm font-medium">
             {{ appointment.patient?.full_name ?? 'Unknown patient' }}
@@ -23,27 +23,30 @@
           <Label for="sessionNote">Session note (optional)</Label>
           <Textarea
             id="sessionNote"
-            v-model="noteModel"
-            :maxlength="maxLength"
+            v-model="note"
+            :maxlength="MAX_LENGTH"
             rows="4"
             placeholder="What was done in this session?"
           />
           <div class="text-muted-foreground flex items-center justify-between text-xs">
             <span>{{ helperText }}</span>
-            <span>{{ noteModel.length }}/{{ maxLength }}</span>
+            <span>{{ note.length }}/{{ MAX_LENGTH }}</span>
           </div>
         </div>
 
-        <p v-if="error" class="text-sm text-red-600">{{ error }}</p>
-
         <DialogFooter>
-          <Button type="button" variant="outline" :disabled="isSubmitting" @click="emit('cancel')">
+          <Button
+            type="button"
+            variant="outline"
+            :disabled="isSubmitting"
+            @click="emit('update:open', false)"
+          >
             Cancel
           </Button>
           <Button
             type="button"
-            :disabled="isSubmitting || noteModel.length > maxLength"
-            @click="emit('submit')"
+            :disabled="isSubmitting || note.length > MAX_LENGTH"
+            @click="handleSubmit"
           >
             <span v-if="isSubmitting">Completing...</span>
             <span v-else>{{ primaryCta }}</span>
@@ -56,41 +59,59 @@
 
 <script setup lang="ts">
 import type { IAppointmentWithRelations } from '~/types/models/appointment.types'
+import type { ICompleteAppointmentPayload } from '~/features/appointments/types'
 import { formatDateTime } from '~/lib/formatters'
 
-const props = withDefaults(
-  defineProps<{
-    appointment: IAppointmentWithRelations | null
-    isSubmitting: boolean
-    variant: 'withPlan' | 'withoutPlan'
-    maxLength?: number
-    error?: string | null
-  }>(),
-  {
-    maxLength: 1000,
-    error: null,
-  },
-)
+const MAX_LENGTH = 1000
 
-const open = defineModel<boolean>('open', { required: true })
-const noteModel = defineModel<string>('note', { required: true })
-
-const emit = defineEmits<{
-  (e: 'submit' | 'cancel'): void
+const props = defineProps<{
+  open: boolean
+  appointment: IAppointmentWithRelations
 }>()
 
+const emit = defineEmits<{
+  'update:open': [value: boolean]
+  submit: [payload: ICompleteAppointmentPayload]
+}>()
+
+const note = ref('')
+const isSubmitting = ref(false)
+
+const hasPlan = computed(() => Boolean(props.appointment.treatment_plan_id))
+
 const planLabel = computed(() => {
-  if (!props.appointment) return '—'
-  return props.appointment?.treatment_plan?.name ?? 'No treatment plan linked'
+  return props.appointment.treatment_plan?.name ?? 'No treatment plan linked'
 })
 
 const helperText = computed(() =>
-  props.variant === 'withPlan'
+  hasPlan.value
     ? "Note will be saved to this treatment plan's history."
     : "Note will be saved to this visit's session history (no treatment plan linked).",
 )
 
-const primaryCta = computed(() =>
-  props.variant === 'withPlan' ? 'Complete & Save Note' : 'Mark Completed',
+const primaryCta = computed(() => (hasPlan.value ? 'Complete & Save Note' : 'Mark Completed'))
+
+function handleSubmit() {
+  isSubmitting.value = true
+  emit('submit', {
+    appointmentId: props.appointment.id,
+    note: note.value.trim() || null,
+  })
+}
+
+function markSubmitted() {
+  isSubmitting.value = false
+}
+
+watch(
+  () => props.open,
+  (isOpen) => {
+    if (!isOpen) {
+      note.value = ''
+      isSubmitting.value = false
+    }
+  },
 )
+
+defineExpose({ markSubmitted })
 </script>

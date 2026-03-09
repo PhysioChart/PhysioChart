@@ -35,7 +35,7 @@
 
 <script setup lang="ts">
 import { CalendarDays } from 'lucide-vue-next'
-import AppointmentsListRow from '~/components/appointments/AppointmentsListRow.vue'
+import AppointmentsListRow from '~/features/appointments/components/AppointmentsListRow.vue'
 import type { AppointmentsListFilter } from '~/features/appointments/types'
 import type { AppointmentStatus } from '~/enums/appointment.enum'
 import type { IAppointmentWithRelations } from '~/types/models/appointment.types'

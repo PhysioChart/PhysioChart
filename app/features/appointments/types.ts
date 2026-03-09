@@ -31,3 +31,24 @@ export interface AppointmentTimeOption {
   disabled: boolean
   disabledReason?: string
 }
+
+export interface IBookAppointmentPayload {
+  mode: 'single' | 'series'
+  patientId: string
+  therapistId: string
+  treatmentPlanId: string | null
+  notes: string | null
+  // Single mode
+  startTime?: string
+  endTime?: string
+  singleIdempotencyKey?: string
+  linkedIdempotencyKey?: string
+  // Series mode
+  occurrences?: Array<{ start_time: string; end_time: string; series_index: number }>
+  seriesIdempotencyKey?: string
+}
+
+export interface ICompleteAppointmentPayload {
+  appointmentId: string
+  note: string | null
+}

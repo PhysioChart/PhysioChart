@@ -52,7 +52,8 @@ export function useTreatmentSessionHistory() {
     options?: { refetch?: boolean; clinicId?: string; limit?: number },
   ): void {
     if (planId) {
-      historyByPlan[planId] = undefined as unknown as ITreatmentSessionHistoryItem[]
+      // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
+      delete historyByPlan[planId]
       loadingByPlan[planId] = false
       errorByPlan[planId] = null
       inflight.value.delete(planId)
@@ -64,7 +65,8 @@ export function useTreatmentSessionHistory() {
     }
 
     for (const key of Object.keys(historyByPlan)) {
-      historyByPlan[key] = undefined as unknown as ITreatmentSessionHistoryItem[]
+      // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
+      delete historyByPlan[key]
     }
     for (const key of Object.keys(loadingByPlan)) {
       loadingByPlan[key] = false

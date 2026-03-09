@@ -17,6 +17,20 @@ export default defineNuxtConfig({
   compatibilityDate: '2025-07-15',
   devtools: { enabled: true },
 
+  app: {
+    head: {
+      titleTemplate: '%s — PhysioChart',
+      link: [{ rel: 'icon', type: 'image/png', href: '/favicon.png' }],
+      meta: [
+        {
+          name: 'description',
+          content:
+            'Practice management software for physiotherapy clinics — appointments, patients, billing, and treatments.',
+        },
+      ],
+    },
+  },
+
   modules: ['@pinia/nuxt', 'shadcn-nuxt', '@nuxt/eslint', '@nuxtjs/supabase'],
 
   shadcn: {

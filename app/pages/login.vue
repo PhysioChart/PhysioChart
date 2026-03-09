@@ -70,6 +70,11 @@ import { LogIn } from 'lucide-vue-next'
 
 definePageMeta({ layout: 'auth', middleware: 'guest' })
 
+useHead({
+  title: 'Log In',
+  meta: [{ name: 'description', content: 'Log in to your PhysioChart account' }],
+})
+
 const { signIn } = useAuth()
 const route = useRoute()
 const error = ref('')

@@ -265,6 +265,17 @@ import {
 
 definePageMeta({ layout: false, middleware: 'guest' })
 
+useHead({
+  title: 'PhysioChart',
+  titleTemplate: '',
+  meta: [
+    {
+      name: 'description',
+      content: 'Practice management software for physiotherapy clinics',
+    },
+  ],
+})
+
 useScrollReveal()
 
 const whatsappUrl =

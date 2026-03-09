@@ -32,6 +32,8 @@
 <script setup lang="ts">
 definePageMeta({ layout: 'auth' })
 
+useHead({ title: 'Setup Your Clinic' })
+
 const { onboardingDraft, completeOnboarding } = useAuth()
 const clinicName = ref(onboardingDraft.value?.clinicName ?? '')
 const fullName = ref(onboardingDraft.value?.fullName ?? '')

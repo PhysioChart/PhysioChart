@@ -43,6 +43,8 @@ import DashboardQuickActions from '~/features/dashboard/components/DashboardQuic
 
 definePageMeta({ layout: 'protected' })
 
+useHead({ title: 'Dashboard' })
+
 const { profile, activeClinic } = useAuth()
 const supabase = useSupabaseClient()
 

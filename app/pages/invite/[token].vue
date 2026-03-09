@@ -86,6 +86,7 @@
 definePageMeta({ layout: 'auth' })
 
 useHead({
+  title: 'Accept Invite',
   meta: [{ name: 'referrer', content: 'no-referrer' }],
 })
 

@@ -68,6 +68,8 @@ import type { StaffInvitePayload } from '~/features/settings/components/StaffInv
 
 definePageMeta({ layout: 'protected' })
 
+useHead({ title: 'Settings' })
+
 const supabase = useSupabaseClient()
 const { clinic, profile, activeMembership, isAdmin, refreshAuthContext } = useAuth()
 const staffStore = useStaffStore()

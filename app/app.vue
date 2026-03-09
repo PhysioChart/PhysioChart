@@ -1,6 +1,11 @@
 <template>
-  <div>
-    <NuxtRouteAnnouncer />
+  <NuxtRouteAnnouncer />
+  <NuxtLayout>
     <NuxtPage />
-  </div>
+  </NuxtLayout>
+  <Toaster />
 </template>
+
+<script setup lang="ts">
+import { Toaster } from '~/components/ui/sonner'
+</script>

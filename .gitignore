@@ -17,8 +17,20 @@ logs
 .DS_Store
 .fleet
 .idea
+.vscode
+*.swp
+*.swo
+*~
 
 # Local env files
 .env
 .env.*
 !.env.example
+
+# Supabase CLI
+supabase/.temp/
+
+# Claude Code
+.claude
+CLAUDE.md
+AGENTS.md

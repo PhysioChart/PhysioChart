@@ -13,70 +13,91 @@
 
     <Dialog v-model:open="showNewDialog">
       <DialogContent class="max-h-[90vh] overflow-y-auto sm:max-w-lg">
-        <DialogHeader>
+        <DialogHeader class="-mx-6 -mt-6 border-b px-6 py-4">
           <DialogTitle>Create Treatment Plan</DialogTitle>
           <DialogDescription>Set up a treatment plan for a patient.</DialogDescription>
         </DialogHeader>
-        <form class="space-y-4" @submit.prevent="createPlan">
-          <div>
-            <Label>Patient *</Label>
-            <Select v-model="newPlan.patient_id">
-              <SelectTrigger>
-                <SelectValue placeholder="Select patient" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem v-for="p in patients" :key="p.id" :value="p.id">
-                  {{ p.full_name }}
-                </SelectItem>
-              </SelectContent>
-            </Select>
+        <form class="space-y-4 pt-2" @submit.prevent="createPlan">
+          <div class="grid gap-4 sm:grid-cols-2">
+            <div class="space-y-2">
+              <Label>Patient *</Label>
+              <Select v-model="newPlan.patient_id">
+                <SelectTrigger class="w-full">
+                  <SelectValue placeholder="Select patient" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem v-for="p in patients" :key="p.id" :value="p.id">
+                    {{ p.full_name }}
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div class="space-y-2">
+              <Label>Therapist</Label>
+              <Select v-model="newPlan.therapist_id">
+                <SelectTrigger class="w-full">
+                  <SelectValue placeholder="Assign therapist (optional)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem v-for="t in therapists" :key="t.id" :value="t.id">
+                    {{ t.full_name }}
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
-          <div>
+          <div class="space-y-2">
             <Label>Plan Name *</Label>
             <Input v-model="newPlan.name" placeholder="e.g., Knee Rehabilitation" />
           </div>
-          <div>
+          <div class="space-y-2">
             <Label>Diagnosis</Label>
             <Input v-model="newPlan.diagnosis" placeholder="e.g., ACL tear, post-operative" />
           </div>
-          <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <div>
+          <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div class="space-y-2">
               <Label>Treatment Type</Label>
               <Input v-model="newPlan.treatment_type" placeholder="e.g., Physiotherapy" />
             </div>
-            <div>
+            <div class="space-y-2">
               <Label>Total Sessions</Label>
-              <Input v-model.number="newPlan.total_sessions" type="number" min="1" />
+              <NumberInput v-model="newPlan.total_sessions" :min="1" />
             </div>
           </div>
-          <div>
-            <Label>Therapist</Label>
-            <Select v-model="newPlan.therapist_id">
-              <SelectTrigger>
-                <SelectValue placeholder="Assign therapist (optional)" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem v-for="t in therapists" :key="t.id" :value="t.id">
-                  {{ t.full_name }}
-                </SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <div>
-              <Label>Price per Session (Rs)</Label>
-              <Input v-model="newPlan.price_per_session" type="number" placeholder="e.g., 800" />
-            </div>
-            <div>
-              <Label>Package Price (Rs)</Label>
-              <Input v-model="newPlan.package_price" type="number" placeholder="e.g., 8000" />
+          <div class="space-y-2">
+            <Label>Pricing</Label>
+            <div class="flex gap-2">
+              <Button
+                type="button"
+                size="sm"
+                :variant="newPlan.pricing_mode === 'per_session' ? 'default' : 'outline'"
+                @click="newPlan.pricing_mode = 'per_session'"
+              >
+                Per Session
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                :variant="newPlan.pricing_mode === 'package' ? 'default' : 'outline'"
+                @click="newPlan.pricing_mode = 'package'"
+              >
+                Package
+              </Button>
             </div>
           </div>
-          <div>
+          <div v-if="newPlan.pricing_mode === 'per_session'" class="space-y-2">
+            <Label>Price per Session (Rs)</Label>
+            <NumberInput v-model="newPlan.price_per_session" :min="0" :step="50" />
+          </div>
+          <div v-else class="space-y-2">
+            <Label>Package Price (Rs)</Label>
+            <NumberInput v-model="newPlan.package_price" :min="0" :step="50" />
+          </div>
+          <div class="space-y-2">
             <Label>Notes</Label>
             <Textarea v-model="newPlan.notes" placeholder="Additional notes" rows="2" />
           </div>
-          <DialogFooter>
+          <DialogFooter class="-mx-6 -mb-6 border-t px-6 py-4">
             <Button type="button" variant="outline" @click="showNewDialog = false">Cancel</Button>
             <Button type="submit" :disabled="isSubmitting || !newPlan.patient_id || !newPlan.name">
               {{ isSubmitting ? 'Creating...' : 'Create Plan' }}
@@ -239,6 +260,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { CalendarPlus, ClipboardList, Plus } from 'lucide-vue-next'
+import { NumberInput } from '~/components/ui/input'
 import TreatmentSessionHistory from '~/components/common/TreatmentSessionHistory.vue'
 import { useTreatmentSessionHistory } from '~/composables/useTreatmentSessionHistory'
 import { useTreatmentsPage } from '~/composables/useTreatmentsPage'

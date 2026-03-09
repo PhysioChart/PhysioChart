@@ -13,35 +13,55 @@
             New Patient
           </Button>
         </DialogTrigger>
-        <DialogContent class="max-h-[90vh] overflow-y-auto sm:max-w-lg">
-          <DialogHeader>
+        <DialogContent class="max-h-[90vh] overflow-y-auto sm:max-w-md">
+          <DialogHeader class="-mx-6 -mt-6 border-b px-6 py-4">
             <DialogTitle>Register New Patient</DialogTitle>
             <DialogDescription>
               Enter the patient's details. Phone number is the primary identifier.
             </DialogDescription>
           </DialogHeader>
-          <form class="space-y-4" @submit.prevent="createPatient">
+          <form class="space-y-4 pt-2" @submit.prevent="createPatient">
             <div class="grid gap-4 sm:grid-cols-2">
-              <div class="sm:col-span-2">
+              <div class="space-y-2 sm:col-span-2">
                 <Label for="name">Full Name *</Label>
                 <Input id="name" v-model="newPatient.full_name" placeholder="Patient name" />
               </div>
-              <div>
+              <div class="space-y-2">
                 <Label for="phone">Phone *</Label>
-                <Input id="phone" v-model="newPatient.phone" placeholder="+91 98765 43210" />
+                <PhoneInput id="phone" v-model="newPatient.phone" placeholder="98765 43210" />
               </div>
-              <div>
+              <div class="space-y-2">
                 <Label for="email">Email</Label>
                 <Input id="email" v-model="newPatient.email" type="email" placeholder="Optional" />
               </div>
-              <div>
+              <div class="space-y-2">
                 <Label for="dob">Date of Birth</Label>
-                <Input id="dob" v-model="newPatient.date_of_birth" type="date" />
+                <Popover v-model:open="dobPickerOpen" modal>
+                  <PopoverTrigger as-child>
+                    <Button
+                      id="dob"
+                      type="button"
+                      variant="outline"
+                      :class="
+                        cn(
+                          'w-full justify-start text-left font-normal',
+                          !newPatient.date_of_birth && 'text-muted-foreground',
+                        )
+                      "
+                    >
+                      <CalendarIcon class="mr-2 size-4" />
+                      {{ formattedDob || 'Pick a date' }}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent class="w-auto p-0" align="start">
+                    <Calendar v-model="dobCalendarValue" />
+                  </PopoverContent>
+                </Popover>
               </div>
-              <div>
+              <div class="space-y-2">
                 <Label for="gender">Gender</Label>
                 <Select v-model="newPatient.gender">
-                  <SelectTrigger>
+                  <SelectTrigger class="w-full">
                     <SelectValue placeholder="Select" />
                   </SelectTrigger>
                   <SelectContent>
@@ -53,7 +73,7 @@
                   </SelectContent>
                 </Select>
               </div>
-              <div class="sm:col-span-2">
+              <div class="space-y-2 sm:col-span-2">
                 <Label for="address">Address</Label>
                 <Textarea
                   id="address"
@@ -62,7 +82,7 @@
                   rows="2"
                 />
               </div>
-              <div>
+              <div class="space-y-2">
                 <Label for="ec-name">Emergency Contact Name</Label>
                 <Input
                   id="ec-name"
@@ -70,15 +90,15 @@
                   placeholder="Optional"
                 />
               </div>
-              <div>
+              <div class="space-y-2">
                 <Label for="ec-phone">Emergency Contact Phone</Label>
-                <Input
+                <PhoneInput
                   id="ec-phone"
                   v-model="newPatient.emergency_contact_phone"
                   placeholder="Optional"
                 />
               </div>
-              <div class="sm:col-span-2">
+              <div class="space-y-2 sm:col-span-2">
                 <Label for="notes">Notes</Label>
                 <Textarea
                   id="notes"
@@ -88,7 +108,7 @@
                 />
               </div>
             </div>
-            <DialogFooter>
+            <DialogFooter class="-mx-6 -mb-6 border-t px-6 py-4">
               <Button type="button" variant="outline" @click="showNewPatientDialog = false">
                 Cancel
               </Button>
@@ -187,7 +207,13 @@
 </template>
 
 <script setup lang="ts">
-import { Users, UserPlus, Search, Phone } from 'lucide-vue-next'
+import type { DateValue } from 'reka-ui'
+import { CalendarDate } from '@internationalized/date'
+import { Users, UserPlus, Search, Phone, CalendarIcon } from 'lucide-vue-next'
+import { PhoneInput } from '~/components/ui/input'
+import { Calendar } from '~/components/ui/calendar'
+import { Popover, PopoverContent, PopoverTrigger } from '~/components/ui/popover'
+import { cn } from '~/lib/utils'
 import { Gender, GENDER_LABELS } from '~/enums/gender.enum'
 import { usePatientsIndexPage } from '~/composables/usePatientsIndexPage'
 import { formatDateWithYear } from '~/lib/formatters'
@@ -203,4 +229,34 @@ const {
   filteredPatients,
   createPatient,
 } = usePatientsIndexPage()
+
+const dobPickerOpen = ref(false)
+
+const dobCalendarValue = computed<DateValue | undefined>({
+  get() {
+    if (!newPatient.value.date_of_birth) return undefined
+    const [year, month, day] = newPatient.value.date_of_birth.split('-').map(Number) as [number, number, number]
+    return new CalendarDate(year, month, day)
+  },
+  set(val: DateValue | undefined) {
+    if (val) {
+      const y = String(val.year).padStart(4, '0')
+      const m = String(val.month).padStart(2, '0')
+      const d = String(val.day).padStart(2, '0')
+      newPatient.value.date_of_birth = `${y}-${m}-${d}`
+    } else {
+      newPatient.value.date_of_birth = ''
+    }
+    dobPickerOpen.value = false
+  },
+})
+
+const formattedDob = computed(() => {
+  if (!newPatient.value.date_of_birth) return ''
+  return new Date(newPatient.value.date_of_birth + 'T00:00:00').toLocaleDateString('en-IN', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  })
+})
 </script>

@@ -13,12 +13,12 @@
 
     <Dialog v-model:open="showNewDialog">
       <DialogContent class="max-h-[90vh] overflow-y-auto sm:max-w-lg">
-        <DialogHeader>
+        <DialogHeader class="-mx-6 -mt-6 border-b px-6 py-4">
           <DialogTitle>Create Invoice</DialogTitle>
           <DialogDescription>Generate a new invoice for a patient.</DialogDescription>
         </DialogHeader>
-        <form class="space-y-4" @submit.prevent="createInvoice">
-          <div>
+        <form class="space-y-4 pt-2" @submit.prevent="createInvoice">
+          <div class="space-y-2">
             <Label>Patient *</Label>
             <Select
               :model-value="newInvoice.patient_id"
@@ -35,12 +35,12 @@
             </Select>
           </div>
 
-          <div v-if="shouldShowTreatmentLoading" class="space-y-1">
+          <div v-if="shouldShowTreatmentLoading" class="space-y-2">
             <Label>Linked Treatment (Optional)</Label>
             <p class="text-muted-foreground text-sm">Loading treatment plans...</p>
           </div>
 
-          <div v-else-if="shouldShowTreatmentSelector" class="space-y-1">
+          <div v-else-if="shouldShowTreatmentSelector" class="space-y-2">
             <Label>Linked Treatment (Optional)</Label>
             <Select
               :model-value="newInvoice.treatment_plan_id"
@@ -61,14 +61,91 @@
             </p>
           </div>
 
-          <div v-else-if="shouldShowNoEligibleTreatments" class="space-y-1">
+          <div v-else-if="shouldShowNoEligibleTreatments" class="space-y-2">
             <Label>Linked Treatment (Optional)</Label>
             <p class="text-muted-foreground text-sm">No eligible treatments available.</p>
           </div>
 
-          <div>
+          <div class="space-y-2">
             <Label>Line Items</Label>
-            <div class="mt-2 space-y-2">
+
+            <!-- Treatment-linked: auto-generated summary card -->
+            <div v-if="hasTreatmentItem" class="mt-2 space-y-3">
+              <div class="bg-muted/40 rounded-md border p-3">
+                <p class="text-sm font-medium">{{ newInvoice.treatmentItem!.description }}</p>
+                <div class="mt-1.5 flex items-center gap-2 text-sm">
+                  <template v-if="isPerSessionPlan">
+                    <Input
+                      :model-value="newInvoice.treatmentItem!.quantity"
+                      type="number"
+                      min="1"
+                      step="1"
+                      class="h-8 w-16"
+                      @update:model-value="updateTreatmentItemQty(Number($event))"
+                    />
+                    <span class="text-muted-foreground">&times;</span>
+                  </template>
+                  <template v-else>
+                    <span>{{ newInvoice.treatmentItem!.quantity }}</span>
+                    <span class="text-muted-foreground">&times;</span>
+                  </template>
+                  <span>{{ formatCurrency(newInvoice.treatmentItem!.unit_price) }}</span>
+                  <span class="text-muted-foreground">=</span>
+                  <span class="font-medium">{{ formatCurrency(newInvoice.treatmentItem!.total) }}</span>
+                </div>
+              </div>
+
+              <!-- Extra charges (editable) -->
+              <div v-if="newInvoice.extraItems.length > 0" class="space-y-2">
+                <p class="text-muted-foreground text-xs font-medium">Extra Charges</p>
+                <div
+                  v-for="(item, i) in newInvoice.extraItems"
+                  :key="item.id"
+                  class="space-y-2 sm:grid sm:grid-cols-12 sm:gap-2 sm:space-y-0"
+                >
+                  <Input v-model="item.description" placeholder="Description" class="sm:col-span-5" />
+                  <div class="grid grid-cols-3 gap-2 sm:contents">
+                    <Input
+                      v-model.number="item.quantity"
+                      type="number"
+                      min="1"
+                      step="1"
+                      placeholder="Qty"
+                      class="sm:col-span-2"
+                      @input="updateLineItem(i)"
+                    />
+                    <Input
+                      v-model.number="item.unit_price"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      placeholder="Price"
+                      class="sm:col-span-3"
+                      @input="updateLineItem(i)"
+                    />
+                    <div class="flex items-center justify-end gap-1 sm:col-span-2 sm:justify-between">
+                      <span class="text-sm">{{ formatCurrency(item.total) }}</span>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        class="h-8 w-8"
+                        @click="removeLineItem(i)"
+                      >
+                        &times;
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <Button type="button" variant="outline" size="sm" @click="addLineItem">
+                Add extra charge
+              </Button>
+            </div>
+
+            <!-- No treatment linked: manual line items (unchanged) -->
+            <div v-else class="mt-2 space-y-2">
               <div
                 v-for="(item, i) in newInvoice.items"
                 :key="item.id"
@@ -109,10 +186,10 @@
                   </div>
                 </div>
               </div>
+              <Button type="button" variant="outline" size="sm" class="mt-2" @click="addLineItem">
+                Add item
+              </Button>
             </div>
-            <Button type="button" variant="outline" size="sm" class="mt-2" @click="addLineItem">
-              Add item
-            </Button>
           </div>
 
           <div class="flex justify-between border-t pt-2 text-sm font-medium">
@@ -120,16 +197,35 @@
             <span>{{ formatCurrency(invoiceTotal) }}</span>
           </div>
 
-          <div>
+          <div class="space-y-2">
             <Label>Due Date</Label>
-            <Input v-model="newInvoice.due_date" type="date" />
+            <Popover v-model:open="dueDatePickerOpen" modal>
+              <PopoverTrigger as-child>
+                <Button
+                  type="button"
+                  variant="outline"
+                  :class="
+                    cn(
+                      'w-full justify-start text-left font-normal',
+                      !newInvoice.due_date && 'text-muted-foreground',
+                    )
+                  "
+                >
+                  <CalendarIcon class="mr-2 size-4" />
+                  {{ formattedDueDate || 'Pick a date' }}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent class="w-auto p-0" align="start">
+                <Calendar v-model="dueDateCalendarValue" :min-value="todayCalendarDate" />
+              </PopoverContent>
+            </Popover>
           </div>
-          <div>
+          <div class="space-y-2">
             <Label>Notes</Label>
             <Textarea v-model="newInvoice.notes" placeholder="Optional notes" rows="2" />
           </div>
 
-          <DialogFooter>
+          <DialogFooter class="-mx-6 -mb-6 border-t px-6 py-4">
             <Button type="button" variant="outline" @click="showNewDialog = false">Cancel</Button>
             <Button type="submit" :disabled="isSubmitting || !newInvoice.patient_id">
               {{ isSubmitting ? 'Creating...' : 'Create Invoice' }}
@@ -141,25 +237,44 @@
 
     <Dialog v-model:open="showRecordPaymentDialog">
       <DialogContent class="sm:max-w-md">
-        <DialogHeader>
+        <DialogHeader class="-mx-6 -mt-6 border-b px-6 py-4">
           <DialogTitle>Record Payment</DialogTitle>
           <DialogDescription v-if="selectedInvoiceForPayment">
             Invoice {{ selectedInvoiceForPayment.invoice_number }} • Outstanding:
             {{ formatCurrency(selectedInvoiceOutstanding) }}
           </DialogDescription>
         </DialogHeader>
-        <form class="space-y-4" @submit.prevent="recordPayment">
-          <div>
+        <form class="space-y-4 pt-2" @submit.prevent="recordPayment">
+          <div class="space-y-2">
             <Label>Amount *</Label>
             <Input v-model.number="paymentForm.amount" type="number" min="0.01" step="0.01" />
           </div>
 
-          <div>
+          <div class="space-y-2">
             <Label>Date *</Label>
-            <Input v-model="paymentForm.date" type="date" />
+            <Popover v-model:open="paymentDatePickerOpen" modal>
+              <PopoverTrigger as-child>
+                <Button
+                  type="button"
+                  variant="outline"
+                  :class="
+                    cn(
+                      'w-full justify-start text-left font-normal',
+                      !paymentForm.date && 'text-muted-foreground',
+                    )
+                  "
+                >
+                  <CalendarIcon class="mr-2 size-4" />
+                  {{ formattedPaymentDate || 'Pick a date' }}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent class="w-auto p-0" align="start">
+                <Calendar v-model="paymentDateCalendarValue" />
+              </PopoverContent>
+            </Popover>
           </div>
 
-          <div>
+          <div class="space-y-2">
             <Label>Method *</Label>
             <Select v-model="paymentForm.method">
               <SelectTrigger>
@@ -173,7 +288,7 @@
             </Select>
           </div>
 
-          <div>
+          <div class="space-y-2">
             <Label>Reference Note</Label>
             <Textarea
               v-model="paymentForm.reference_note"
@@ -183,7 +298,7 @@
             />
           </div>
 
-          <DialogFooter>
+          <DialogFooter class="-mx-6 -mb-6 border-t px-6 py-4">
             <Button type="button" variant="outline" @click="showRecordPaymentDialog = false">
               Cancel
             </Button>
@@ -370,7 +485,12 @@
 </template>
 
 <script setup lang="ts">
-import { AlertCircle, Banknote, Plus, Receipt } from 'lucide-vue-next'
+import type { DateValue } from 'reka-ui'
+import { CalendarDate } from '@internationalized/date'
+import { AlertCircle, Banknote, CalendarIcon, Plus, Receipt } from 'lucide-vue-next'
+import { Calendar } from '~/components/ui/calendar'
+import { Popover, PopoverContent, PopoverTrigger } from '~/components/ui/popover'
+import { cn } from '~/lib/utils'
 import { INVOICE_STATUS_LABELS } from '~/enums/invoice.enum'
 import { PAYMENT_METHOD_LABELS, PAYMENT_METHOD_VALUES } from '~/enums/payment.enum'
 import { useBillingPage } from '~/composables/useBillingPage'
@@ -394,6 +514,8 @@ const {
   newInvoice,
   isSubmitting,
   invoiceTotal,
+  isPerSessionPlan,
+  hasTreatmentItem,
   availableTreatmentPlans,
   shouldShowTreatmentLoading,
   shouldShowTreatmentSelector,
@@ -411,6 +533,7 @@ const {
   createInvoice,
   handlePatientSelection,
   handleTreatmentSelection,
+  updateTreatmentItemQty,
   updateLineItem,
   addLineItem,
   removeLineItem,
@@ -419,4 +542,71 @@ const {
   recordPayment,
   getTreatmentPlanOptionLabel,
 } = useBillingPage()
+
+const todayCalendarDate = computed(() => {
+  const now = new Date()
+  return new CalendarDate(now.getFullYear(), now.getMonth() + 1, now.getDate())
+})
+
+const dueDatePickerOpen = ref(false)
+
+const dueDateCalendarValue = computed<DateValue | undefined>({
+  get() {
+    if (!newInvoice.value.due_date) return undefined
+    const [year, month, day] = newInvoice.value.due_date.split('-').map(Number) as [number, number, number]
+    return new CalendarDate(year, month, day)
+  },
+  set(val: DateValue | undefined) {
+    if (val) {
+      const y = String(val.year).padStart(4, '0')
+      const m = String(val.month).padStart(2, '0')
+      const d = String(val.day).padStart(2, '0')
+      newInvoice.value.due_date = `${y}-${m}-${d}`
+    } else {
+      newInvoice.value.due_date = ''
+    }
+    dueDatePickerOpen.value = false
+  },
+})
+
+const formattedDueDate = computed(() => {
+  if (!newInvoice.value.due_date) return ''
+  return new Date(newInvoice.value.due_date + 'T00:00:00').toLocaleDateString('en-IN', {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  })
+})
+
+const paymentDatePickerOpen = ref(false)
+
+const paymentDateCalendarValue = computed<DateValue | undefined>({
+  get() {
+    if (!paymentForm.value.date) return undefined
+    const [year, month, day] = paymentForm.value.date.split('-').map(Number) as [number, number, number]
+    return new CalendarDate(year, month, day)
+  },
+  set(val: DateValue | undefined) {
+    if (val) {
+      const y = String(val.year).padStart(4, '0')
+      const m = String(val.month).padStart(2, '0')
+      const d = String(val.day).padStart(2, '0')
+      paymentForm.value.date = `${y}-${m}-${d}`
+    } else {
+      paymentForm.value.date = ''
+    }
+    paymentDatePickerOpen.value = false
+  },
+})
+
+const formattedPaymentDate = computed(() => {
+  if (!paymentForm.value.date) return ''
+  return new Date(paymentForm.value.date + 'T00:00:00').toLocaleDateString('en-IN', {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  })
+})
 </script>

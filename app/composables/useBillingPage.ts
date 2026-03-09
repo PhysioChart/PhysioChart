@@ -29,6 +29,8 @@ interface IInvoiceDraftItem {
 interface IInvoiceDraft {
   patient_id: string
   treatment_plan_id: string
+  treatmentItem: IInvoiceDraftItem | null
+  extraItems: IInvoiceDraftItem[]
   items: IInvoiceDraftItem[]
   notes: string
   due_date: string
@@ -42,6 +44,8 @@ function createDefaultInvoiceForm(): IInvoiceDraft {
   return {
     patient_id: '',
     treatment_plan_id: NO_TREATMENT_PLAN_VALUE,
+    treatmentItem: null,
+    extraItems: [],
     items: [createDefaultLineItem()],
     notes: '',
     due_date: '',
@@ -315,7 +319,7 @@ export function useBillingPage() {
   })
 
   const invoiceTotal = computed(() =>
-    newInvoice.value.items.reduce((sum, item) => sum + Number(item.total), 0),
+    allInvoiceItems.value.reduce((sum, item) => sum + Number(item.total), 0),
   )
 
   const expandedInvoicePayments = computed(() => {
@@ -384,60 +388,90 @@ export function useBillingPage() {
   async function setPatientSelection(patientId: string) {
     newInvoice.value.patient_id = patientId
     newInvoice.value.treatment_plan_id = NO_TREATMENT_PLAN_VALUE
+    newInvoice.value.treatmentItem = null
+    newInvoice.value.extraItems = []
     newInvoice.value.items = [createDefaultLineItem()]
 
     if (!patientId) return
     await loadTreatmentsForPatient(patientId)
   }
 
-  function buildPrefillItems(plan: ITreatmentPlanWithRelations): IInvoiceDraftItem[] {
+  function buildTreatmentItem(plan: ITreatmentPlanWithRelations): IInvoiceDraftItem | null {
     const packagePrice = Number(plan.package_price)
     if (Number.isFinite(packagePrice) && packagePrice > 0) {
       const unitPrice = roundMoney(packagePrice)
-      return [
-        {
-          id: crypto.randomUUID(),
-          description: `${plan.name} (Package)`,
-          quantity: 1,
-          unit_price: unitPrice,
-          total: unitPrice,
-        },
-      ]
+      return {
+        id: crypto.randomUUID(),
+        description: `${plan.name} (Package)`,
+        quantity: 1,
+        unit_price: unitPrice,
+        total: unitPrice,
+      }
     }
 
     const pricePerSession = Number(plan.price_per_session)
     if (Number.isFinite(pricePerSession) && pricePerSession > 0) {
       const unitPrice = roundMoney(pricePerSession)
-      return [
-        {
-          id: crypto.randomUUID(),
-          description: `${plan.name} (Session)`,
-          quantity: 1,
-          unit_price: unitPrice,
-          total: unitPrice,
-        },
-      ]
+      return {
+        id: crypto.randomUUID(),
+        description: `${plan.name} (Session)`,
+        quantity: 1,
+        unit_price: unitPrice,
+        total: unitPrice,
+      }
     }
 
-    return [createDefaultLineItem()]
+    return null
   }
+
+  const isPerSessionPlan = computed(() => {
+    if (!selectedTreatmentPlan.value) return false
+    const packagePrice = Number(selectedTreatmentPlan.value.package_price)
+    if (Number.isFinite(packagePrice) && packagePrice > 0) return false
+    const sessionPrice = Number(selectedTreatmentPlan.value.price_per_session)
+    return Number.isFinite(sessionPrice) && sessionPrice > 0
+  })
+
+  const hasTreatmentItem = computed(() => !!newInvoice.value.treatmentItem)
+
+  const allInvoiceItems = computed<IInvoiceDraftItem[]>(() => {
+    const items: IInvoiceDraftItem[] = []
+    if (newInvoice.value.treatmentItem) {
+      items.push(newInvoice.value.treatmentItem)
+    }
+    if (hasTreatmentItem.value) {
+      items.push(...newInvoice.value.extraItems)
+    } else {
+      items.push(...newInvoice.value.items)
+    }
+    return items
+  })
 
   function handleTreatmentSelection(value: unknown) {
     const treatmentPlanId = typeof value === 'string' ? value : null
 
     if (!treatmentPlanId || treatmentPlanId === NO_TREATMENT_PLAN_VALUE) {
       newInvoice.value.treatment_plan_id = NO_TREATMENT_PLAN_VALUE
+      newInvoice.value.treatmentItem = null
+      newInvoice.value.extraItems = []
+      newInvoice.value.items = [createDefaultLineItem()]
       return
     }
 
     const plan = availableTreatmentPlans.value.find((row) => row.id === treatmentPlanId)
     if (!plan) {
       newInvoice.value.treatment_plan_id = NO_TREATMENT_PLAN_VALUE
+      newInvoice.value.treatmentItem = null
+      newInvoice.value.extraItems = []
+      newInvoice.value.items = [createDefaultLineItem()]
       return
     }
 
     newInvoice.value.treatment_plan_id = plan.id
-    newInvoice.value.items = buildPrefillItems(plan)
+    const treatmentItem = buildTreatmentItem(plan)
+    newInvoice.value.treatmentItem = treatmentItem
+    newInvoice.value.extraItems = []
+    newInvoice.value.items = treatmentItem ? [] : [createDefaultLineItem()]
   }
 
   function handlePatientSelection(value: unknown) {
@@ -516,12 +550,13 @@ export function useBillingPage() {
 
   async function createInvoice() {
     if (!activeMembership.value?.clinic_id || !newInvoice.value.patient_id) return
-    if (!validateInvoiceItems(newInvoice.value.items)) return
+    const itemsToSubmit = allInvoiceItems.value
+    if (!validateInvoiceItems(itemsToSubmit)) return
 
     isSubmitting.value = true
 
     try {
-      const normalizedItems: IInvoiceLineItem[] = newInvoice.value.items.map((item) => {
+      const normalizedItems: IInvoiceLineItem[] = itemsToSubmit.map((item) => {
         const quantity = Math.trunc(item.quantity)
         const unitPrice = roundMoney(item.unit_price)
         return {
@@ -686,8 +721,20 @@ export function useBillingPage() {
     }
   }
 
+  function updateTreatmentItemQty(qty: number) {
+    const item = newInvoice.value.treatmentItem
+    if (!item) return
+    const clampedQty = Math.max(1, Math.trunc(qty))
+    newInvoice.value.treatmentItem = {
+      ...item,
+      quantity: clampedQty,
+      total: roundMoney(clampedQty * item.unit_price),
+    }
+  }
+
   function updateLineItem(index: number) {
-    const item = newInvoice.value.items[index]
+    const items = hasTreatmentItem.value ? newInvoice.value.extraItems : newInvoice.value.items
+    const item = items[index]
     if (!item) return
     const quantity = Number(item.quantity)
     const unitPrice = Number(item.unit_price)
@@ -697,11 +744,17 @@ export function useBillingPage() {
   }
 
   function addLineItem() {
-    newInvoice.value.items.push(createDefaultLineItem())
+    if (hasTreatmentItem.value) {
+      newInvoice.value.extraItems.push(createDefaultLineItem())
+    } else {
+      newInvoice.value.items.push(createDefaultLineItem())
+    }
   }
 
   function removeLineItem(index: number) {
-    if (newInvoice.value.items.length > 1) {
+    if (hasTreatmentItem.value) {
+      newInvoice.value.extraItems.splice(index, 1)
+    } else if (newInvoice.value.items.length > 1) {
       newInvoice.value.items.splice(index, 1)
     }
   }
@@ -770,6 +823,9 @@ export function useBillingPage() {
     isSubmitting,
     invoiceTotal,
     isLoadingTreatments,
+    isPerSessionPlan,
+    hasTreatmentItem,
+    allInvoiceItems,
     availableTreatmentPlans,
     shouldShowTreatmentLoading,
     shouldShowTreatmentSelector,
@@ -787,6 +843,7 @@ export function useBillingPage() {
     createInvoice,
     handlePatientSelection,
     handleTreatmentSelection,
+    updateTreatmentItemQty,
     updateLineItem,
     addLineItem,
     removeLineItem,

@@ -25,8 +25,8 @@
 </template>
 
 <script setup lang="ts">
-import CalendarDayView from '~/components/appointments/CalendarDayView.vue'
-import CalendarWeekView from '~/components/appointments/CalendarWeekView.vue'
+import CalendarDayView from '~/features/appointments/components/CalendarDayView.vue'
+import CalendarWeekView from '~/features/appointments/components/CalendarWeekView.vue'
 import type { TherapistColor, CalendarDay } from '~/composables/useCalendar'
 import type { AppointmentsViewMode } from '~/features/appointments/types'
 import type { IAppointmentWithRelations } from '~/types/models/appointment.types'

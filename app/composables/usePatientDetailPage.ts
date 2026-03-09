@@ -1,9 +1,9 @@
 import { toast } from 'vue-sonner'
 import { storeToRefs } from 'pinia'
-import type { Tables, MedicalHistory } from '~/types/database'
+import type { PatientRow } from '~/types/database'
+import type { IPatientEditForm, MedicalHistory } from '~/types/models/patient.types'
 import type { IAppointmentWithRelations } from '~/types/models/appointment.types'
 import type { IInvoiceWithRelations } from '~/types/models/invoice.types'
-import type { IPatientEditForm } from '~/types/models/patient.types'
 import type { ITreatmentPlanWithRelations } from '~/types/models/treatment.types'
 import { InvoiceStatus } from '~/enums/invoice.enum'
 import { TreatmentStatus } from '~/enums/treatment.enum'
@@ -27,10 +27,10 @@ export function usePatientDetailPage() {
   const { byPatientByClinic: treatmentsByPatientByClinic } = storeToRefs(treatmentsStore)
   const { byPatientByClinic: invoicesByPatientByClinic } = storeToRefs(invoicesStore)
 
-  const patient = ref<Tables<'patients'> | null>(null)
-  const appointments = ref<IAppointmentWithRelations[]>([])
-  const invoices = ref<IInvoiceWithRelations[]>([])
-  const treatments = ref<ITreatmentPlanWithRelations[]>([])
+  const patient = shallowRef<PatientRow | null>(null)
+  const appointments = shallowRef<IAppointmentWithRelations[]>([])
+  const invoices = shallowRef<IInvoiceWithRelations[]>([])
+  const treatments = shallowRef<ITreatmentPlanWithRelations[]>([])
 
   const isLoading = ref(true)
   const isLoadingAppointments = ref(false)
@@ -152,48 +152,57 @@ export function usePatientDetailPage() {
 
   const todayDateKey = computed(() => toLocalDateKey(new Date()))
 
-  const upcomingAppointments = computed(() => {
-    return appointments.value
+  const upcomingAppointments = computed<IAppointmentWithRelations[]>(() => {
+    const all = appointments.value as IAppointmentWithRelations[]
+    return all
       .filter((appt) => {
         const apptDateKey = toLocalDateKey(appt.start_time)
         return appt.status === AppointmentStatus.SCHEDULED && apptDateKey >= todayDateKey.value
       })
-      .slice()
       .sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime())
   })
 
-  const pastAppointments = computed(() => {
-    return appointments.value
+  const pastAppointments = computed<IAppointmentWithRelations[]>(() => {
+    const all = appointments.value as IAppointmentWithRelations[]
+    return all
       .filter((appt) => {
         const apptDateKey = toLocalDateKey(appt.start_time)
+        if (appt.status === AppointmentStatus.CHECKED_IN && apptDateKey >= todayDateKey.value) {
+          return false
+        }
         return appt.status !== AppointmentStatus.SCHEDULED || apptDateKey < todayDateKey.value
       })
-      .slice()
       .sort((a, b) => new Date(b.start_time).getTime() - new Date(a.start_time).getTime())
   })
 
-  const visiblePastAppointments = computed(() => {
+  const visiblePastAppointments = computed<IAppointmentWithRelations[]>(() => {
     return showAllPast.value ? pastAppointments.value : pastAppointments.value.slice(0, 10)
   })
 
   const remainingPastCount = computed(() => Math.max(0, pastAppointments.value.length - 10))
 
-  const activeTreatments = computed(() => {
-    return treatments.value.filter((t) => t.status === TreatmentStatus.ACTIVE)
+  const activeTreatments = computed<ITreatmentPlanWithRelations[]>(() => {
+    return (treatments.value as ITreatmentPlanWithRelations[]).filter(
+      (t) => t.status === TreatmentStatus.ACTIVE,
+    )
   })
 
-  const completedTreatments = computed(() => {
-    return treatments.value.filter(
+  const completedTreatments = computed<ITreatmentPlanWithRelations[]>(() => {
+    return (treatments.value as ITreatmentPlanWithRelations[]).filter(
       (t) => t.status === TreatmentStatus.COMPLETED || t.status === TreatmentStatus.CANCELLED,
     )
   })
 
-  const unpaidPendingInvoices = computed(() => {
-    return invoices.value.filter((inv) => inv.status !== InvoiceStatus.PAID)
+  const unpaidPendingInvoices = computed<IInvoiceWithRelations[]>(() => {
+    return (invoices.value as IInvoiceWithRelations[]).filter(
+      (inv) => inv.status !== InvoiceStatus.PAID,
+    )
   })
 
-  const paidInvoices = computed(() => {
-    return invoices.value.filter((inv) => inv.status === InvoiceStatus.PAID)
+  const paidInvoices = computed<IInvoiceWithRelations[]>(() => {
+    return (invoices.value as IInvoiceWithRelations[]).filter(
+      (inv) => inv.status === InvoiceStatus.PAID,
+    )
   })
 
   function getAppointmentStatusBadgeClass(status: AppointmentStatus): string {
@@ -255,7 +264,7 @@ export function usePatientDetailPage() {
     isEditing.value = true
   }
 
-  function buildEditForm(patientData: Tables<'patients'>): IPatientEditForm {
+  function buildEditForm(patientData: PatientRow): IPatientEditForm {
     return {
       full_name: patientData.full_name,
       phone: patientData.phone,
@@ -280,7 +289,7 @@ export function usePatientDetailPage() {
         phone: form.phone,
         email: form.email || null,
         date_of_birth: form.date_of_birth || null,
-        gender: (form.gender || null) as Tables<'patients'>['gender'],
+        gender: (form.gender || null) as PatientRow['gender'],
         address: form.address || null,
         emergency_contact_name: form.emergency_contact_name || null,
         emergency_contact_phone: form.emergency_contact_phone || null,
@@ -288,18 +297,20 @@ export function usePatientDetailPage() {
       })
 
       if (patient.value) {
-        patientsStore.upsertPatient(activeMembership.value.clinic_id, {
-          ...patient.value,
+        const current = patient.value as PatientRow
+        const updated: PatientRow = {
+          ...current,
           full_name: form.full_name,
           phone: form.phone,
           email: form.email || null,
           date_of_birth: form.date_of_birth || null,
-          gender: (form.gender || null) as Tables<'patients'>['gender'],
+          gender: (form.gender || null) as PatientRow['gender'],
           address: form.address || null,
           emergency_contact_name: form.emergency_contact_name || null,
           emergency_contact_phone: form.emergency_contact_phone || null,
           notes: form.notes || null,
-        })
+        }
+        patientsStore.upsertPatient(activeMembership.value.clinic_id, updated)
         patientsStore.invalidate(activeMembership.value.clinic_id)
         appointmentsStore.invalidatePatient(activeMembership.value.clinic_id, patient.value.id)
         treatmentsStore.invalidatePatient(activeMembership.value.clinic_id, patient.value.id)
@@ -342,8 +353,10 @@ export function usePatientDetailPage() {
     }
   }
 
-  const medicalHistory = computed(() => {
-    return (patient.value?.medical_history as MedicalHistory) ?? {}
+  const medicalHistory = computed<MedicalHistory>(() => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const raw = (patient.value as any)?.medical_history
+    return (raw as MedicalHistory) ?? {}
   })
 
   watch(

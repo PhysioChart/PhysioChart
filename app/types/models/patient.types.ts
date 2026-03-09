@@ -1,9 +1,18 @@
-import type { Tables } from '~/types/database'
+import type { AppointmentRow, InvoiceRow, PatientRow, TreatmentPlanRow } from '~/types/database'
 
-export interface IPatientWithRelations extends Tables<'patients'> {
-  appointments?: Tables<'appointments'>[]
-  treatment_plans?: Tables<'treatment_plans'>[]
-  invoices?: Tables<'invoices'>[]
+/** Shape of the JSONB `medical_history` column on `patients`. */
+export interface MedicalHistory {
+  allergies?: string[]
+  current_medications?: string[]
+  past_surgeries?: string[]
+  conditions?: string[]
+  notes?: string
+}
+
+export interface IPatientWithRelations extends PatientRow {
+  appointments?: AppointmentRow[]
+  treatment_plans?: TreatmentPlanRow[]
+  invoices?: InvoiceRow[]
 }
 
 export interface IPatientEditForm {

@@ -1,5 +1,5 @@
-import type { Tables } from '~/types/database'
+import type { ClinicRow, ProfileRow } from '~/types/database'
 
-export interface IClinicWithRelations extends Tables<'clinics'> {
-  profiles?: Tables<'profiles'>[]
+export interface IClinicWithRelations extends ClinicRow {
+  profiles?: ProfileRow[]
 }

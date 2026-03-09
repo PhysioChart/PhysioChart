@@ -1,7 +1,7 @@
-import type { Tables } from '~/types/database'
+import type { InvoiceRow, PatientRow } from '~/types/database'
 
-export interface IInvoiceWithRelations extends Tables<'invoices'> {
-  patient: Tables<'patients'> | null
+export interface IInvoiceWithRelations extends InvoiceRow {
+  patient: PatientRow | null
 }
 
 export interface IInvoiceLineItem {

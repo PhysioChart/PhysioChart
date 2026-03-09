@@ -1,5 +1,5 @@
-import type { Tables } from '~/types/database'
+import type { InvoiceRow, PaymentRow } from '~/types/database'
 
-export interface IPaymentWithRelations extends Tables<'payments'> {
-  invoice: Tables<'invoices'> | null
+export interface IPaymentWithRelations extends PaymentRow {
+  invoice: InvoiceRow | null
 }

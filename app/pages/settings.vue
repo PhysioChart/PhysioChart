@@ -17,223 +17,149 @@
         </TabsTrigger>
       </TabsList>
 
-      <!-- Clinic Profile Tab -->
       <TabsContent value="clinic">
-        <Card>
-          <CardHeader>
-            <CardTitle>Clinic Information</CardTitle>
-            <CardDescription>
-              {{
-                isAdmin
-                  ? 'Update your clinic details.'
-                  : 'View your clinic details. Only admins can edit.'
-              }}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form class="space-y-4" @submit.prevent="saveClinicProfile">
-              <div class="grid gap-4 sm:grid-cols-2">
-                <div class="sm:col-span-2">
-                  <Label for="clinic-name">Clinic Name</Label>
-                  <Input
-                    id="clinic-name"
-                    v-model="clinicForm.name"
-                    placeholder="Your clinic name"
-                    :disabled="!isAdmin"
-                  />
-                </div>
-                <div>
-                  <Label for="clinic-phone">Phone</Label>
-                  <PhoneInput
-                    id="clinic-phone"
-                    v-model="clinicForm.phone"
-                    placeholder="98765 43210"
-                    :disabled="!isAdmin"
-                  />
-                </div>
-                <div>
-                  <Label for="clinic-email">Email</Label>
-                  <Input
-                    id="clinic-email"
-                    v-model="clinicForm.email"
-                    type="email"
-                    placeholder="clinic@example.com"
-                    :disabled="!isAdmin"
-                  />
-                </div>
-                <div class="sm:col-span-2">
-                  <Label for="clinic-address">Address</Label>
-                  <Textarea
-                    id="clinic-address"
-                    v-model="clinicForm.address"
-                    placeholder="Clinic address"
-                    rows="2"
-                    :disabled="!isAdmin"
-                  />
-                </div>
-                <div class="sm:col-span-2">
-                  <Label for="clinic-logo">Logo URL</Label>
-                  <Input
-                    id="clinic-logo"
-                    v-model="clinicForm.logo_url"
-                    placeholder="https://example.com/logo.png"
-                    :disabled="!isAdmin"
-                  />
-                </div>
-              </div>
-              <Button v-if="isAdmin" type="submit" size="lg" :disabled="isSavingClinic">
-                {{ isSavingClinic ? 'Saving...' : 'Save Changes' }}
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
+        <ClinicProfileForm
+          :clinic="clinicFormData"
+          :is-admin="isAdmin"
+          :is-saving="isSavingClinic"
+          @submit="saveClinicProfile"
+        />
       </TabsContent>
 
-      <!-- Staff Tab -->
       <TabsContent value="staff">
-        <Card>
-          <CardHeader>
-            <div class="flex items-center justify-between">
-              <div>
-                <CardTitle>Staff Members</CardTitle>
-                <CardDescription>Manage your clinic's team</CardDescription>
-              </div>
-              <Dialog v-if="isAdmin" v-model:open="showInviteDialog">
-                <DialogTrigger as-child>
-                  <Button size="lg">
-                    <UserPlus class="mr-2 h-4 w-4" />
-                    Add Staff
-                  </Button>
-                </DialogTrigger>
-                <DialogContent class="sm:max-w-md">
-                  <DialogHeader>
-                    <DialogTitle>Invite Staff Member</DialogTitle>
-                    <DialogDescription>
-                      Send a secure invite link for a new staff member.
-                    </DialogDescription>
-                  </DialogHeader>
-                  <form class="space-y-4" @submit.prevent="inviteStaffMember">
-                    <div>
-                      <Label>Email *</Label>
-                      <Input
-                        v-model="inviteForm.email"
-                        type="email"
-                        placeholder="staff@clinic.com"
-                      />
-                    </div>
-                    <div>
-                      <Label>Role</Label>
-                      <Select v-model="inviteForm.role">
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem :value="UserRole.STAFF"
-                            >Staff (Therapist/Receptionist)</SelectItem
-                          >
-                          <SelectItem :value="UserRole.ADMIN">Admin (Full access)</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <DialogFooter>
-                      <Button type="button" variant="outline" @click="showInviteDialog = false">
-                        Cancel
-                      </Button>
-                      <Button type="submit" :disabled="isInviting || !inviteForm.email">
-                        {{ isInviting ? 'Creating...' : 'Create Invite Link' }}
-                      </Button>
-                    </DialogFooter>
-                  </form>
-                </DialogContent>
-              </Dialog>
-            </div>
-          </CardHeader>
-          <CardContent class="p-0">
-            <div v-if="isLoadingStaff" class="space-y-3 p-6">
-              <Skeleton v-for="i in 3" :key="i" class="h-16 w-full" />
-            </div>
-            <div
-              v-else-if="staffMembers.length === 0"
-              class="flex flex-col items-center justify-center py-12 text-center"
-            >
-              <Users class="text-muted-foreground/50 mb-3 h-10 w-10" />
-              <p class="text-muted-foreground text-sm">No staff members yet</p>
-            </div>
-            <div v-else class="divide-y">
-              <div
-                v-for="member in staffMembers"
-                :key="member.id"
-                class="flex flex-wrap items-center gap-3 p-4 sm:flex-nowrap sm:gap-4"
-                :class="{ 'opacity-50': !member.is_active }"
-              >
-                <Avatar class="h-10 w-10 shrink-0">
-                  <AvatarFallback>
-                    {{
-                      member.full_name
-                        .split(' ')
-                        .map((n) => n[0])
-                        .join('')
-                        .toUpperCase()
-                        .slice(0, 2)
-                    }}
-                  </AvatarFallback>
-                </Avatar>
-                <div class="min-w-0 flex-1">
-                  <p class="truncate font-medium">
-                    {{ member.full_name }}
-                    <span v-if="member.id === profile?.id" class="text-muted-foreground text-xs"
-                      >(You)</span
-                    >
-                  </p>
-                  <p class="text-muted-foreground truncate text-sm">{{ member.email }}</p>
-                </div>
-                <div class="flex items-center gap-2">
-                  <Badge variant="secondary">
-                    <Shield v-if="member.role === UserRole.ADMIN" class="mr-1 h-3 w-3" />
-                    {{ USER_ROLE_LABELS[member.role] }}
-                  </Badge>
-                  <Badge v-if="!member.is_active" variant="outline" class="text-destructive">
-                    Inactive
-                  </Badge>
-                  <Button
-                    v-if="isAdmin && member.id !== profile?.id && member.is_active"
-                    variant="ghost"
-                    size="icon"
-                    class="text-destructive"
-                    @click="deactivateStaff(member.id)"
-                  >
-                    <Trash2 class="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        <StaffMembersList
+          :members="staffMembers"
+          :is-admin="isAdmin"
+          :is-loading="isLoadingStaff"
+          :current-user-id="profile?.id"
+          @remove="deactivateStaff"
+        >
+          <template #header-action>
+            <Button size="lg" @click="showInviteDialog = true">
+              <UserPlus class="mr-2 h-4 w-4" />
+              Add Staff
+            </Button>
+          </template>
+        </StaffMembersList>
       </TabsContent>
     </Tabs>
+
+    <StaffInviteDialog
+      ref="inviteDialogRef"
+      :open="showInviteDialog"
+      @update:open="showInviteDialog = $event"
+      @submit="handleInviteStaff"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
-import { Building2, Users, UserPlus, Trash2, Shield } from 'lucide-vue-next'
-import { PhoneInput } from '~/components/ui/input'
-import { UserRole, USER_ROLE_LABELS } from '~/enums/user-role.enum'
-import { useSettingsPage } from '~/composables/useSettingsPage'
+import { storeToRefs } from 'pinia'
+import { toast } from 'vue-sonner'
+import { Building2, Users, UserPlus } from 'lucide-vue-next'
+import { clinicService } from '~/services/clinic.service'
+import { staffService } from '~/services/staff.service'
+import { useStaffStore } from '~/stores/staff.store'
+import ClinicProfileForm from '~/features/settings/components/ClinicProfileForm.vue'
+import type { ClinicProfilePayload } from '~/features/settings/components/ClinicProfileForm.vue'
+import StaffMembersList from '~/features/settings/components/StaffMembersList.vue'
+import StaffInviteDialog from '~/features/settings/components/StaffInviteDialog.vue'
+import type { StaffInvitePayload } from '~/features/settings/components/StaffInviteDialog.vue'
 
 definePageMeta({ layout: 'protected' })
 
-const {
-  profile,
-  isAdmin,
-  clinicForm,
-  isSavingClinic,
-  isLoadingStaff,
-  showInviteDialog,
-  inviteForm,
-  isInviting,
-  staffMembers,
-  saveClinicProfile,
-  inviteStaffMember,
-  deactivateStaff,
-} = useSettingsPage()
+const supabase = useSupabaseClient()
+const { clinic, profile, activeMembership, isAdmin, refreshAuthContext } = useAuth()
+const staffStore = useStaffStore()
+const { byClinic } = storeToRefs(staffStore)
+
+const isSavingClinic = ref(false)
+const isLoadingStaff = ref(true)
+const showInviteDialog = ref(false)
+
+// --- Computed ---
+
+const clinicFormData = computed<ClinicProfilePayload>(() => ({
+  name: clinic.value?.name ?? '',
+  address: clinic.value?.address ?? '',
+  phone: clinic.value?.phone ?? '',
+  email: clinic.value?.email ?? '',
+  logo_url: clinic.value?.logo_url ?? '',
+}))
+
+const staffMembers = computed(() => {
+  if (!activeMembership.value?.clinic_id) return []
+  return byClinic.value[activeMembership.value.clinic_id] ?? []
+})
+
+// --- Clinic Profile ---
+
+async function saveClinicProfile(payload: ClinicProfilePayload) {
+  if (!clinic.value || !isAdmin.value) return
+  isSavingClinic.value = true
+  try {
+    await clinicService(supabase).update(clinic.value.id, {
+      name: payload.name,
+      address: payload.address || null,
+      phone: payload.phone || null,
+      email: payload.email || null,
+      logo_url: payload.logo_url || null,
+    })
+    toast.success('Clinic profile updated')
+    await refreshAuthContext()
+  } catch (err: unknown) {
+    toast.error(err instanceof Error ? err.message : 'Failed to update clinic profile')
+  } finally {
+    isSavingClinic.value = false
+  }
+}
+
+// --- Staff ---
+
+async function loadStaff() {
+  if (!activeMembership.value?.clinic_id) return
+  isLoadingStaff.value = true
+  try {
+    await staffStore.fetchList(activeMembership.value.clinic_id)
+  } catch (err: unknown) {
+    toast.error(err instanceof Error ? err.message : 'Failed to load staff')
+  } finally {
+    isLoadingStaff.value = false
+  }
+}
+
+const inviteDialogRef = ref<InstanceType<typeof StaffInviteDialog> | null>(null)
+
+async function handleInviteStaff(payload: StaffInvitePayload) {
+  try {
+    const inviteUrl = await staffService(supabase).createInvite(payload.email, payload.role)
+    try {
+      await navigator.clipboard.writeText(new URL(inviteUrl, window.location.origin).toString())
+      toast.success('Invite link copied to clipboard')
+    } catch {
+      toast.success('Invite created (clipboard copy failed)')
+    }
+    showInviteDialog.value = false
+  } catch (err: unknown) {
+    toast.error(err instanceof Error ? err.message : 'Failed to add staff member')
+  } finally {
+    inviteDialogRef.value?.markSubmitted()
+  }
+}
+
+async function deactivateStaff(staffId: string) {
+  if (!isAdmin.value || staffId === profile.value?.id) return
+  const target = staffMembers.value.find((m) => m.id === staffId)
+  if (!target || !activeMembership.value?.clinic_id) return
+  try {
+    await staffService(supabase).deactivate(target.membership_id)
+    staffStore.invalidate(activeMembership.value.clinic_id)
+    toast.success('Staff member deactivated')
+    await loadStaff()
+  } catch (err: unknown) {
+    toast.error(err instanceof Error ? err.message : 'Failed to deactivate staff member')
+  }
+}
+
+onMounted(loadStaff)
 </script>

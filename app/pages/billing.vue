@@ -91,7 +91,9 @@
                   </template>
                   <span>{{ formatCurrency(newInvoice.treatmentItem!.unit_price) }}</span>
                   <span class="text-muted-foreground">=</span>
-                  <span class="font-medium">{{ formatCurrency(newInvoice.treatmentItem!.total) }}</span>
+                  <span class="font-medium">{{
+                    formatCurrency(newInvoice.treatmentItem!.total)
+                  }}</span>
                 </div>
               </div>
 
@@ -103,7 +105,11 @@
                   :key="item.id"
                   class="space-y-2 sm:grid sm:grid-cols-12 sm:gap-2 sm:space-y-0"
                 >
-                  <Input v-model="item.description" placeholder="Description" class="sm:col-span-5" />
+                  <Input
+                    v-model="item.description"
+                    placeholder="Description"
+                    class="sm:col-span-5"
+                  />
                   <div class="grid grid-cols-3 gap-2 sm:contents">
                     <Input
                       v-model.number="item.quantity"
@@ -123,7 +129,9 @@
                       class="sm:col-span-3"
                       @input="updateLineItem(i)"
                     />
-                    <div class="flex items-center justify-end gap-1 sm:col-span-2 sm:justify-between">
+                    <div
+                      class="flex items-center justify-end gap-1 sm:col-span-2 sm:justify-between"
+                    >
                       <span class="text-sm">{{ formatCurrency(item.total) }}</span>
                       <Button
                         type="button"
@@ -553,7 +561,11 @@ const dueDatePickerOpen = ref(false)
 const dueDateCalendarValue = computed<DateValue | undefined>({
   get() {
     if (!newInvoice.value.due_date) return undefined
-    const [year, month, day] = newInvoice.value.due_date.split('-').map(Number) as [number, number, number]
+    const [year, month, day] = newInvoice.value.due_date.split('-').map(Number) as [
+      number,
+      number,
+      number,
+    ]
     return new CalendarDate(year, month, day)
   },
   set(val: DateValue | undefined) {
@@ -584,7 +596,11 @@ const paymentDatePickerOpen = ref(false)
 const paymentDateCalendarValue = computed<DateValue | undefined>({
   get() {
     if (!paymentForm.value.date) return undefined
-    const [year, month, day] = paymentForm.value.date.split('-').map(Number) as [number, number, number]
+    const [year, month, day] = paymentForm.value.date.split('-').map(Number) as [
+      number,
+      number,
+      number,
+    ]
     return new CalendarDate(year, month, day)
   },
   set(val: DateValue | undefined) {

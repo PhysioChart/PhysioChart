@@ -123,7 +123,11 @@ const dobPickerOpen = ref(false)
 const dobCalendarValue = computed<DateValue | undefined>({
   get() {
     if (!form.value.date_of_birth) return undefined
-    const [year, month, day] = form.value.date_of_birth.split('-').map(Number) as [number, number, number]
+    const [year, month, day] = form.value.date_of_birth.split('-').map(Number) as [
+      number,
+      number,
+      number,
+    ]
     return new CalendarDate(year, month, day)
   },
   set(val: DateValue | undefined) {

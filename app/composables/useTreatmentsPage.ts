@@ -45,8 +45,9 @@ export function useTreatmentsPage() {
     diagnosis: '',
     treatment_type: '',
     total_sessions: 10,
-    price_per_session: '',
-    package_price: '',
+    pricing_mode: 'per_session' as 'per_session' | 'package',
+    price_per_session: 0,
+    package_price: 0,
     notes: '',
   })
   const isSubmitting = ref(false)
@@ -106,10 +107,12 @@ export function useTreatmentsPage() {
         diagnosis: newPlan.value.diagnosis || null,
         treatment_type: newPlan.value.treatment_type || null,
         total_sessions: newPlan.value.total_sessions,
-        price_per_session: newPlan.value.price_per_session
-          ? parseFloat(newPlan.value.price_per_session)
-          : null,
-        package_price: newPlan.value.package_price ? parseFloat(newPlan.value.package_price) : null,
+        price_per_session:
+          newPlan.value.pricing_mode === 'per_session'
+            ? newPlan.value.price_per_session || null
+            : null,
+        package_price:
+          newPlan.value.pricing_mode === 'package' ? newPlan.value.package_price || null : null,
         notes: newPlan.value.notes || null,
       })
 
@@ -124,8 +127,9 @@ export function useTreatmentsPage() {
         diagnosis: '',
         treatment_type: '',
         total_sessions: 10,
-        price_per_session: '',
-        package_price: '',
+        pricing_mode: 'per_session',
+        price_per_session: 0,
+        package_price: 0,
         notes: '',
       }
     } catch (err: unknown) {

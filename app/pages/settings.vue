@@ -44,10 +44,10 @@
                 </div>
                 <div>
                   <Label for="clinic-phone">Phone</Label>
-                  <Input
+                  <PhoneInput
                     id="clinic-phone"
                     v-model="clinicForm.phone"
-                    placeholder="+91 98765 43210"
+                    placeholder="98765 43210"
                     :disabled="!isAdmin"
                   />
                 </div>
@@ -216,6 +216,7 @@
 
 <script setup lang="ts">
 import { Building2, Users, UserPlus, Trash2, Shield } from 'lucide-vue-next'
+import { PhoneInput } from '~/components/ui/input'
 import { UserRole, USER_ROLE_LABELS } from '~/enums/user-role.enum'
 import { useSettingsPage } from '~/composables/useSettingsPage'
 

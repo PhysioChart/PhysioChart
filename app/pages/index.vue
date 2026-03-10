@@ -1,28 +1,8 @@
 <template>
   <div class="dark">
     <div class="bg-background text-foreground min-h-screen">
-      <!-- Navbar -->
-      <nav
-        class="border-border/50 bg-background/80 fixed top-0 right-0 left-0 z-50 border-b backdrop-blur-lg"
-      >
-        <div class="mx-auto flex h-16 max-w-5xl items-center justify-between px-6">
-          <span class="text-foreground text-lg font-bold tracking-tight">PhysioChart</span>
-          <a
-            :href="whatsappUrl"
-            target="_blank"
-            rel="noopener noreferrer"
-            class="hidden md:inline-flex"
-          >
-            <Button size="sm">
-              <MessageCircle class="mr-2 h-4 w-4" />
-              Book a Demo
-            </Button>
-          </a>
-        </div>
-      </nav>
-
       <!-- Hero -->
-      <section class="flex flex-col items-center px-6 pt-32 pb-16 text-center sm:pt-40 sm:pb-20">
+      <section class="flex flex-col items-center px-6 pt-24 pb-16 text-center sm:pt-32 sm:pb-20">
         <div
           class="border-primary/20 bg-primary/10 text-primary mb-6 inline-flex items-center gap-2 rounded-full border px-4 py-1.5 text-sm font-medium"
         >
@@ -221,14 +201,6 @@
             </Button>
           </a>
         </div>
-        <a
-          :href="whatsappUrl"
-          target="_blank"
-          rel="noopener noreferrer"
-          class="text-muted-foreground hover:text-foreground mt-4 inline-block text-sm underline underline-offset-4"
-        >
-          Or message us on WhatsApp
-        </a>
       </section>
 
       <!-- Footer -->
@@ -278,8 +250,9 @@ useHead({
 
 useScrollReveal()
 
-const whatsappUrl =
-  'https://wa.me/919999999999?text=Hi%2C%20I%27d%20like%20a%20demo%20of%20PhysioChart'
+const whatsappPhone = '917022144253'
+const whatsappMessage = "Hi, I'd like to book a free demo of PhysioChart."
+const whatsappUrl = `https://wa.me/${whatsappPhone}?text=${encodeURIComponent(whatsappMessage)}`
 </script>
 
 <style scoped>

@@ -791,7 +791,7 @@ async function seedInvoicesAndPayments() {
 
 // ── Main ─────────────────────────────────────────────────────────────
 async function main() {
-  console.log('\n=== MedPractice Demo Seed ===\n')
+  console.log('\n=== PhysioChart Demo Seed ===\n')
 
   try {
     await cleanup()

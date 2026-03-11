@@ -37,7 +37,7 @@
                   <Building2 class="size-4" />
                 </div>
                 <div class="grid flex-1 text-left text-sm leading-tight">
-                  <span class="truncate font-semibold">{{ clinic?.name ?? 'MedPractice' }}</span>
+                  <span class="truncate font-semibold">{{ clinic?.name ?? 'PhysioChart' }}</span>
                   <span class="text-muted-foreground truncate text-xs">Clinic Management</span>
                 </div>
               </NuxtLink>

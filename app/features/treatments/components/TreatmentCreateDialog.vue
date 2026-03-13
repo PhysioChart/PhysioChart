@@ -1,101 +1,107 @@
 <template>
-  <Dialog :open="open" @update:open="emit('update:open', $event)">
-    <DialogContent class="max-h-[90vh] overflow-y-auto sm:max-w-lg">
-      <DialogHeader class="-mx-6 -mt-6 border-b px-6 py-4">
+  <ResponsiveFormOverlay :open="open" desktop-width="lg" @update:open="emit('update:open', $event)">
+    <form class="flex min-h-0 flex-1 flex-col" @submit.prevent="handleSubmit">
+      <DialogHeader
+        class="bg-background shrink-0 border-b px-4 py-4 [padding-top:max(1rem,env(safe-area-inset-top))] text-left sm:px-6"
+      >
         <DialogTitle>Create Treatment Plan</DialogTitle>
         <DialogDescription>Set up a treatment plan for a patient.</DialogDescription>
       </DialogHeader>
-      <form class="space-y-4 pt-2" @submit.prevent="handleSubmit">
-        <div class="grid gap-4 sm:grid-cols-2">
-          <div class="space-y-2">
-            <Label>Patient *</Label>
-            <Select v-model="draft.patient_id">
-              <SelectTrigger class="w-full">
-                <SelectValue placeholder="Select patient" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem v-for="p in patients" :key="p.id" :value="p.id">
-                  {{ p.full_name }}
-                </SelectItem>
-              </SelectContent>
-            </Select>
+      <div class="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 sm:px-6">
+        <div class="space-y-4">
+          <div class="grid gap-4 sm:grid-cols-2">
+            <div class="space-y-2">
+              <Label>Patient *</Label>
+              <Select v-model="draft.patient_id">
+                <SelectTrigger class="w-full">
+                  <SelectValue placeholder="Select patient" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem v-for="p in patients" :key="p.id" :value="p.id">
+                    {{ p.full_name }}
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div class="space-y-2">
+              <Label>Therapist</Label>
+              <Select v-model="draft.therapist_id">
+                <SelectTrigger class="w-full">
+                  <SelectValue placeholder="Assign therapist (optional)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem v-for="t in therapists" :key="t.id" :value="t.id">
+                    {{ t.full_name }}
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
           <div class="space-y-2">
-            <Label>Therapist</Label>
-            <Select v-model="draft.therapist_id">
-              <SelectTrigger class="w-full">
-                <SelectValue placeholder="Assign therapist (optional)" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem v-for="t in therapists" :key="t.id" :value="t.id">
-                  {{ t.full_name }}
-                </SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-        <div class="space-y-2">
-          <Label>Plan Name *</Label>
-          <Input v-model="draft.name" placeholder="e.g., Knee Rehabilitation" />
-        </div>
-        <div class="space-y-2">
-          <Label>Diagnosis</Label>
-          <Input v-model="draft.diagnosis" placeholder="e.g., ACL tear, post-operative" />
-        </div>
-        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <div class="space-y-2">
-            <Label>Treatment Type</Label>
-            <Input v-model="draft.treatment_type" placeholder="e.g., Physiotherapy" />
+            <Label>Plan Name *</Label>
+            <Input v-model="draft.name" placeholder="e.g., Knee Rehabilitation" />
           </div>
           <div class="space-y-2">
-            <Label>Total Sessions</Label>
-            <NumberInput v-model="draft.total_sessions" :min="1" />
+            <Label>Diagnosis</Label>
+            <Input v-model="draft.diagnosis" placeholder="e.g., ACL tear, post-operative" />
+          </div>
+          <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div class="space-y-2">
+              <Label>Treatment Type</Label>
+              <Input v-model="draft.treatment_type" placeholder="e.g., Physiotherapy" />
+            </div>
+            <div class="space-y-2">
+              <Label>Total Sessions</Label>
+              <NumberInput v-model="draft.total_sessions" :min="1" />
+            </div>
+          </div>
+          <div class="space-y-2">
+            <Label>Pricing</Label>
+            <div class="flex gap-2">
+              <Button
+                type="button"
+                size="sm"
+                :variant="draft.pricing_mode === 'per_session' ? 'default' : 'outline'"
+                @click="draft.pricing_mode = 'per_session'"
+              >
+                Per Session
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                :variant="draft.pricing_mode === 'package' ? 'default' : 'outline'"
+                @click="draft.pricing_mode = 'package'"
+              >
+                Package
+              </Button>
+            </div>
+          </div>
+          <div v-if="draft.pricing_mode === 'per_session'" class="space-y-2">
+            <Label>Price per Session (Rs)</Label>
+            <NumberInput v-model="draft.price_per_session" :min="0" :step="50" />
+          </div>
+          <div v-else class="space-y-2">
+            <Label>Package Price (Rs)</Label>
+            <NumberInput v-model="draft.package_price" :min="0" :step="50" />
+          </div>
+          <div class="space-y-2">
+            <Label>Notes</Label>
+            <Textarea v-model="draft.notes" placeholder="Additional notes" rows="2" />
           </div>
         </div>
-        <div class="space-y-2">
-          <Label>Pricing</Label>
-          <div class="flex gap-2">
-            <Button
-              type="button"
-              size="sm"
-              :variant="draft.pricing_mode === 'per_session' ? 'default' : 'outline'"
-              @click="draft.pricing_mode = 'per_session'"
-            >
-              Per Session
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              :variant="draft.pricing_mode === 'package' ? 'default' : 'outline'"
-              @click="draft.pricing_mode = 'package'"
-            >
-              Package
-            </Button>
-          </div>
-        </div>
-        <div v-if="draft.pricing_mode === 'per_session'" class="space-y-2">
-          <Label>Price per Session (Rs)</Label>
-          <NumberInput v-model="draft.price_per_session" :min="0" :step="50" />
-        </div>
-        <div v-else class="space-y-2">
-          <Label>Package Price (Rs)</Label>
-          <NumberInput v-model="draft.package_price" :min="0" :step="50" />
-        </div>
-        <div class="space-y-2">
-          <Label>Notes</Label>
-          <Textarea v-model="draft.notes" placeholder="Additional notes" rows="2" />
-        </div>
-        <DialogFooter class="-mx-6 -mb-6 border-t px-6 py-4">
-          <Button type="button" variant="outline" @click="emit('update:open', false)">
-            Cancel
-          </Button>
-          <Button type="submit" :disabled="isSubmitting || !draft.patient_id || !draft.name">
-            {{ isSubmitting ? 'Creating...' : 'Create Plan' }}
-          </Button>
-        </DialogFooter>
-      </form>
-    </DialogContent>
-  </Dialog>
+      </div>
+      <DialogFooter
+        class="bg-background shrink-0 border-t px-4 py-4 [padding-bottom:max(1rem,env(safe-area-inset-bottom))] sm:px-6"
+      >
+        <Button type="button" variant="outline" @click="emit('update:open', false)">
+          Cancel
+        </Button>
+        <Button type="submit" :disabled="isSubmitting || !draft.patient_id || !draft.name">
+          {{ isSubmitting ? 'Creating...' : 'Create Plan' }}
+        </Button>
+      </DialogFooter>
+    </form>
+  </ResponsiveFormOverlay>
 </template>
 
 <script setup lang="ts">

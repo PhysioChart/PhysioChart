@@ -1,28 +1,31 @@
 <template>
-  <Dialog v-model:open="dialogOpen">
-    <DialogContent class="max-h-[90vh] overflow-y-auto sm:max-w-lg">
-      <DialogHeader>
+  <ResponsiveFormOverlay :open="dialogOpen" desktop-width="lg" @update:open="dialogOpen = $event">
+    <form class="flex min-h-0 flex-1 flex-col" @submit.prevent="onSave">
+      <DialogHeader
+        class="bg-background shrink-0 border-b px-4 py-4 [padding-top:max(1rem,env(safe-area-inset-top))] text-left sm:px-6"
+      >
         <DialogTitle>Edit Patient</DialogTitle>
       </DialogHeader>
-      <form class="space-y-4" @submit.prevent="onSave">
+      <div class="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 sm:px-6">
         <div class="grid gap-4 sm:grid-cols-2">
-          <div class="sm:col-span-2">
-            <Label>Full Name</Label>
-            <Input v-model="form.full_name" />
+          <div class="space-y-2 sm:col-span-2">
+            <Label for="edit-name">Full Name</Label>
+            <Input id="edit-name" v-model="form.full_name" placeholder="Patient name" />
           </div>
-          <div>
-            <Label>Phone</Label>
-            <PhoneInput v-model="form.phone" />
+          <div class="space-y-2">
+            <Label for="edit-phone">Phone</Label>
+            <PhoneInput id="edit-phone" v-model="form.phone" placeholder="98765 43210" />
           </div>
-          <div>
-            <Label>Email</Label>
-            <Input v-model="form.email" type="email" />
+          <div class="space-y-2">
+            <Label for="edit-email">Email</Label>
+            <Input id="edit-email" v-model="form.email" type="email" placeholder="Optional" />
           </div>
-          <div>
-            <Label>Date of Birth</Label>
+          <div class="space-y-2">
+            <Label for="edit-dob">Date of Birth</Label>
             <Popover v-model:open="dobPickerOpen" modal>
               <PopoverTrigger as-child>
                 <Button
+                  id="edit-dob"
                   type="button"
                   variant="outline"
                   :class="
@@ -41,11 +44,11 @@
               </PopoverContent>
             </Popover>
           </div>
-          <div>
-            <Label>Gender</Label>
+          <div class="space-y-2">
+            <Label for="edit-gender">Gender</Label>
             <Select v-model="form.gender">
-              <SelectTrigger>
-                <SelectValue />
+              <SelectTrigger class="w-full">
+                <SelectValue placeholder="Select" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem :value="Gender.MALE">{{ GENDER_LABELS[Gender.MALE] }}</SelectItem>
@@ -54,32 +57,43 @@
               </SelectContent>
             </Select>
           </div>
-          <div class="sm:col-span-2">
-            <Label>Address</Label>
-            <Textarea v-model="form.address" rows="2" />
+          <div class="space-y-2 sm:col-span-2">
+            <Label for="edit-address">Address</Label>
+            <Textarea id="edit-address" v-model="form.address" placeholder="Optional" rows="2" />
           </div>
-          <div>
-            <Label>Emergency Contact Name</Label>
-            <Input v-model="form.emergency_contact_name" />
+          <div class="space-y-2">
+            <Label for="edit-ec-name">Emergency Contact Name</Label>
+            <Input id="edit-ec-name" v-model="form.emergency_contact_name" placeholder="Optional" />
           </div>
-          <div>
-            <Label>Emergency Contact Phone</Label>
-            <PhoneInput v-model="form.emergency_contact_phone" />
+          <div class="space-y-2">
+            <Label for="edit-ec-phone">Emergency Contact Phone</Label>
+            <PhoneInput
+              id="edit-ec-phone"
+              v-model="form.emergency_contact_phone"
+              placeholder="Optional"
+            />
           </div>
-          <div class="sm:col-span-2">
-            <Label>Notes</Label>
-            <Textarea v-model="form.notes" rows="2" />
+          <div class="space-y-2 sm:col-span-2">
+            <Label for="edit-notes">Notes</Label>
+            <Textarea
+              id="edit-notes"
+              v-model="form.notes"
+              placeholder="Any additional notes"
+              rows="2"
+            />
           </div>
         </div>
-        <DialogFooter>
-          <Button type="button" variant="outline" @click="dialogOpen = false">Cancel</Button>
-          <Button type="submit" :disabled="isSaving">
-            {{ isSaving ? 'Saving...' : 'Save Changes' }}
-          </Button>
-        </DialogFooter>
-      </form>
-    </DialogContent>
-  </Dialog>
+      </div>
+      <DialogFooter
+        class="bg-background shrink-0 border-t px-4 py-4 [padding-bottom:max(1rem,env(safe-area-inset-bottom))] sm:px-6"
+      >
+        <Button type="button" variant="outline" @click="dialogOpen = false">Cancel</Button>
+        <Button type="submit" :disabled="isSaving">
+          {{ isSaving ? 'Saving...' : 'Save Changes' }}
+        </Button>
+      </DialogFooter>
+    </form>
+  </ResponsiveFormOverlay>
 </template>
 
 <script setup lang="ts">

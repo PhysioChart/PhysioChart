@@ -1,92 +1,152 @@
 <template>
-  <Dialog :open="open" @update:open="emit('update:open', $event)">
-    <DialogContent class="max-h-[90vh] overflow-y-auto sm:max-w-lg">
-      <DialogHeader class="-mx-6 -mt-6 border-b px-6 py-4">
+  <ResponsiveFormOverlay :open="open" desktop-width="lg" @update:open="emit('update:open', $event)">
+    <form class="flex min-h-0 flex-1 flex-col" @submit.prevent="handleSubmit">
+      <DialogHeader
+        class="bg-background shrink-0 border-b px-4 py-4 [padding-top:max(1rem,env(safe-area-inset-top))] text-left sm:px-6"
+      >
         <DialogTitle>Create Invoice</DialogTitle>
         <DialogDescription>Generate a new invoice for a patient.</DialogDescription>
       </DialogHeader>
-      <form class="space-y-4 pt-2" @submit.prevent="handleSubmit">
-        <div class="space-y-2">
-          <Label>Patient *</Label>
-          <Select :model-value="newInvoice.patient_id" @update:model-value="handlePatientSelection">
-            <SelectTrigger>
-              <SelectValue placeholder="Select patient" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem v-for="p in patients" :key="p.id" :value="p.id">
-                {{ p.full_name }}
-              </SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+      <div class="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 sm:px-6">
+        <div class="space-y-4">
+          <div class="space-y-2">
+            <Label>Patient *</Label>
+            <Select
+              :model-value="newInvoice.patient_id"
+              @update:model-value="handlePatientSelection"
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select patient" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem v-for="p in patients" :key="p.id" :value="p.id">
+                  {{ p.full_name }}
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
 
-        <div v-if="shouldShowTreatmentLoading" class="space-y-2">
-          <Label>Linked Treatment (Optional)</Label>
-          <p class="text-muted-foreground text-sm">Loading treatment plans...</p>
-        </div>
+          <div v-if="shouldShowTreatmentLoading" class="space-y-2">
+            <Label>Linked Treatment (Optional)</Label>
+            <p class="text-muted-foreground text-sm">Loading treatment plans...</p>
+          </div>
 
-        <div v-else-if="shouldShowTreatmentSelector" class="space-y-2">
-          <Label>Linked Treatment (Optional)</Label>
-          <Select
-            :model-value="newInvoice.treatment_plan_id"
-            @update:model-value="handleTreatmentSelection"
-          >
-            <SelectTrigger aria-describedby="treatment-select-help">
-              <SelectValue placeholder="No linked treatment" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem :value="NO_TREATMENT_PLAN_VALUE">No linked treatment</SelectItem>
-              <SelectItem v-for="plan in availableTreatmentPlans" :key="plan.id" :value="plan.id">
-                {{ getTreatmentPlanOptionLabel(plan) }}
-              </SelectItem>
-            </SelectContent>
-          </Select>
-          <p id="treatment-select-help" class="text-muted-foreground text-xs">
-            {{ treatmentSelectionHelpText }}
-          </p>
-        </div>
+          <div v-else-if="shouldShowTreatmentSelector" class="space-y-2">
+            <Label>Linked Treatment (Optional)</Label>
+            <Select
+              :model-value="newInvoice.treatment_plan_id"
+              @update:model-value="handleTreatmentSelection"
+            >
+              <SelectTrigger aria-describedby="treatment-select-help">
+                <SelectValue placeholder="No linked treatment" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem :value="NO_TREATMENT_PLAN_VALUE">No linked treatment</SelectItem>
+                <SelectItem v-for="plan in availableTreatmentPlans" :key="plan.id" :value="plan.id">
+                  {{ getTreatmentPlanOptionLabel(plan) }}
+                </SelectItem>
+              </SelectContent>
+            </Select>
+            <p id="treatment-select-help" class="text-muted-foreground text-xs">
+              {{ treatmentSelectionHelpText }}
+            </p>
+          </div>
 
-        <div v-else-if="shouldShowNoEligibleTreatments" class="space-y-2">
-          <Label>Linked Treatment (Optional)</Label>
-          <p class="text-muted-foreground text-sm">No eligible treatments available.</p>
-        </div>
+          <div v-else-if="shouldShowNoEligibleTreatments" class="space-y-2">
+            <Label>Linked Treatment (Optional)</Label>
+            <p class="text-muted-foreground text-sm">No eligible treatments available.</p>
+          </div>
 
-        <div class="space-y-2">
-          <Label>Line Items</Label>
+          <div class="space-y-2">
+            <Label>Line Items</Label>
 
-          <!-- Treatment-linked: auto-generated summary card -->
-          <div v-if="hasTreatmentItem" class="mt-2 space-y-3">
-            <div class="bg-muted/40 rounded-md border p-3">
-              <p class="text-sm font-medium">{{ newInvoice.treatmentItem!.description }}</p>
-              <div class="mt-1.5 flex items-center gap-2 text-sm">
-                <template v-if="isPerSessionPlan">
-                  <Input
-                    :model-value="newInvoice.treatmentItem!.quantity"
-                    type="number"
-                    min="1"
-                    step="1"
-                    class="h-8 w-16"
-                    @update:model-value="updateTreatmentItemQty(Number($event))"
-                  />
-                  <span class="text-muted-foreground">&times;</span>
-                </template>
-                <template v-else>
-                  <span>{{ newInvoice.treatmentItem!.quantity }}</span>
-                  <span class="text-muted-foreground">&times;</span>
-                </template>
-                <span>{{ formatCurrency(newInvoice.treatmentItem!.unit_price) }}</span>
-                <span class="text-muted-foreground">=</span>
-                <span class="font-medium">{{
-                  formatCurrency(newInvoice.treatmentItem!.total)
-                }}</span>
+            <!-- Treatment-linked: auto-generated summary card -->
+            <div v-if="hasTreatmentItem" class="mt-2 space-y-3">
+              <div class="bg-muted/40 rounded-md border p-3">
+                <p class="text-sm font-medium">{{ newInvoice.treatmentItem!.description }}</p>
+                <div class="mt-1.5 flex items-center gap-2 text-sm">
+                  <template v-if="isPerSessionPlan">
+                    <Input
+                      :model-value="newInvoice.treatmentItem!.quantity"
+                      type="number"
+                      min="1"
+                      step="1"
+                      class="h-8 w-16"
+                      @update:model-value="updateTreatmentItemQty(Number($event))"
+                    />
+                    <span class="text-muted-foreground">&times;</span>
+                  </template>
+                  <template v-else>
+                    <span>{{ newInvoice.treatmentItem!.quantity }}</span>
+                    <span class="text-muted-foreground">&times;</span>
+                  </template>
+                  <span>{{ formatCurrency(newInvoice.treatmentItem!.unit_price) }}</span>
+                  <span class="text-muted-foreground">=</span>
+                  <span class="font-medium">{{
+                    formatCurrency(newInvoice.treatmentItem!.total)
+                  }}</span>
+                </div>
               </div>
+
+              <!-- Extra charges (editable) -->
+              <div v-if="newInvoice.extraItems.length > 0" class="space-y-2">
+                <p class="text-muted-foreground text-xs font-medium">Extra Charges</p>
+                <div
+                  v-for="(item, i) in newInvoice.extraItems"
+                  :key="item.id"
+                  class="space-y-2 sm:grid sm:grid-cols-12 sm:gap-2 sm:space-y-0"
+                >
+                  <Input
+                    v-model="item.description"
+                    placeholder="Description"
+                    class="sm:col-span-5"
+                  />
+                  <div class="grid grid-cols-3 gap-2 sm:contents">
+                    <Input
+                      v-model.number="item.quantity"
+                      type="number"
+                      min="1"
+                      step="1"
+                      placeholder="Qty"
+                      class="sm:col-span-2"
+                      @input="updateLineItem(i)"
+                    />
+                    <Input
+                      v-model.number="item.unit_price"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      placeholder="Price"
+                      class="sm:col-span-3"
+                      @input="updateLineItem(i)"
+                    />
+                    <div
+                      class="flex items-center justify-end gap-1 sm:col-span-2 sm:justify-between"
+                    >
+                      <span class="text-sm">{{ formatCurrency(item.total) }}</span>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        class="h-8 w-8"
+                        @click="removeLineItem(i)"
+                      >
+                        &times;
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <Button type="button" variant="outline" size="sm" @click="addLineItem">
+                Add extra charge
+              </Button>
             </div>
 
-            <!-- Extra charges (editable) -->
-            <div v-if="newInvoice.extraItems.length > 0" class="space-y-2">
-              <p class="text-muted-foreground text-xs font-medium">Extra Charges</p>
+            <!-- No treatment linked: manual line items (unchanged) -->
+            <div v-else class="mt-2 space-y-2">
               <div
-                v-for="(item, i) in newInvoice.extraItems"
+                v-for="(item, i) in newInvoice.items"
                 :key="item.id"
                 class="space-y-2 sm:grid sm:grid-cols-12 sm:gap-2 sm:space-y-0"
               >
@@ -113,6 +173,7 @@
                   <div class="flex items-center justify-end gap-1 sm:col-span-2 sm:justify-between">
                     <span class="text-sm">{{ formatCurrency(item.total) }}</span>
                     <Button
+                      v-if="newInvoice.items.length > 1"
                       type="button"
                       variant="ghost"
                       size="icon"
@@ -124,105 +185,59 @@
                   </div>
                 </div>
               </div>
-            </div>
-
-            <Button type="button" variant="outline" size="sm" @click="addLineItem">
-              Add extra charge
-            </Button>
-          </div>
-
-          <!-- No treatment linked: manual line items (unchanged) -->
-          <div v-else class="mt-2 space-y-2">
-            <div
-              v-for="(item, i) in newInvoice.items"
-              :key="item.id"
-              class="space-y-2 sm:grid sm:grid-cols-12 sm:gap-2 sm:space-y-0"
-            >
-              <Input v-model="item.description" placeholder="Description" class="sm:col-span-5" />
-              <div class="grid grid-cols-3 gap-2 sm:contents">
-                <Input
-                  v-model.number="item.quantity"
-                  type="number"
-                  min="1"
-                  step="1"
-                  placeholder="Qty"
-                  class="sm:col-span-2"
-                  @input="updateLineItem(i)"
-                />
-                <Input
-                  v-model.number="item.unit_price"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  placeholder="Price"
-                  class="sm:col-span-3"
-                  @input="updateLineItem(i)"
-                />
-                <div class="flex items-center justify-end gap-1 sm:col-span-2 sm:justify-between">
-                  <span class="text-sm">{{ formatCurrency(item.total) }}</span>
-                  <Button
-                    v-if="newInvoice.items.length > 1"
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    class="h-8 w-8"
-                    @click="removeLineItem(i)"
-                  >
-                    &times;
-                  </Button>
-                </div>
-              </div>
-            </div>
-            <Button type="button" variant="outline" size="sm" class="mt-2" @click="addLineItem">
-              Add item
-            </Button>
-          </div>
-        </div>
-
-        <div class="flex justify-between border-t pt-2 text-sm font-medium">
-          <span>Total</span>
-          <span>{{ formatCurrency(invoiceTotal) }}</span>
-        </div>
-
-        <div class="space-y-2">
-          <Label>Due Date</Label>
-          <Popover v-model:open="dueDatePickerOpen" modal>
-            <PopoverTrigger as-child>
-              <Button
-                type="button"
-                variant="outline"
-                :class="
-                  cn(
-                    'w-full justify-start text-left font-normal',
-                    !newInvoice.due_date && 'text-muted-foreground',
-                  )
-                "
-              >
-                <CalendarIcon class="mr-2 size-4" />
-                {{ formattedDueDate || 'Pick a date' }}
+              <Button type="button" variant="outline" size="sm" class="mt-2" @click="addLineItem">
+                Add item
               </Button>
-            </PopoverTrigger>
-            <PopoverContent class="w-auto p-0" align="start">
-              <Calendar v-model="dueDateCalendarValue" :min-value="todayCalendarDate" />
-            </PopoverContent>
-          </Popover>
-        </div>
-        <div class="space-y-2">
-          <Label>Notes</Label>
-          <Textarea v-model="newInvoice.notes" placeholder="Optional notes" rows="2" />
-        </div>
+            </div>
+          </div>
 
-        <DialogFooter class="-mx-6 -mb-6 border-t px-6 py-4">
-          <Button type="button" variant="outline" @click="emit('update:open', false)">
-            Cancel
-          </Button>
-          <Button type="submit" :disabled="isSubmitting || !newInvoice.patient_id">
-            {{ isSubmitting ? 'Creating...' : 'Create Invoice' }}
-          </Button>
-        </DialogFooter>
-      </form>
-    </DialogContent>
-  </Dialog>
+          <div class="flex justify-between border-t pt-2 text-sm font-medium">
+            <span>Total</span>
+            <span>{{ formatCurrency(invoiceTotal) }}</span>
+          </div>
+
+          <div class="space-y-2">
+            <Label>Due Date</Label>
+            <Popover v-model:open="dueDatePickerOpen" modal>
+              <PopoverTrigger as-child>
+                <Button
+                  type="button"
+                  variant="outline"
+                  :class="
+                    cn(
+                      'w-full justify-start text-left font-normal',
+                      !newInvoice.due_date && 'text-muted-foreground',
+                    )
+                  "
+                >
+                  <CalendarIcon class="mr-2 size-4" />
+                  {{ formattedDueDate || 'Pick a date' }}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent class="w-auto p-0" align="start">
+                <Calendar v-model="dueDateCalendarValue" :min-value="todayCalendarDate" />
+              </PopoverContent>
+            </Popover>
+          </div>
+          <div class="space-y-2">
+            <Label>Notes</Label>
+            <Textarea v-model="newInvoice.notes" placeholder="Optional notes" rows="2" />
+          </div>
+        </div>
+      </div>
+
+      <DialogFooter
+        class="bg-background shrink-0 border-t px-4 py-4 [padding-bottom:max(1rem,env(safe-area-inset-bottom))] sm:px-6"
+      >
+        <Button type="button" variant="outline" @click="emit('update:open', false)">
+          Cancel
+        </Button>
+        <Button type="submit" :disabled="isSubmitting || !newInvoice.patient_id">
+          {{ isSubmitting ? 'Creating...' : 'Create Invoice' }}
+        </Button>
+      </DialogFooter>
+    </form>
+  </ResponsiveFormOverlay>
 </template>
 
 <script setup lang="ts">

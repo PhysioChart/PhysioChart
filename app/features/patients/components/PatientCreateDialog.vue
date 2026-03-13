@@ -1,13 +1,15 @@
 <template>
-  <Dialog v-model:open="dialogOpen">
-    <DialogContent class="max-h-[90vh] overflow-y-auto sm:max-w-md">
-      <DialogHeader class="-mx-6 -mt-6 border-b px-6 py-4">
+  <ResponsiveFormOverlay :open="dialogOpen" @update:open="dialogOpen = $event">
+    <form class="flex min-h-0 flex-1 flex-col" @submit.prevent="onSubmit">
+      <DialogHeader
+        class="bg-background shrink-0 border-b px-4 py-4 [padding-top:max(1rem,env(safe-area-inset-top))] text-left sm:px-6"
+      >
         <DialogTitle>Register New Patient</DialogTitle>
         <DialogDescription>
           Enter the patient's details. Phone number is the primary identifier.
         </DialogDescription>
       </DialogHeader>
-      <form class="space-y-4 pt-2" @submit.prevent="onSubmit">
+      <div class="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 sm:px-6">
         <div class="grid gap-4 sm:grid-cols-2">
           <div class="space-y-2 sm:col-span-2">
             <Label for="create-name">Full Name *</Label>
@@ -88,15 +90,17 @@
             />
           </div>
         </div>
-        <DialogFooter class="-mx-6 -mb-6 border-t px-6 py-4">
-          <Button type="button" variant="outline" @click="dialogOpen = false">Cancel</Button>
-          <Button type="submit" :disabled="isSubmitting || !form.full_name || !form.phone">
-            {{ isSubmitting ? 'Registering...' : 'Register Patient' }}
-          </Button>
-        </DialogFooter>
-      </form>
-    </DialogContent>
-  </Dialog>
+      </div>
+      <DialogFooter
+        class="bg-background shrink-0 border-t px-4 py-4 [padding-bottom:max(1rem,env(safe-area-inset-bottom))] sm:px-6"
+      >
+        <Button type="button" variant="outline" @click="dialogOpen = false">Cancel</Button>
+        <Button type="submit" :disabled="isSubmitting || !form.full_name || !form.phone">
+          {{ isSubmitting ? 'Registering...' : 'Register Patient' }}
+        </Button>
+      </DialogFooter>
+    </form>
+  </ResponsiveFormOverlay>
 </template>
 
 <script setup lang="ts">

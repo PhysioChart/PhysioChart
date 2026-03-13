@@ -33,6 +33,7 @@ import { storeToRefs } from 'pinia'
 import { toast } from 'vue-sonner'
 import type { Gender } from '~/enums/gender.enum'
 import { patientService } from '~/services/patient.service'
+import { ensureCountryCode } from '~/lib/phone'
 import { usePatientsStore } from '~/stores/patients.store'
 import PatientListHeader from '~/features/patients/components/PatientListHeader.vue'
 import PatientListTable from '~/features/patients/components/PatientListTable.vue'
@@ -45,6 +46,7 @@ useHead({ title: 'Patients' })
 
 const supabase = useSupabaseClient()
 const { activeMembership } = useAuth()
+const phoneCountryCode = useRuntimeConfig().public.phoneCountryCode as string
 const route = useRoute()
 const patientsStore = usePatientsStore()
 const { byClinic } = storeToRefs(patientsStore)
@@ -83,13 +85,15 @@ async function handleCreatePatient(payload: PatientCreatePayload) {
     const created = await patientService(supabase).create({
       clinic_id: activeMembership.value.clinic_id,
       full_name: payload.full_name,
-      phone: payload.phone,
+      phone: ensureCountryCode(payload.phone, phoneCountryCode),
       email: payload.email || null,
       date_of_birth: payload.date_of_birth || null,
       gender: (payload.gender as Gender) || null,
       address: payload.address || null,
       emergency_contact_name: payload.emergency_contact_name || null,
-      emergency_contact_phone: payload.emergency_contact_phone || null,
+      emergency_contact_phone: payload.emergency_contact_phone
+        ? ensureCountryCode(payload.emergency_contact_phone, phoneCountryCode)
+        : null,
       notes: payload.notes || null,
       medical_history: payload.medical_history,
     })

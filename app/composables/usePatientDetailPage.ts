@@ -9,6 +9,7 @@ import { InvoiceStatus } from '~/enums/invoice.enum'
 import { TreatmentStatus } from '~/enums/treatment.enum'
 import { AppointmentStatus } from '~/enums/appointment.enum'
 import { patientService } from '~/services/patient.service'
+import { ensureCountryCode, stripCountryCode } from '~/lib/phone'
 import { usePatientsStore } from '~/stores/patients.store'
 import { useAppointmentsStore } from '~/stores/appointments.store'
 import { useTreatmentsStore } from '~/stores/treatments.store'
@@ -26,6 +27,8 @@ export function usePatientDetailPage() {
   const { byPatientByClinic: appointmentsByPatientByClinic } = storeToRefs(appointmentsStore)
   const { byPatientByClinic: treatmentsByPatientByClinic } = storeToRefs(treatmentsStore)
   const { byPatientByClinic: invoicesByPatientByClinic } = storeToRefs(invoicesStore)
+
+  const phoneCountryCode = useRuntimeConfig().public.phoneCountryCode as string
 
   const patient = shallowRef<PatientRow | null>(null)
   const appointments = shallowRef<IAppointmentWithRelations[]>([])
@@ -267,13 +270,16 @@ export function usePatientDetailPage() {
   function buildEditForm(patientData: PatientRow): IPatientEditForm {
     return {
       full_name: patientData.full_name,
-      phone: patientData.phone,
+      phone: stripCountryCode(patientData.phone, phoneCountryCode),
       email: patientData.email ?? '',
       date_of_birth: patientData.date_of_birth ?? '',
       gender: patientData.gender ?? '',
       address: patientData.address ?? '',
       emergency_contact_name: patientData.emergency_contact_name ?? '',
-      emergency_contact_phone: patientData.emergency_contact_phone ?? '',
+      emergency_contact_phone: stripCountryCode(
+        patientData.emergency_contact_phone ?? '',
+        phoneCountryCode,
+      ),
       notes: patientData.notes ?? '',
     }
   }
@@ -284,15 +290,20 @@ export function usePatientDetailPage() {
 
     try {
       if (!activeMembership.value?.clinic_id) return
+      const normalizedPhone = ensureCountryCode(form.phone, phoneCountryCode)
+      const normalizedEcPhone = form.emergency_contact_phone
+        ? ensureCountryCode(form.emergency_contact_phone, phoneCountryCode)
+        : null
+
       await patientService(supabase).update(activeMembership.value.clinic_id, patient.value.id, {
         full_name: form.full_name,
-        phone: form.phone,
+        phone: normalizedPhone,
         email: form.email || null,
         date_of_birth: form.date_of_birth || null,
         gender: (form.gender || null) as PatientRow['gender'],
         address: form.address || null,
         emergency_contact_name: form.emergency_contact_name || null,
-        emergency_contact_phone: form.emergency_contact_phone || null,
+        emergency_contact_phone: normalizedEcPhone,
         notes: form.notes || null,
       })
 
@@ -301,13 +312,13 @@ export function usePatientDetailPage() {
         const updated: PatientRow = {
           ...current,
           full_name: form.full_name,
-          phone: form.phone,
+          phone: normalizedPhone,
           email: form.email || null,
           date_of_birth: form.date_of_birth || null,
           gender: (form.gender || null) as PatientRow['gender'],
           address: form.address || null,
           emergency_contact_name: form.emergency_contact_name || null,
-          emergency_contact_phone: form.emergency_contact_phone || null,
+          emergency_contact_phone: normalizedEcPhone,
           notes: form.notes || null,
         }
         patientsStore.upsertPatient(activeMembership.value.clinic_id, updated)

@@ -38,10 +38,7 @@
             >
               <TableCell class="font-medium">{{ patient.full_name }}</TableCell>
               <TableCell>
-                <div class="flex items-center gap-1">
-                  <Phone class="text-muted-foreground h-3 w-3" />
-                  {{ patient.phone }}
-                </div>
+                {{ formatPhoneDisplay(patient.phone, phoneCountryCode) }}
               </TableCell>
               <TableCell class="hidden md:table-cell">
                 {{ patient.gender ? GENDER_LABELS[patient.gender] : '\u2014' }}
@@ -63,10 +60,13 @@
 </template>
 
 <script setup lang="ts">
-import { Users, Phone } from 'lucide-vue-next'
+import { Users } from 'lucide-vue-next'
 import type { Tables } from '~/types/database'
 import { GENDER_LABELS } from '~/enums/gender.enum'
 import { formatDateWithYear } from '~/lib/formatters'
+import { formatPhoneDisplay } from '~/lib/phone'
+
+const phoneCountryCode = useRuntimeConfig().public.phoneCountryCode as string
 
 defineProps<{
   patients: Tables<'patients'>[]

@@ -1,2 +1,2 @@
--- Seed data for MedPractice
+-- Seed data for PhysioChart
 -- Run this after migrations to populate initial data

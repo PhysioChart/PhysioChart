@@ -1,4 +1,4 @@
--- MedPractice: Initial Database Schema
+-- PhysioChart: Initial Database Schema
 -- Run this in the Supabase SQL Editor (Dashboard > SQL Editor)
 
 -- ============================================================

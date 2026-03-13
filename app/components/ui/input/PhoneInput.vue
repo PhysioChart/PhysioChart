@@ -21,6 +21,8 @@ const modelValue = useVModel(props, "modelValue", emits, {
   defaultValue: props.defaultValue,
 })
 
+const phoneCountryCode = useRuntimeConfig().public.phoneCountryCode as string
+
 function onKeypress(e: KeyboardEvent) {
   if (!/[0-9]/.test(e.key)) {
     e.preventDefault()
@@ -33,7 +35,7 @@ function onKeypress(e: KeyboardEvent) {
     <span
       class="border-input bg-background text-muted-foreground inline-flex items-center rounded-l-md border px-3 text-sm"
     >
-      +91
+      {{ phoneCountryCode }}
     </span>
     <input
       :id="id"

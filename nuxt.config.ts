@@ -17,6 +17,12 @@ export default defineNuxtConfig({
   compatibilityDate: '2025-07-15',
   devtools: { enabled: true },
 
+  runtimeConfig: {
+    public: {
+      phoneCountryCode: process.env.PHONE_COUNTRY_CODE || '+91',
+    },
+  },
+
   app: {
     head: {
       titleTemplate: '%s — PhysioChart',
@@ -27,6 +33,7 @@ export default defineNuxtConfig({
           content:
             'Practice management software for physiotherapy clinics — appointments, patients, billing, and treatments.',
         },
+        { name: 'format-detection', content: 'telephone=no, email=no, address=no' },
       ],
     },
   },

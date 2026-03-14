@@ -38,12 +38,6 @@ const UNASSIGNED_COLOR = {
 
 export type TherapistColor = (typeof THERAPIST_COLORS)[number] | typeof UNASSIGNED_COLOR
 
-export interface TimeSlot {
-  hour: number
-  minute: number
-  label: string
-}
-
 export interface CalendarDay {
   date: Date
   dateStr: string
@@ -53,31 +47,7 @@ export interface CalendarDay {
 }
 
 export function useCalendar() {
-  const DAY_START_HOUR = 8
-  const DAY_END_HOUR = 20
-  const SLOT_MINUTES = 30
-  const SLOT_HEIGHT_PX = 48
-
   const selectedDate = ref(new Date())
-
-  const timeSlots = computed<TimeSlot[]>(() => {
-    const slots: TimeSlot[] = []
-    for (let h = DAY_START_HOUR; h < DAY_END_HOUR; h++) {
-      for (let m = 0; m < 60; m += SLOT_MINUTES) {
-        const d = new Date(2000, 0, 1, h, m)
-        slots.push({
-          hour: h,
-          minute: m,
-          label: d.toLocaleTimeString('en-IN', {
-            hour: 'numeric',
-            minute: '2-digit',
-            hour12: true,
-          }),
-        })
-      }
-    }
-    return slots
-  })
 
   function goToToday() {
     selectedDate.value = new Date()
@@ -173,48 +143,8 @@ export function useCalendar() {
     return colorMap.get(therapistId) ?? UNASSIGNED_COLOR
   }
 
-  const totalGridMinutes = (DAY_END_HOUR - DAY_START_HOUR) * 60
-  const pxPerMinute = SLOT_HEIGHT_PX / SLOT_MINUTES
-
-  function getAppointmentPosition(startTime: string, endTime: string) {
-    const start = new Date(startTime)
-    const end = new Date(endTime)
-
-    const startMinutes = (start.getHours() - DAY_START_HOUR) * 60 + start.getMinutes()
-    const endMinutes = (end.getHours() - DAY_START_HOUR) * 60 + end.getMinutes()
-
-    // Clamp to grid bounds
-    const clampedStart = Math.max(0, Math.min(totalGridMinutes, startMinutes))
-    const clampedEnd = Math.max(0, Math.min(totalGridMinutes, endMinutes))
-    const duration = clampedEnd - clampedStart
-
-    const top = clampedStart * pxPerMinute
-    const height = Math.max(SLOT_HEIGHT_PX / 2, duration * pxPerMinute)
-
-    return { top, height }
-  }
-
-  function appointmentsForDate(appointments: CalendarAppointment[], dateStr: string) {
-    return appointments.filter((a) => {
-      const localDate = toLocalDateKey(a.start_time)
-      return localDate === dateStr
-    })
-  }
-
-  function timeFromSlot(hour: number, minute: number): string {
-    return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`
-  }
-
-  function getCurrentTimeTop(): number {
-    const now = new Date()
-    const minutes = (now.getHours() - DAY_START_HOUR) * 60 + now.getMinutes()
-    if (minutes < 0) return 0
-    return minutes * pxPerMinute
-  }
-
   return {
     selectedDate,
-    timeSlots,
     weekDays,
     currentDay,
     dayViewLabel,
@@ -226,12 +156,5 @@ export function useCalendar() {
     goToNextWeek,
     buildTherapistColorMap,
     getTherapistColor,
-    getAppointmentPosition,
-    appointmentsForDate,
-    timeFromSlot,
-    getCurrentTimeTop,
-    SLOT_HEIGHT_PX,
-    DAY_START_HOUR,
-    DAY_END_HOUR,
   }
 }

@@ -41,7 +41,6 @@ export function usePatientDetailPage() {
   const isLoadingInvoices = ref(false)
 
   const activeTab = ref('overview')
-  const hasLoadedInvoices = ref(false)
   const showAllPast = ref(false)
   const isEditing = ref(false)
   const isSaving = ref(false)
@@ -123,7 +122,6 @@ export function usePatientDetailPage() {
     try {
       await invoicesStore.fetchByPatient(clinicId, patientId)
       invoices.value = invoicesByPatientByClinic.value[clinicId]?.[patientId] ?? []
-      hasLoadedInvoices.value = true
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to load invoices'
       toast.error(message)
@@ -132,12 +130,31 @@ export function usePatientDetailPage() {
     }
   }
 
+  function enrichAppointmentsWithProgress() {
+    const plans = treatments.value as ITreatmentPlanWithRelations[]
+    if (plans.length === 0 || appointments.value.length === 0) return
+
+    const progressMap = new Map(plans.map((p) => [p.id, p.derived_completed_sessions]))
+    appointments.value = (appointments.value as IAppointmentWithRelations[]).map((appt) => {
+      if (!appt.treatment_plan?.id) return appt
+      return {
+        ...appt,
+        treatment_plan: {
+          ...appt.treatment_plan,
+          derived_completed_sessions: progressMap.get(appt.treatment_plan.id) ?? 0,
+        },
+      }
+    })
+  }
+
   async function loadCoreData(clinicId: string, patientId: string) {
     await Promise.all([
       loadPatient(clinicId, patientId),
       loadAppointments(clinicId, patientId),
       loadTreatments(clinicId, patientId),
+      loadInvoices(clinicId, patientId),
     ])
+    enrichAppointmentsWithProgress()
   }
 
   async function initialize() {
@@ -322,16 +339,6 @@ export function usePatientDetailPage() {
   })
 
   watch(
-    [activeTab, () => activeMembership.value?.clinic_id, () => getPatientId()],
-    ([tab, clinicId, patientId]) => {
-      if (tab === 'billing' && clinicId && patientId && !hasLoadedInvoices.value) {
-        void loadInvoices(clinicId, patientId)
-      }
-    },
-    { immediate: true },
-  )
-
-  watch(
     [() => activeMembership.value?.clinic_id, () => getPatientId()],
     ([clinicId, patientId], [prevClinicId, prevPatientId]) => {
       if (!clinicId || !patientId) return
@@ -341,7 +348,6 @@ export function usePatientDetailPage() {
       appointments.value = []
       treatments.value = []
       invoices.value = []
-      hasLoadedInvoices.value = false
       activeTab.value = 'overview'
 
       void loadCoreData(clinicId, patientId)

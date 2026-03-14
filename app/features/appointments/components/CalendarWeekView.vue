@@ -2,7 +2,7 @@
   <div>
     <!-- Week header -->
     <div class="flex border-b">
-      <div class="w-12 flex-shrink-0 border-r sm:w-16" />
+      <div class="w-14 flex-shrink-0 border-r sm:w-16" />
       <div
         v-for="day in weekDays"
         :key="day.dateStr"
@@ -26,7 +26,7 @@
     <!-- Scrollable grid -->
     <div ref="scrollContainer" class="flex overflow-y-auto" style="max-height: calc(100vh - 280px)">
       <!-- Time gutter -->
-      <div class="bg-background sticky left-0 z-20 w-12 flex-shrink-0 border-r sm:w-16">
+      <div class="bg-card border-border sticky left-0 z-20 w-14 flex-shrink-0 border-r sm:w-16">
         <div
           v-for="slot in timeSlots"
           :key="`${slot.hour}-${slot.minute}`"
@@ -41,7 +41,7 @@
       <div
         v-for="day in weekDays"
         :key="day.dateStr"
-        class="relative flex-1 border-r last:border-r-0"
+        class="border-border/50 relative flex-1 border-r last:border-r-0"
       >
         <!-- Slot rows -->
         <div
@@ -52,7 +52,7 @@
           :aria-label="slotLabel(day, slot)"
           :class="[
             'hover:bg-muted/50 cursor-pointer border-b transition-colors',
-            slot.minute === 0 ? 'border-border' : 'border-border/30',
+            slot.minute === 0 ? 'border-border/70' : 'border-border/40',
           ]"
           :style="{ height: `${SLOT_HEIGHT_PX}px` }"
           @click="emit('clickSlot', day.dateStr, timeFromSlot(slot.hour, slot.minute))"
@@ -70,6 +70,15 @@
           :compact="true"
           @click="emit('clickAppointment', $event)"
         />
+
+        <!-- Current time indicator (today's column only) -->
+        <div
+          v-if="day.isToday"
+          class="pointer-events-none absolute right-0 left-0 z-30 border-t-2 border-red-500"
+          :style="{ top: `${getCurrentTimeTop()}px` }"
+        >
+          <div class="absolute -top-1.5 -left-1.5 h-3 w-3 rounded-full bg-red-500" />
+        </div>
       </div>
     </div>
   </div>

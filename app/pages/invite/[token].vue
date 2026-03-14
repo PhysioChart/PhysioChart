@@ -18,9 +18,14 @@
           <p class="text-muted-foreground text-sm">
             You are signed in. Redeem this invite to join the clinic.
           </p>
-          <div>
+          <div class="space-y-2">
             <Label for="invite-full-name">Full Name</Label>
-            <Input id="invite-full-name" v-model="fullName" :disabled="isWorking" />
+            <Input
+              id="invite-full-name"
+              v-model="fullName"
+              placeholder="Your full name"
+              :disabled="isWorking"
+            />
           </div>
           <Button class="w-full" :disabled="isWorking || !fullName" @click="redeemInvite">
             {{ isWorking ? 'Joining...' : 'Accept invite' }}
@@ -34,7 +39,7 @@
               <TabsTrigger value="login">I already have one</TabsTrigger>
             </TabsList>
             <TabsContent value="signup" class="mt-4 space-y-4">
-              <div>
+              <div class="space-y-2">
                 <Label for="invite-email">Invited Email</Label>
                 <Input
                   id="invite-email"
@@ -44,11 +49,16 @@
                   :disabled="isWorking"
                 />
               </div>
-              <div>
+              <div class="space-y-2">
                 <Label for="invite-name">Full Name</Label>
-                <Input id="invite-name" v-model="fullName" :disabled="isWorking" />
+                <Input
+                  id="invite-name"
+                  v-model="fullName"
+                  placeholder="Your full name"
+                  :disabled="isWorking"
+                />
               </div>
-              <div>
+              <div class="space-y-2">
                 <Label for="invite-password">Password</Label>
                 <Input
                   id="invite-password"

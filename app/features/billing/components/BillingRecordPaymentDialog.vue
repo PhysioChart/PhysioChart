@@ -1,78 +1,83 @@
 <template>
-  <Dialog :open="open" @update:open="emit('update:open', $event)">
-    <DialogContent class="sm:max-w-md">
-      <DialogHeader class="-mx-6 -mt-6 border-b px-6 py-4">
+  <ResponsiveFormOverlay :open="open" @update:open="emit('update:open', $event)">
+    <form class="flex min-h-0 flex-1 flex-col" @submit.prevent="handleSubmit">
+      <DialogHeader
+        class="bg-background shrink-0 border-b px-4 py-4 [padding-top:max(1rem,env(safe-area-inset-top))] text-left sm:px-6"
+      >
         <DialogTitle>Record Payment</DialogTitle>
         <DialogDescription v-if="invoice">
           Invoice {{ invoice.invoice_number }} • Outstanding:
           {{ formatCurrency(outstandingAmount) }}
         </DialogDescription>
       </DialogHeader>
-      <form class="space-y-4 pt-2" @submit.prevent="handleSubmit">
-        <div class="space-y-2">
-          <Label>Amount *</Label>
-          <Input v-model.number="paymentForm.amount" type="number" min="0.01" step="0.01" />
-        </div>
+      <div class="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 sm:px-6">
+        <div class="space-y-4">
+          <div class="space-y-2">
+            <Label>Amount *</Label>
+            <Input v-model.number="paymentForm.amount" type="number" min="0.01" step="0.01" />
+          </div>
 
-        <div class="space-y-2">
-          <Label>Date *</Label>
-          <Popover v-model:open="paymentDatePickerOpen" modal>
-            <PopoverTrigger as-child>
-              <Button
-                type="button"
-                variant="outline"
-                :class="
-                  cn(
-                    'w-full justify-start text-left font-normal',
-                    !paymentForm.date && 'text-muted-foreground',
-                  )
-                "
-              >
-                <CalendarIcon class="mr-2 size-4" />
-                {{ formattedPaymentDate || 'Pick a date' }}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent class="w-auto p-0" align="start">
-              <Calendar v-model="paymentDateCalendarValue" />
-            </PopoverContent>
-          </Popover>
-        </div>
+          <div class="space-y-2">
+            <Label>Date *</Label>
+            <Popover v-model:open="paymentDatePickerOpen" modal>
+              <PopoverTrigger as-child>
+                <Button
+                  type="button"
+                  variant="outline"
+                  :class="
+                    cn(
+                      'w-full justify-start text-left font-normal',
+                      !paymentForm.date && 'text-muted-foreground',
+                    )
+                  "
+                >
+                  <CalendarIcon class="mr-2 size-4" />
+                  {{ formattedPaymentDate || 'Pick a date' }}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent class="w-auto p-0" align="start">
+                <Calendar v-model="paymentDateCalendarValue" />
+              </PopoverContent>
+            </Popover>
+          </div>
 
-        <div class="space-y-2">
-          <Label>Method *</Label>
-          <Select v-model="paymentForm.method">
-            <SelectTrigger>
-              <SelectValue placeholder="Select method" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem v-for="method in PAYMENT_METHOD_VALUES" :key="method" :value="method">
-                {{ PAYMENT_METHOD_LABELS[method] }}
-              </SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+          <div class="space-y-2">
+            <Label>Method *</Label>
+            <Select v-model="paymentForm.method">
+              <SelectTrigger>
+                <SelectValue placeholder="Select method" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem v-for="method in PAYMENT_METHOD_VALUES" :key="method" :value="method">
+                  {{ PAYMENT_METHOD_LABELS[method] }}
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
 
-        <div class="space-y-2">
-          <Label>Reference Note</Label>
-          <Textarea
-            v-model="paymentForm.reference_note"
-            placeholder="Optional transaction reference"
-            rows="2"
-            maxlength="280"
-          />
+          <div class="space-y-2">
+            <Label>Reference Note</Label>
+            <Textarea
+              v-model="paymentForm.reference_note"
+              placeholder="Optional transaction reference"
+              rows="2"
+              maxlength="280"
+            />
+          </div>
         </div>
-
-        <DialogFooter class="-mx-6 -mb-6 border-t px-6 py-4">
-          <Button type="button" variant="outline" @click="emit('update:open', false)">
-            Cancel
-          </Button>
-          <Button type="submit" :disabled="isRecordingPayment">
-            {{ isRecordingPayment ? 'Saving...' : 'Save Payment' }}
-          </Button>
-        </DialogFooter>
-      </form>
-    </DialogContent>
-  </Dialog>
+      </div>
+      <DialogFooter
+        class="bg-background shrink-0 border-t px-4 py-4 [padding-bottom:max(1rem,env(safe-area-inset-bottom))] sm:px-6"
+      >
+        <Button type="button" variant="outline" @click="emit('update:open', false)">
+          Cancel
+        </Button>
+        <Button type="submit" :disabled="isRecordingPayment">
+          {{ isRecordingPayment ? 'Saving...' : 'Save Payment' }}
+        </Button>
+      </DialogFooter>
+    </form>
+  </ResponsiveFormOverlay>
 </template>
 
 <script setup lang="ts">
@@ -84,6 +89,7 @@ import type { Tables } from '~/types/database'
 import type { IInvoiceWithRelations } from '~/types/models/invoice.types'
 import { Calendar } from '~/components/ui/calendar'
 import { Popover, PopoverContent, PopoverTrigger } from '~/components/ui/popover'
+import ResponsiveFormOverlay from '~/components/common/ResponsiveFormOverlay.vue'
 import { cn } from '~/lib/utils'
 import { toDateInputValue } from '~/lib/date'
 import { generateIdempotencyKey } from '~/lib/idempotency'

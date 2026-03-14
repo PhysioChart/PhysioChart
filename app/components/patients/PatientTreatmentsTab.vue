@@ -38,9 +38,7 @@
             <CardContent class="space-y-2 px-4 py-3">
               <div class="flex items-center justify-between gap-3">
                 <p class="font-medium">{{ plan.name }}</p>
-                <Badge :class="getTreatmentStatusBadgeClass(plan.status)" variant="secondary">
-                  {{ TREATMENT_STATUS_LABELS[plan.status] }}
-                </Badge>
+                <StatusChip :status="plan.status" />
               </div>
 
               <p class="text-muted-foreground text-sm">
@@ -99,9 +97,7 @@
             <CardContent class="space-y-2 px-4 py-3">
               <div class="flex items-center justify-between gap-3">
                 <p class="font-medium">{{ plan.name }}</p>
-                <Badge :class="getTreatmentStatusBadgeClass(plan.status)" variant="secondary">
-                  {{ TREATMENT_STATUS_LABELS[plan.status] }}
-                </Badge>
+                <StatusChip :status="plan.status" />
               </div>
 
               <p class="text-muted-foreground text-sm">
@@ -161,8 +157,6 @@ import { ClipboardList } from 'lucide-vue-next'
 import TreatmentSessionHistory from '~/components/common/TreatmentSessionHistory.vue'
 import { useTreatmentSessionHistory } from '~/composables/useTreatmentSessionHistory'
 import type { ITreatmentPlanWithRelations } from '~/types/models/treatment.types'
-import type { TreatmentStatus } from '~/enums/treatment.enum'
-import { TREATMENT_STATUS_LABELS } from '~/enums/treatment.enum'
 import { formatCurrency } from '~/lib/formatters'
 
 const props = defineProps<{
@@ -171,7 +165,6 @@ const props = defineProps<{
   treatments: ITreatmentPlanWithRelations[]
   activeTreatments: ITreatmentPlanWithRelations[]
   completedTreatments: ITreatmentPlanWithRelations[]
-  getTreatmentStatusBadgeClass: (status: TreatmentStatus) => string
   treatmentProgress: (plan: ITreatmentPlanWithRelations) => number
 }>()
 
@@ -181,7 +174,6 @@ const {
   treatments,
   isLoadingTreatments,
   patientId,
-  getTreatmentStatusBadgeClass,
   treatmentProgress,
 } = toRefs(props)
 

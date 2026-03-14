@@ -14,9 +14,7 @@
             </span>
           </div>
         </div>
-        <Badge :class="getStatusColor(plan.status)" variant="secondary" class="shrink-0">
-          {{ TREATMENT_STATUS_LABELS[plan.status] }}
-        </Badge>
+        <StatusChip :status="plan.status" class="shrink-0" />
       </div>
       <Badge v-if="plan.treatment_type" variant="outline" class="mt-1.5 w-fit text-xs">
         {{ plan.treatment_type }}
@@ -162,9 +160,7 @@
                       {{ formatTime(appointment.startTime) }} -
                       {{ formatTime(appointment.endTime) }}
                     </span>
-                    <Badge :class="getStatusColor(appointment.status)" variant="secondary">
-                      {{ APPOINTMENT_STATUS_LABELS[appointment.status] }}
-                    </Badge>
+                    <StatusChip :status="appointment.status" />
                   </li>
                 </ul>
               </div>
@@ -191,15 +187,8 @@ import {
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '~/components/ui/collapsible'
 import { Separator } from '~/components/ui/separator'
 import TreatmentSessionHistory from '~/components/common/TreatmentSessionHistory.vue'
-import { APPOINTMENT_STATUS_LABELS } from '~/enums/appointment.enum'
-import { TreatmentStatus, TREATMENT_STATUS_LABELS } from '~/enums/treatment.enum'
-import {
-  formatCurrency,
-  formatDateWithYear,
-  formatTime,
-  getStatusColor,
-  progressPercent,
-} from '~/lib/formatters'
+import { TreatmentStatus } from '~/enums/treatment.enum'
+import { formatCurrency, formatDateWithYear, formatTime, progressPercent } from '~/lib/formatters'
 import type {
   ITreatmentLinkedAppointmentItem,
   ITreatmentPlanWithRelations,

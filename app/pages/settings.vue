@@ -6,7 +6,7 @@
     </div>
 
     <Tabs default-value="clinic">
-      <TabsList class="w-full justify-start overflow-x-auto">
+      <PageTabsList>
         <TabsTrigger value="clinic">
           <Building2 class="mr-2 h-4 w-4" />
           Clinic Profile
@@ -15,10 +15,11 @@
           <Users class="mr-2 h-4 w-4" />
           Staff
         </TabsTrigger>
-      </TabsList>
+      </PageTabsList>
 
       <TabsContent value="clinic">
         <ClinicProfileForm
+          ref="clinicFormRef"
           :clinic="clinicFormData"
           :is-admin="isAdmin"
           :is-saving="isSavingClinic"
@@ -75,6 +76,7 @@ const { clinic, profile, activeMembership, isAdmin, refreshAuthContext } = useAu
 const staffStore = useStaffStore()
 const { byClinic } = storeToRefs(staffStore)
 
+const clinicFormRef = ref<InstanceType<typeof ClinicProfileForm> | null>(null)
 const isSavingClinic = ref(false)
 const isLoadingStaff = ref(true)
 const showInviteDialog = ref(false)
@@ -109,6 +111,7 @@ async function saveClinicProfile(payload: ClinicProfilePayload) {
     })
     toast.success('Clinic profile updated')
     await refreshAuthContext()
+    clinicFormRef.value?.markSaved()
   } catch (err: unknown) {
     toast.error(err instanceof Error ? err.message : 'Failed to update clinic profile')
   } finally {
@@ -135,17 +138,11 @@ const inviteDialogRef = ref<InstanceType<typeof StaffInviteDialog> | null>(null)
 async function handleInviteStaff(payload: StaffInvitePayload) {
   try {
     const inviteUrl = await staffService(supabase).createInvite(payload.email, payload.role)
-    try {
-      await navigator.clipboard.writeText(new URL(inviteUrl, window.location.origin).toString())
-      toast.success('Invite link copied to clipboard')
-    } catch {
-      toast.success('Invite created (clipboard copy failed)')
-    }
-    showInviteDialog.value = false
+    const fullUrl = new URL(inviteUrl, window.location.origin).toString()
+    inviteDialogRef.value?.showResult(fullUrl)
   } catch (err: unknown) {
     toast.error(err instanceof Error ? err.message : 'Failed to add staff member')
-  } finally {
-    inviteDialogRef.value?.markSubmitted()
+    inviteDialogRef.value?.resetSubmitting()
   }
 }
 

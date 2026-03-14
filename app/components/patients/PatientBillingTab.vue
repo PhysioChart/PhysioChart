@@ -46,9 +46,7 @@
                   {{ formatDateWithYear(inv.created_at) }}
                 </p>
               </div>
-              <Badge :class="getInvoiceStatusBadgeClass(inv.status)" variant="secondary">
-                {{ INVOICE_STATUS_LABELS[inv.status] }}
-              </Badge>
+              <StatusChip :status="inv.status" />
             </div>
 
             <div class="flex items-center justify-between">
@@ -82,9 +80,7 @@
                   {{ formatDateWithYear(inv.created_at) }}
                 </p>
               </div>
-              <Badge :class="getInvoiceStatusBadgeClass(inv.status)" variant="secondary">
-                {{ INVOICE_STATUS_LABELS[inv.status] }}
-              </Badge>
+              <StatusChip :status="inv.status" />
             </div>
 
             <p class="text-sm">Total: {{ formatCurrency(inv.total) }}</p>
@@ -98,8 +94,6 @@
 <script setup lang="ts">
 import { Banknote, Receipt } from 'lucide-vue-next'
 import type { IInvoiceWithRelations } from '~/types/models/invoice.types'
-import type { InvoiceStatus } from '~/enums/invoice.enum'
-import { INVOICE_STATUS_LABELS } from '~/enums/invoice.enum'
 import { formatCurrency, formatDateWithYear } from '~/lib/formatters'
 
 defineProps<{
@@ -108,6 +102,5 @@ defineProps<{
   invoices: IInvoiceWithRelations[]
   unpaidPendingInvoices: IInvoiceWithRelations[]
   paidInvoices: IInvoiceWithRelations[]
-  getInvoiceStatusBadgeClass: (status: InvoiceStatus) => string
 }>()
 </script>

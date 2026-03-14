@@ -22,7 +22,6 @@
               <TableHead>Phone</TableHead>
               <TableHead class="hidden md:table-cell">Gender</TableHead>
               <TableHead class="hidden md:table-cell">Registered</TableHead>
-              <TableHead class="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -38,21 +37,13 @@
             >
               <TableCell class="font-medium">{{ patient.full_name }}</TableCell>
               <TableCell>
-                <div class="flex items-center gap-1">
-                  <Phone class="text-muted-foreground h-3 w-3" />
-                  {{ patient.phone }}
-                </div>
+                {{ formatPhoneDisplay(patient.phone, phoneCountryCode) }}
               </TableCell>
               <TableCell class="hidden md:table-cell">
                 {{ patient.gender ? GENDER_LABELS[patient.gender] : '\u2014' }}
               </TableCell>
               <TableCell class="hidden md:table-cell">
                 {{ formatDateWithYear(patient.created_at) }}
-              </TableCell>
-              <TableCell class="text-right">
-                <Button variant="ghost" size="sm" @click.stop="emit('viewPatient', patient.id)">
-                  View
-                </Button>
               </TableCell>
             </TableRow>
           </TableBody>
@@ -63,10 +54,13 @@
 </template>
 
 <script setup lang="ts">
-import { Users, Phone } from 'lucide-vue-next'
+import { Users } from 'lucide-vue-next'
 import type { Tables } from '~/types/database'
 import { GENDER_LABELS } from '~/enums/gender.enum'
 import { formatDateWithYear } from '~/lib/formatters'
+import { formatPhoneDisplay } from '~/lib/phone'
+
+const phoneCountryCode = useRuntimeConfig().public.phoneCountryCode as string
 
 defineProps<{
   patients: Tables<'patients'>[]

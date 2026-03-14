@@ -9,6 +9,7 @@ import { InvoiceStatus } from '~/enums/invoice.enum'
 import { TreatmentStatus } from '~/enums/treatment.enum'
 import { AppointmentStatus } from '~/enums/appointment.enum'
 import { patientService } from '~/services/patient.service'
+import { ensureCountryCode, stripCountryCode } from '~/lib/phone'
 import { usePatientsStore } from '~/stores/patients.store'
 import { useAppointmentsStore } from '~/stores/appointments.store'
 import { useTreatmentsStore } from '~/stores/treatments.store'
@@ -27,6 +28,8 @@ export function usePatientDetailPage() {
   const { byPatientByClinic: treatmentsByPatientByClinic } = storeToRefs(treatmentsStore)
   const { byPatientByClinic: invoicesByPatientByClinic } = storeToRefs(invoicesStore)
 
+  const phoneCountryCode = useRuntimeConfig().public.phoneCountryCode as string
+
   const patient = shallowRef<PatientRow | null>(null)
   const appointments = shallowRef<IAppointmentWithRelations[]>([])
   const invoices = shallowRef<IInvoiceWithRelations[]>([])
@@ -38,7 +41,6 @@ export function usePatientDetailPage() {
   const isLoadingInvoices = ref(false)
 
   const activeTab = ref('overview')
-  const hasLoadedInvoices = ref(false)
   const showAllPast = ref(false)
   const isEditing = ref(false)
   const isSaving = ref(false)
@@ -120,7 +122,6 @@ export function usePatientDetailPage() {
     try {
       await invoicesStore.fetchByPatient(clinicId, patientId)
       invoices.value = invoicesByPatientByClinic.value[clinicId]?.[patientId] ?? []
-      hasLoadedInvoices.value = true
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to load invoices'
       toast.error(message)
@@ -129,12 +130,31 @@ export function usePatientDetailPage() {
     }
   }
 
+  function enrichAppointmentsWithProgress() {
+    const plans = treatments.value as ITreatmentPlanWithRelations[]
+    if (plans.length === 0 || appointments.value.length === 0) return
+
+    const progressMap = new Map(plans.map((p) => [p.id, p.derived_completed_sessions]))
+    appointments.value = (appointments.value as IAppointmentWithRelations[]).map((appt) => {
+      if (!appt.treatment_plan?.id) return appt
+      return {
+        ...appt,
+        treatment_plan: {
+          ...appt.treatment_plan,
+          derived_completed_sessions: progressMap.get(appt.treatment_plan.id) ?? 0,
+        },
+      }
+    })
+  }
+
   async function loadCoreData(clinicId: string, patientId: string) {
     await Promise.all([
       loadPatient(clinicId, patientId),
       loadAppointments(clinicId, patientId),
       loadTreatments(clinicId, patientId),
+      loadInvoices(clinicId, patientId),
     ])
+    enrichAppointmentsWithProgress()
   }
 
   async function initialize() {
@@ -205,55 +225,6 @@ export function usePatientDetailPage() {
     )
   })
 
-  function getAppointmentStatusBadgeClass(status: AppointmentStatus): string {
-    const base = 'rounded-full px-2.5 py-0.5 text-xs font-medium'
-
-    switch (status) {
-      case AppointmentStatus.SCHEDULED:
-        return `${base} bg-yellow-100 text-yellow-800`
-      case AppointmentStatus.COMPLETED:
-        return `${base} bg-green-100 text-green-800`
-      case AppointmentStatus.CANCELLED:
-        return `${base} bg-gray-100 text-gray-800`
-      case AppointmentStatus.NO_SHOW:
-        return `${base} bg-red-100 text-red-800`
-      default:
-        return `${base} bg-gray-100 text-gray-800`
-    }
-  }
-
-  function getTreatmentStatusBadgeClass(status: TreatmentStatus): string {
-    const base = 'rounded-full px-2.5 py-0.5 text-xs font-medium'
-
-    switch (status) {
-      case TreatmentStatus.ACTIVE:
-        return `${base} bg-green-100 text-green-800`
-      case TreatmentStatus.COMPLETED:
-        return `${base} bg-emerald-100 text-emerald-800`
-      case TreatmentStatus.CANCELLED:
-        return `${base} bg-slate-100 text-slate-600`
-      default:
-        return `${base} bg-gray-100 text-gray-800`
-    }
-  }
-
-  function getInvoiceStatusBadgeClass(status: InvoiceStatus): string {
-    switch (status) {
-      case InvoiceStatus.PAID:
-        return 'badge-paid'
-      case InvoiceStatus.OVERDUE:
-        return 'badge-overdue'
-      case InvoiceStatus.CANCELLED:
-        return 'badge-cancelled'
-      case InvoiceStatus.DRAFT:
-      case InvoiceStatus.SENT:
-      case InvoiceStatus.PARTIALLY_PAID:
-        return 'badge-pending'
-      default:
-        return 'badge-cancelled'
-    }
-  }
-
   function treatmentProgress(plan: ITreatmentPlanWithRelations): number {
     if (!plan.total_sessions || plan.total_sessions <= 0) return 0
     return Math.round((plan.derived_completed_sessions / plan.total_sessions) * 100)
@@ -267,13 +238,16 @@ export function usePatientDetailPage() {
   function buildEditForm(patientData: PatientRow): IPatientEditForm {
     return {
       full_name: patientData.full_name,
-      phone: patientData.phone,
+      phone: stripCountryCode(patientData.phone, phoneCountryCode),
       email: patientData.email ?? '',
       date_of_birth: patientData.date_of_birth ?? '',
       gender: patientData.gender ?? '',
       address: patientData.address ?? '',
       emergency_contact_name: patientData.emergency_contact_name ?? '',
-      emergency_contact_phone: patientData.emergency_contact_phone ?? '',
+      emergency_contact_phone: stripCountryCode(
+        patientData.emergency_contact_phone ?? '',
+        phoneCountryCode,
+      ),
       notes: patientData.notes ?? '',
     }
   }
@@ -284,15 +258,20 @@ export function usePatientDetailPage() {
 
     try {
       if (!activeMembership.value?.clinic_id) return
+      const normalizedPhone = ensureCountryCode(form.phone, phoneCountryCode)
+      const normalizedEcPhone = form.emergency_contact_phone
+        ? ensureCountryCode(form.emergency_contact_phone, phoneCountryCode)
+        : null
+
       await patientService(supabase).update(activeMembership.value.clinic_id, patient.value.id, {
         full_name: form.full_name,
-        phone: form.phone,
+        phone: normalizedPhone,
         email: form.email || null,
         date_of_birth: form.date_of_birth || null,
         gender: (form.gender || null) as PatientRow['gender'],
         address: form.address || null,
         emergency_contact_name: form.emergency_contact_name || null,
-        emergency_contact_phone: form.emergency_contact_phone || null,
+        emergency_contact_phone: normalizedEcPhone,
         notes: form.notes || null,
       })
 
@@ -301,13 +280,13 @@ export function usePatientDetailPage() {
         const updated: PatientRow = {
           ...current,
           full_name: form.full_name,
-          phone: form.phone,
+          phone: normalizedPhone,
           email: form.email || null,
           date_of_birth: form.date_of_birth || null,
           gender: (form.gender || null) as PatientRow['gender'],
           address: form.address || null,
           emergency_contact_name: form.emergency_contact_name || null,
-          emergency_contact_phone: form.emergency_contact_phone || null,
+          emergency_contact_phone: normalizedEcPhone,
           notes: form.notes || null,
         }
         patientsStore.upsertPatient(activeMembership.value.clinic_id, updated)
@@ -360,16 +339,6 @@ export function usePatientDetailPage() {
   })
 
   watch(
-    [activeTab, () => activeMembership.value?.clinic_id, () => getPatientId()],
-    ([tab, clinicId, patientId]) => {
-      if (tab === 'billing' && clinicId && patientId && !hasLoadedInvoices.value) {
-        void loadInvoices(clinicId, patientId)
-      }
-    },
-    { immediate: true },
-  )
-
-  watch(
     [() => activeMembership.value?.clinic_id, () => getPatientId()],
     ([clinicId, patientId], [prevClinicId, prevPatientId]) => {
       if (!clinicId || !patientId) return
@@ -379,7 +348,6 @@ export function usePatientDetailPage() {
       appointments.value = []
       treatments.value = []
       invoices.value = []
-      hasLoadedInvoices.value = false
       activeTab.value = 'overview'
 
       void loadCoreData(clinicId, patientId)
@@ -409,9 +377,6 @@ export function usePatientDetailPage() {
     completedTreatments,
     unpaidPendingInvoices,
     paidInvoices,
-    getAppointmentStatusBadgeClass,
-    getTreatmentStatusBadgeClass,
-    getInvoiceStatusBadgeClass,
     treatmentProgress,
     startEdit,
     buildEditForm,

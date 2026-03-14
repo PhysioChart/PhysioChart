@@ -50,9 +50,7 @@
             </div>
           </div>
           <div class="text-right text-sm">
-            <Badge :class="getStatusColor(item.status)" variant="outline" class="mb-1 capitalize">
-              {{ item.status.replace('_', ' ') }}
-            </Badge>
+            <StatusChip :status="item.status" class="mb-1" />
             <p v-if="item.kind === 'invoice'">
               {{ formatCurrency(item.total ?? 0) }}
               <span
@@ -75,12 +73,7 @@
 <script setup lang="ts">
 import { Clock, IndianRupee, CalendarDays } from 'lucide-vue-next'
 import type { DashboardActivityItem } from '~/services/dashboard.service'
-import {
-  formatDateTime,
-  formatCurrency,
-  formatRelativeTime,
-  getStatusColor,
-} from '~/lib/formatters'
+import { formatDateTime, formatCurrency, formatRelativeTime } from '~/lib/formatters'
 
 defineProps<{
   activities: DashboardActivityItem[]

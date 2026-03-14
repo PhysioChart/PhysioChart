@@ -110,12 +110,8 @@ export function appointmentService(supabase: SupabaseClient<Database>) {
     if (error) throw error
 
     const appointments = (data ?? []) as IAppointmentWithRelations[]
-    const planIds = appointments
-      .map((appointment) => appointment.treatment_plan?.id)
-      .filter((id): id is string => Boolean(id))
-    const progressMap = await fetchTreatmentPlanProgressMap(clinicId, planIds)
 
-    return attachDerivedPlanProgress(appointments, progressMap)
+    return attachDerivedPlanProgress(appointments, new Map())
   }
 
   async function listForDate(

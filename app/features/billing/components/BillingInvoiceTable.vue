@@ -52,9 +52,7 @@
                 <TableCell>{{ formatCurrency(inv.amount_paid) }}</TableCell>
                 <TableCell>
                   <div class="flex items-center gap-2">
-                    <Badge :class="getStatusColor(inv.status)" variant="secondary">
-                      {{ INVOICE_STATUS_LABELS[inv.status] }}
-                    </Badge>
+                    <StatusChip :status="inv.status" />
                     <Button
                       v-if="inv.status !== 'paid'"
                       size="sm"
@@ -151,14 +149,8 @@
 import type { Tables } from '~/types/database'
 import type { IInvoiceWithRelations } from '~/types/models/invoice.types'
 import { Banknote, Receipt } from 'lucide-vue-next'
-import { INVOICE_STATUS_LABELS } from '~/enums/invoice.enum'
 import { PAYMENT_METHOD_LABELS } from '~/enums/payment.enum'
-import {
-  formatCurrency,
-  formatDateWithYear,
-  formatDateTime,
-  getStatusColor,
-} from '~/lib/formatters'
+import { formatCurrency, formatDateWithYear, formatDateTime } from '~/lib/formatters'
 
 defineProps<{
   invoices: IInvoiceWithRelations[]

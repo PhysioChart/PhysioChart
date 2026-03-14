@@ -1,42 +1,30 @@
 <template>
-  <Card v-if="viewMode === 'day'">
+  <Card class="gap-0 overflow-hidden py-0">
     <CardContent class="p-0">
-      <CalendarDayView
-        :appointments="appointments"
-        :date-str="currentDayDateStr"
-        :color-map="colorMap"
-        @click-slot="handleClickSlot"
-        @click-appointment="emit('click-appointment', $event)"
-      />
-    </CardContent>
-  </Card>
-
-  <Card v-else-if="viewMode === 'week'">
-    <CardContent class="p-0">
-      <CalendarWeekView
-        :appointments="appointments"
-        :week-days="weekDays"
-        :color-map="colorMap"
-        @click-slot="handleClickSlot"
-        @click-appointment="emit('click-appointment', $event)"
-      />
+      <ClientOnly>
+        <AppointmentsScheduleX
+          :appointments="appointments"
+          :view-mode="calendarViewMode"
+          :selected-date="selectedDate"
+          :therapists="therapists"
+          @click-slot="(date, time) => emit('click-slot', date, time)"
+          @click-appointment="(appt) => emit('click-appointment', appt)"
+        />
+      </ClientOnly>
     </CardContent>
   </Card>
 </template>
 
 <script setup lang="ts">
-import CalendarDayView from '~/features/appointments/components/CalendarDayView.vue'
-import CalendarWeekView from '~/features/appointments/components/CalendarWeekView.vue'
-import type { TherapistColor, CalendarDay } from '~/composables/useCalendar'
+import AppointmentsScheduleX from '~/features/appointments/components/AppointmentsScheduleX.vue'
 import type { AppointmentsViewMode } from '~/features/appointments/types'
 import type { IAppointmentWithRelations } from '~/types/models/appointment.types'
 
-defineProps<{
+const props = defineProps<{
   viewMode: AppointmentsViewMode
   appointments: IAppointmentWithRelations[]
-  weekDays: CalendarDay[]
-  currentDayDateStr: string
-  colorMap: Map<string, TherapistColor>
+  selectedDate: string
+  therapists: Array<{ id: string }>
 }>()
 
 const emit = defineEmits<{
@@ -44,7 +32,7 @@ const emit = defineEmits<{
   (e: 'click-appointment', appointment: IAppointmentWithRelations): void
 }>()
 
-function handleClickSlot(date: string, time: string) {
-  emit('click-slot', date, time)
-}
+const calendarViewMode = computed(() =>
+  props.viewMode === 'week' ? ('week' as const) : ('day' as const),
+)
 </script>

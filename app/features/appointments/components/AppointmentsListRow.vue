@@ -1,66 +1,63 @@
 <template>
-  <div class="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:gap-4">
-    <div class="flex shrink-0 flex-col items-center text-center">
-      <span class="text-muted-foreground text-xs">{{ formatDate(appointment.start_time) }}</span>
-      <span class="text-sm font-semibold">{{ formatTime(appointment.start_time) }}</span>
-      <span class="text-muted-foreground text-xs">{{ formatTime(appointment.end_time) }}</span>
+  <div class="group relative flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:gap-4">
+    <!-- ZONE 1: Time -->
+    <div
+      class="flex items-center gap-1.5 sm:w-[88px] sm:shrink-0 sm:flex-col sm:items-start sm:gap-0"
+    >
+      <span class="text-sm font-semibold tabular-nums">{{
+        formatTime(appointment.start_time)
+      }}</span>
+      <span class="text-muted-foreground text-xs tabular-nums"
+        >– {{ formatTime(appointment.end_time) }}</span
+      >
     </div>
 
-    <Separator orientation="vertical" class="hidden h-12 sm:block" />
-
-    <div class="flex-1">
-      <p class="font-medium">{{ appointment.patient?.full_name ?? 'Unknown patient' }}</p>
-      <p class="text-muted-foreground text-xs">
-        <span v-if="appointment.therapist">with {{ appointment.therapist.full_name }}</span>
-        <span v-if="appointment.treatment_plan">
-          &middot; Plan: {{ appointment.treatment_plan.name }}</span
+    <!-- ZONE 2: Content -->
+    <div class="min-w-0 flex-1">
+      <div class="flex items-center gap-2">
+        <p class="truncate text-sm font-medium">
+          {{ appointment.patient?.full_name ?? 'Unknown patient' }}
+        </p>
+        <StatusChip :status="appointment.status" class="shrink-0 text-[10px] leading-none" />
+        <Badge
+          v-if="appointment.series_id"
+          variant="outline"
+          class="shrink-0 text-[10px] leading-none"
         >
-        <span v-if="appointment.notes"> &middot; {{ appointment.notes }}</span>
+          {{ appointment.series_index ?? '?' }}/{{ seriesTotal }}
+        </Badge>
+      </div>
+      <p class="text-muted-foreground mt-0.5 truncate text-xs">
+        <span v-if="appointment.therapist">{{ appointment.therapist.full_name }}</span>
+        <span v-if="appointment.treatment_plan">
+          <span v-if="appointment.therapist"> &middot; </span>
+          {{ appointment.treatment_plan.name }}
+        </span>
+        <span v-if="appointment.notes">
+          <span v-if="appointment.therapist || appointment.treatment_plan"> &middot; </span>
+          {{ appointment.notes }}
+        </span>
       </p>
     </div>
 
-    <div class="flex items-center gap-2 sm:self-auto">
-      <Badge :class="getStatusColor(appointment.status)" variant="secondary">
-        {{ APPOINTMENT_STATUS_LABELS[appointment.status] }}
-      </Badge>
-      <Badge v-if="appointment.series_id" variant="outline" class="text-[10px]">
-        {{ appointment.series_index }}/{{ seriesTotal }}
-      </Badge>
-    </div>
-
-    <div class="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:justify-end">
-      <Button v-if="showProminentReminderCta && reminderHref" as-child size="sm">
-        <a :href="reminderHref" target="_blank" rel="noopener noreferrer">
-          <MessageCircle class="mr-2 h-4 w-4" />
-          Send Reminder
-        </a>
-      </Button>
-
-      <Tooltip v-else-if="reminderHref">
-        <TooltipTrigger as-child>
-          <Button as-child variant="ghost" size="icon" :aria-label="reminderAriaLabel">
-            <a :href="reminderHref" target="_blank" rel="noopener noreferrer">
-              <MessageCircle class="h-4 w-4" />
-            </a>
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent>Send WhatsApp reminder</TooltipContent>
-      </Tooltip>
-
-      <DropdownMenu
-        v-if="
-          appointment.status === AppointmentStatus.SCHEDULED ||
-          appointment.status === AppointmentStatus.CHECKED_IN ||
-          appointment.status === AppointmentStatus.COMPLETED
-        "
-      >
+    <!-- ZONE 3: Actions -->
+    <div class="absolute top-3 right-3 sm:static sm:shrink-0">
+      <DropdownMenu v-if="hasActions">
         <DropdownMenuTrigger as-child>
-          <Button variant="ghost" size="sm">
-            {{ appointment.status === AppointmentStatus.COMPLETED ? 'Manage' : 'Update' }}
+          <Button variant="ghost" size="icon" class="h-7 w-7 sm:h-9 sm:w-9">
+            <MoreHorizontal class="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+            <span class="sr-only">Actions</span>
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent>
+        <DropdownMenuContent align="end" class="[&_[data-slot=dropdown-menu-item]]:cursor-pointer">
+          <DropdownMenuItem v-if="reminderHref" as-child>
+            <a :href="reminderHref" target="_blank" rel="noopener noreferrer">
+              <MessageCircle class="mr-2 h-4 w-4" />
+              Send WhatsApp Reminder
+            </a>
+          </DropdownMenuItem>
           <template v-if="appointment.status !== AppointmentStatus.COMPLETED">
+            <DropdownMenuSeparator v-if="reminderHref" />
             <DropdownMenuItem @click="emit('request-complete', appointment)">
               Mark Completed
             </DropdownMenuItem>
@@ -84,13 +81,15 @@
               </DropdownMenuItem>
             </template>
           </template>
-          <DropdownMenuItem
-            v-else
-            :disabled="!canReopen"
-            @click="emit('request-reopen', appointment.id)"
-          >
-            Reopen Appointment
-          </DropdownMenuItem>
+          <template v-else>
+            <DropdownMenuSeparator v-if="reminderHref" />
+            <DropdownMenuItem
+              :disabled="!canReopen"
+              @click="emit('request-reopen', appointment.id)"
+            >
+              Reopen Appointment
+            </DropdownMenuItem>
+          </template>
         </DropdownMenuContent>
       </DropdownMenu>
     </div>
@@ -98,14 +97,9 @@
 </template>
 
 <script setup lang="ts">
-import { MessageCircle } from 'lucide-vue-next'
-import { APPOINTMENT_STATUS_LABELS, AppointmentStatus } from '~/enums/appointment.enum'
-import {
-  formatDate,
-  formatTime,
-  getAppointmentWhatsAppLink,
-  getStatusColor,
-} from '~/lib/formatters'
+import { MessageCircle, MoreHorizontal } from 'lucide-vue-next'
+import { AppointmentStatus } from '~/enums/appointment.enum'
+import { formatTime, getAppointmentWhatsAppLink } from '~/lib/formatters'
 import type { IAppointmentWithRelations } from '~/types/models/appointment.types'
 
 const props = defineProps<{
@@ -113,7 +107,6 @@ const props = defineProps<{
   seriesTotal: number
   canReopen: boolean
   clinicName: string | null
-  showProminentReminderCta: boolean
 }>()
 
 const reminderHref = computed(() => {
@@ -132,9 +125,14 @@ const reminderHref = computed(() => {
   })
 })
 
-const reminderAriaLabel = computed(
-  () => `Send WhatsApp reminder to ${props.appointment.patient?.full_name ?? 'patient'}`,
-)
+const hasActions = computed(() => {
+  const s = props.appointment.status
+  return (
+    s === AppointmentStatus.SCHEDULED ||
+    s === AppointmentStatus.CHECKED_IN ||
+    s === AppointmentStatus.COMPLETED
+  )
+})
 
 const emit = defineEmits<{
   (e: 'request-complete', appointment: IAppointmentWithRelations): void

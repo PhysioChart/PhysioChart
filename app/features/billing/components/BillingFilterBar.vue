@@ -1,16 +1,14 @@
 <template>
-  <div class="flex flex-wrap gap-2">
-    <Button
-      v-for="f in filters"
-      :key="f"
-      :variant="modelValue === f ? 'default' : 'outline'"
-      size="sm"
-      class="capitalize"
-      @click="emit('update:modelValue', f)"
-    >
-      {{ f }}
-    </Button>
-  </div>
+  <Tabs
+    :model-value="modelValue"
+    @update:model-value="emit('update:modelValue', $event as BillingFilter)"
+  >
+    <PageTabsList>
+      <TabsTrigger v-for="f in filters" :key="f" :value="f" class="capitalize">
+        {{ f }}
+      </TabsTrigger>
+    </PageTabsList>
+  </Tabs>
 </template>
 
 <script setup lang="ts">

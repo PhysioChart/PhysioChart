@@ -55,9 +55,8 @@
       v-else
       :view-mode="viewMode"
       :appointments="appointments"
-      :week-days="weekDays"
-      :current-day-date-str="currentDay.dateStr"
-      :color-map="therapistColorMap"
+      :selected-date="currentDay.dateStr"
+      :therapists="therapists"
       @click-slot="handleSlotClick"
       @click-appointment="handleAppointmentClick"
     />
@@ -127,14 +126,12 @@ const {
   listFilter,
   showDetailSheet,
   selectedAppointment,
-  weekDays,
   currentDay,
   dayViewLabel,
   weekViewLabel,
   patients,
   therapists,
   appointments,
-  therapistColorMap,
   therapistLegend,
   filteredAppointments,
 } = storeToRefs(store)

@@ -1,4 +1,4 @@
-# MedPractice
+# PhysioChart
 
 Physiotherapy clinic management SaaS — appointments, patient records, billing, treatment tracking, and staff management.
 

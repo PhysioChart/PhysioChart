@@ -24,12 +24,12 @@
       />
 
       <Tabs v-model="activeTab">
-        <TabsList class="w-full justify-start overflow-x-auto">
+        <PageTabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="appointments">Appointments</TabsTrigger>
           <TabsTrigger value="treatments">Treatments</TabsTrigger>
           <TabsTrigger value="billing">Billing</TabsTrigger>
-        </TabsList>
+        </PageTabsList>
 
         <TabsContent value="overview">
           <PatientOverviewTab :patient="patient" :medical-history="medicalHistory" />
@@ -45,7 +45,6 @@
             :remaining-past-count="remainingPastCount"
             :show-all-past="showAllPast"
             :is-loading-appointments="isLoadingAppointments"
-            :get-appointment-status-badge-class="getAppointmentStatusBadgeClass"
             @show-more-past="showAllPast = true"
           />
         </TabsContent>
@@ -57,7 +56,6 @@
             :treatments="treatments"
             :active-treatments="activeTreatments"
             :completed-treatments="completedTreatments"
-            :get-treatment-status-badge-class="getTreatmentStatusBadgeClass"
             :treatment-progress="treatmentProgress"
           />
         </TabsContent>
@@ -69,7 +67,6 @@
             :invoices="invoices"
             :unpaid-pending-invoices="unpaidPendingInvoices"
             :paid-invoices="paidInvoices"
-            :get-invoice-status-badge-class="getInvoiceStatusBadgeClass"
           />
         </TabsContent>
       </Tabs>
@@ -117,9 +114,6 @@ const {
   completedTreatments,
   unpaidPendingInvoices,
   paidInvoices,
-  getAppointmentStatusBadgeClass,
-  getTreatmentStatusBadgeClass,
-  getInvoiceStatusBadgeClass,
   treatmentProgress,
   startEdit,
   buildEditForm,

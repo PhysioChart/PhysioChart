@@ -18,13 +18,7 @@
         <p class="truncate text-sm font-medium">
           {{ appointment.patient?.full_name ?? 'Unknown patient' }}
         </p>
-        <Badge
-          :class="getStatusColor(appointment.status)"
-          variant="secondary"
-          class="shrink-0 text-[10px] leading-none"
-        >
-          {{ APPOINTMENT_STATUS_LABELS[appointment.status] }}
-        </Badge>
+        <StatusChip :status="appointment.status" class="shrink-0 text-[10px] leading-none" />
         <Badge
           v-if="appointment.series_id"
           variant="outline"
@@ -104,8 +98,8 @@
 
 <script setup lang="ts">
 import { MessageCircle, MoreHorizontal } from 'lucide-vue-next'
-import { APPOINTMENT_STATUS_LABELS, AppointmentStatus } from '~/enums/appointment.enum'
-import { formatTime, getAppointmentWhatsAppLink, getStatusColor } from '~/lib/formatters'
+import { AppointmentStatus } from '~/enums/appointment.enum'
+import { formatTime, getAppointmentWhatsAppLink } from '~/lib/formatters'
 import type { IAppointmentWithRelations } from '~/types/models/appointment.types'
 
 const props = defineProps<{

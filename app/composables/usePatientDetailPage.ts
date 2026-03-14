@@ -208,55 +208,6 @@ export function usePatientDetailPage() {
     )
   })
 
-  function getAppointmentStatusBadgeClass(status: AppointmentStatus): string {
-    const base = 'rounded-full px-2.5 py-0.5 text-xs font-medium'
-
-    switch (status) {
-      case AppointmentStatus.SCHEDULED:
-        return `${base} bg-yellow-100 text-yellow-800`
-      case AppointmentStatus.COMPLETED:
-        return `${base} bg-green-100 text-green-800`
-      case AppointmentStatus.CANCELLED:
-        return `${base} bg-gray-100 text-gray-800`
-      case AppointmentStatus.NO_SHOW:
-        return `${base} bg-red-100 text-red-800`
-      default:
-        return `${base} bg-gray-100 text-gray-800`
-    }
-  }
-
-  function getTreatmentStatusBadgeClass(status: TreatmentStatus): string {
-    const base = 'rounded-full px-2.5 py-0.5 text-xs font-medium'
-
-    switch (status) {
-      case TreatmentStatus.ACTIVE:
-        return `${base} bg-green-100 text-green-800`
-      case TreatmentStatus.COMPLETED:
-        return `${base} bg-emerald-100 text-emerald-800`
-      case TreatmentStatus.CANCELLED:
-        return `${base} bg-slate-100 text-slate-600`
-      default:
-        return `${base} bg-gray-100 text-gray-800`
-    }
-  }
-
-  function getInvoiceStatusBadgeClass(status: InvoiceStatus): string {
-    switch (status) {
-      case InvoiceStatus.PAID:
-        return 'badge-paid'
-      case InvoiceStatus.OVERDUE:
-        return 'badge-overdue'
-      case InvoiceStatus.CANCELLED:
-        return 'badge-cancelled'
-      case InvoiceStatus.DRAFT:
-      case InvoiceStatus.SENT:
-      case InvoiceStatus.PARTIALLY_PAID:
-        return 'badge-pending'
-      default:
-        return 'badge-cancelled'
-    }
-  }
-
   function treatmentProgress(plan: ITreatmentPlanWithRelations): number {
     if (!plan.total_sessions || plan.total_sessions <= 0) return 0
     return Math.round((plan.derived_completed_sessions / plan.total_sessions) * 100)
@@ -420,9 +371,6 @@ export function usePatientDetailPage() {
     completedTreatments,
     unpaidPendingInvoices,
     paidInvoices,
-    getAppointmentStatusBadgeClass,
-    getTreatmentStatusBadgeClass,
-    getInvoiceStatusBadgeClass,
     treatmentProgress,
     startEdit,
     buildEditForm,

@@ -36,9 +36,7 @@
               {{ formatDateTime(appt.startTime) }} · {{ appt.therapistName ?? 'Unassigned' }}
             </p>
           </div>
-          <Badge :class="getStatusColor(appt.status)" variant="outline" class="capitalize">
-            {{ appt.status.replace('_', ' ') }}
-          </Badge>
+          <StatusChip :status="appt.status" />
         </li>
       </ul>
     </CardContent>
@@ -48,7 +46,7 @@
 <script setup lang="ts">
 import { CalendarDays, CalendarPlus } from 'lucide-vue-next'
 import type { UpcomingAppointmentSummary } from '~/services/dashboard.service'
-import { formatDateTime, getStatusColor } from '~/lib/formatters'
+import { formatDateTime } from '~/lib/formatters'
 
 defineProps<{
   appointments: UpcomingAppointmentSummary[]

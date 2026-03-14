@@ -1,7 +1,4 @@
 import type { Tables } from '~/types/database'
-import { AppointmentStatus } from '~/enums/appointment.enum'
-import { TreatmentStatus } from '~/enums/treatment.enum'
-import { InvoiceStatus } from '~/enums/invoice.enum'
 import { formatAppDate } from '~/lib/date'
 
 /** "2:30 pm" */
@@ -93,33 +90,6 @@ export function formatRelativeTime(dateStr: string): string {
   if (Math.abs(hours) < 24) return rtf.format(hours, 'hour')
   if (Math.abs(days) < 7) return rtf.format(days, 'day')
   return formatDateTime(dateStr)
-}
-
-/** Tailwind classes for appointment/treatment/invoice status badges */
-export function getStatusColor(
-  status: AppointmentStatus | TreatmentStatus | InvoiceStatus | string,
-): string {
-  switch (status) {
-    case AppointmentStatus.COMPLETED:
-    case InvoiceStatus.PAID:
-      return 'bg-green-500/10 text-green-700 dark:text-green-300'
-    case AppointmentStatus.CANCELLED:
-    case TreatmentStatus.CANCELLED:
-    case InvoiceStatus.CANCELLED:
-    case InvoiceStatus.OVERDUE:
-      return 'bg-red-500/10 text-red-700 dark:text-red-300'
-    case AppointmentStatus.NO_SHOW:
-    case InvoiceStatus.PARTIALLY_PAID:
-      return 'bg-amber-500/10 text-amber-700 dark:text-amber-300'
-    case TreatmentStatus.ACTIVE:
-    case AppointmentStatus.SCHEDULED:
-    case AppointmentStatus.CHECKED_IN:
-    case InvoiceStatus.DRAFT:
-    case InvoiceStatus.SENT:
-      return 'bg-blue-500/10 text-blue-700 dark:text-blue-300'
-    default:
-      return 'bg-zinc-500/10 text-muted-foreground'
-  }
 }
 
 /** WhatsApp reminder deep link */

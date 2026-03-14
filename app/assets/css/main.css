@@ -112,37 +112,6 @@
   --sidebar-ring: hsl(142.1 62% 37.5%);
 }
 
-.badge-scheduled {
-  @apply bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400;
-}
-.badge-completed {
-  @apply bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400;
-}
-.badge-cancelled {
-  @apply bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400;
-}
-.badge-no-show {
-  @apply bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400;
-}
-.badge-paid {
-  @apply bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400;
-}
-.badge-pending {
-  @apply bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400;
-}
-.badge-overdue {
-  @apply bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400;
-}
-.badge-active {
-  @apply bg-teal-100 text-teal-800 dark:bg-teal-900/30 dark:text-teal-400;
-}
-.badge-plan-completed {
-  @apply bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400;
-}
-.badge-paused {
-  @apply bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400;
-}
-
 @layer base {
   * {
     @apply border-border outline-ring/50;

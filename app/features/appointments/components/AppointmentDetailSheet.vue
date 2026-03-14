@@ -32,9 +32,7 @@
           </p>
         </div>
 
-        <Badge :class="getStatusColor(appointment.status)" variant="secondary">
-          {{ APPOINTMENT_STATUS_LABELS[appointment.status] }}
-        </Badge>
+        <StatusChip :status="appointment.status" />
 
         <div v-if="appointment.series_id" class="text-muted-foreground text-xs">
           Part of a recurring series (session {{ appointment.series_index }})
@@ -140,14 +138,9 @@
 <script setup lang="ts">
 import { ClipboardList, Clock, MessageCircle, Stethoscope, User } from 'lucide-vue-next'
 import type { CalendarAppointment } from '~/composables/useCalendar'
-import { AppointmentStatus, APPOINTMENT_STATUS_LABELS } from '~/enums/appointment.enum'
+import { AppointmentStatus } from '~/enums/appointment.enum'
 import { TREATMENT_STATUS_LABELS } from '~/enums/treatment.enum'
-import {
-  formatDateTime,
-  formatTime,
-  getAppointmentWhatsAppLink,
-  getStatusColor,
-} from '~/lib/formatters'
+import { formatDateTime, formatTime, getAppointmentWhatsAppLink } from '~/lib/formatters'
 
 const props = defineProps<{
   appointment: CalendarAppointment | null

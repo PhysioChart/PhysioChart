@@ -46,9 +46,7 @@
                   {{ formatTime(appt.start_time) }} - {{ formatTime(appt.end_time) }}
                 </p>
               </div>
-              <Badge :class="getAppointmentStatusBadgeClass(appt.status)" variant="secondary">
-                {{ APPOINTMENT_STATUS_LABELS[appt.status] }}
-              </Badge>
+              <StatusChip :status="appt.status" />
             </div>
 
             <p class="text-muted-foreground text-sm">
@@ -95,9 +93,7 @@
                   {{ formatTime(appt.start_time) }} - {{ formatTime(appt.end_time) }}
                 </p>
               </div>
-              <Badge :class="getAppointmentStatusBadgeClass(appt.status)" variant="secondary">
-                {{ APPOINTMENT_STATUS_LABELS[appt.status] }}
-              </Badge>
+              <StatusChip :status="appt.status" />
             </div>
 
             <p class="text-muted-foreground text-sm">
@@ -147,8 +143,6 @@
 <script setup lang="ts">
 import { Calendar } from 'lucide-vue-next'
 import type { IAppointmentWithRelations } from '~/types/models/appointment.types'
-import type { AppointmentStatus } from '~/enums/appointment.enum'
-import { APPOINTMENT_STATUS_LABELS } from '~/enums/appointment.enum'
 import { formatDateLong, formatTime } from '~/lib/formatters'
 
 defineProps<{
@@ -160,7 +154,6 @@ defineProps<{
   remainingPastCount: number
   showAllPast: boolean
   isLoadingAppointments: boolean
-  getAppointmentStatusBadgeClass: (status: AppointmentStatus) => string
 }>()
 
 const emit = defineEmits<{

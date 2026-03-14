@@ -12,13 +12,23 @@
           <div v-if="error" class="bg-destructive/10 text-destructive rounded-lg p-3 text-sm">
             {{ error }}
           </div>
-          <div>
+          <div class="space-y-2">
             <Label for="clinic-name">Clinic Name</Label>
-            <Input id="clinic-name" v-model="clinicName" :disabled="isSubmitting" />
+            <Input
+              id="clinic-name"
+              v-model="clinicName"
+              placeholder="Your clinic name"
+              :disabled="isSubmitting"
+            />
           </div>
-          <div>
+          <div class="space-y-2">
             <Label for="full-name">Your Name</Label>
-            <Input id="full-name" v-model="fullName" :disabled="isSubmitting" />
+            <Input
+              id="full-name"
+              v-model="fullName"
+              placeholder="Your full name"
+              :disabled="isSubmitting"
+            />
           </div>
           <Button type="submit" class="w-full" :disabled="isSubmitting">
             {{ isSubmitting ? 'Saving...' : 'Finish setup' }}

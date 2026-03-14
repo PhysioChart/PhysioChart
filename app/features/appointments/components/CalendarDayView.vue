@@ -1,7 +1,7 @@
 <template>
   <div ref="scrollContainer" class="flex overflow-y-auto" style="max-height: calc(100vh - 240px)">
     <!-- Time gutter -->
-    <div class="bg-background sticky left-0 z-20 w-12 flex-shrink-0 border-r sm:w-16">
+    <div class="bg-card border-border sticky left-0 z-20 w-14 flex-shrink-0 border-r sm:w-16">
       <div
         v-for="slot in timeSlots"
         :key="`${slot.hour}-${slot.minute}`"
@@ -23,7 +23,7 @@
         :aria-label="slotLabel(slot)"
         :class="[
           'hover:bg-muted/50 cursor-pointer border-b transition-colors',
-          slot.minute === 0 ? 'border-border' : 'border-border/30',
+          slot.minute === 0 ? 'border-border/70' : 'border-border/40',
         ]"
         :style="{ height: `${SLOT_HEIGHT_PX}px` }"
         @click="handleSlotClick(slot.hour, slot.minute)"

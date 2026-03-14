@@ -22,7 +22,6 @@
               <TableHead>Phone</TableHead>
               <TableHead class="hidden md:table-cell">Gender</TableHead>
               <TableHead class="hidden md:table-cell">Registered</TableHead>
-              <TableHead class="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -45,11 +44,6 @@
               </TableCell>
               <TableCell class="hidden md:table-cell">
                 {{ formatDateWithYear(patient.created_at) }}
-              </TableCell>
-              <TableCell class="text-right">
-                <Button variant="ghost" size="sm" @click.stop="emit('viewPatient', patient.id)">
-                  View
-                </Button>
               </TableCell>
             </TableRow>
           </TableBody>

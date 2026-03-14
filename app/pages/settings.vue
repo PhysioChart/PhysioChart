@@ -6,7 +6,7 @@
     </div>
 
     <Tabs default-value="clinic">
-      <TabsList class="w-full justify-start overflow-x-auto">
+      <PageTabsList>
         <TabsTrigger value="clinic">
           <Building2 class="mr-2 h-4 w-4" />
           Clinic Profile
@@ -15,7 +15,7 @@
           <Users class="mr-2 h-4 w-4" />
           Staff
         </TabsTrigger>
-      </TabsList>
+      </PageTabsList>
 
       <TabsContent value="clinic">
         <ClinicProfileForm

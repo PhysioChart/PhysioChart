@@ -1,11 +1,11 @@
 <template>
   <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
     <Tabs v-model="viewMode" class="w-auto">
-      <TabsList>
+      <PageTabsList>
         <TabsTrigger value="list">List</TabsTrigger>
         <TabsTrigger value="day">Day</TabsTrigger>
         <TabsTrigger value="week" class="hidden md:inline-flex">Week</TabsTrigger>
-      </TabsList>
+      </PageTabsList>
     </Tabs>
 
     <div v-if="viewMode === 'list'" class="flex gap-2">

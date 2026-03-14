@@ -24,12 +24,12 @@
       />
 
       <Tabs v-model="activeTab">
-        <TabsList class="w-full justify-start overflow-x-auto">
+        <PageTabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="appointments">Appointments</TabsTrigger>
           <TabsTrigger value="treatments">Treatments</TabsTrigger>
           <TabsTrigger value="billing">Billing</TabsTrigger>
-        </TabsList>
+        </PageTabsList>
 
         <TabsContent value="overview">
           <PatientOverviewTab :patient="patient" :medical-history="medicalHistory" />
